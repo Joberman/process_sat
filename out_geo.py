@@ -706,7 +706,14 @@ class wght_avg_vals_netCDF_out_func(out_func):
             variables.  Each variable will document the fill value in its
             attributes.
         logNormal:
-            Boolean parameter indicating whether or not we want to 
+            Boolean parameter indicating whether or not we want to take the
+            lognormal mean (as opposed to the simple, arithmetic mean).  If 
+            this parameter is set to True, the mean will be taken as follows:
+                logData = log(data)
+                logAvg = sum(logData*wghts)/sum(wghts)
+                avg = 10^logAvg
+            whereas if this parameter is set to false the mean will be simply:
+                avg = sum(data*wghts)/sum(wghts)
         weightFunction:
             Function that computes the weight of a value.  This can be as 
             simple as assigning a weight of 1 to that value (creating an 
@@ -788,6 +795,8 @@ class wght_avg_vals_netCDF_out_func(out_func):
                         # create the array of weighted values    
                         vals = numpy.array([p.get_cm(field, ind)
                                             for (ind, wgt) in pixTups])
+                        if self.parms['logNormal']:
+                            vals = numpy.log(vals) # work with logarithm of data
                         wghtSlice = [Ellipsis]
                         nExtraDims = len(self.parms['dimSizes'][field])
                         # create a slice object that will allow us to broadcast
@@ -803,6 +812,9 @@ class wght_avg_vals_netCDF_out_func(out_func):
                             wghtValAvg = wghtValSum/wghtSum
                         else:
                             wghtValAvg = numpy.NaN
+                        
+                        # re-exponentiate if we took log average
+                        wghtValAvg = numpy.exp(wghtValAvg)
                         
                         # mask nan's with fillVal, then slot into output array
                         wghtValAvg = numpy.where(numpy.isnan(wghtValAvg),
