@@ -10,6 +10,7 @@ from itertools import izip
 import cmd_line_io as geo_io
 
 from parse_geo import get_parser
+import argparse
 
 def process_files(directory=None, filelist=None, extension=None, subtype='',
                    griddef=None, mapFunc=None, outFuncs=None, 
@@ -28,7 +29,7 @@ def process_files(directory=None, filelist=None, extension=None, subtype='',
     the user specifies outfunctions, the outfunctions are responsible
     for obtaining fieldnames and parameters from the user.
 
-    OutFileNames are expexted to passed as a LIST of the same length
+    OutFileNames are expected to passed as a LIST of the same length
     as OutFuncs, if the user provides them.
     If no outFileNames are given, any files generated are saved into
     the current directory under the name "output<num>" where <num>
@@ -84,5 +85,33 @@ def process_files(directory=None, filelist=None, extension=None, subtype='',
     del(outputs)
     
 
-if __name__ == '__main__':
-    process_files()
+#if __name__ == '__main__':
+#    process_files()
+parser = argparse.ArgumentParser("Process a series of files, generating some\
+kind of output for each")
+parser.add_argument('-d','--directory', help='The directory containing the\
+files to %(prog) (default: current working directory)' )
+parser.add_argument('-f','--filelist', help='The list of files in the\
+directory to %(prog) (default: %(prog) all files')
+parser.add_argument('-e','--extension', help='Optional override extension')
+parser.add_argument('-s','--subtype', help='Optional file subtype',
+                    default='')
+#parser.add_argument('-g','--griddef', help='Supply a pre-formed grid\
+#projection definition.  If none is provided, one will be constructed\
+#interactively during %(prog) execution')
+#parser.add_argument('-m','--mapFunc', help='Supply a mapping function.\
+#If none is provided, one will be selected interactively during %(prog)\
+#execution')
+parser.add_argument('-o','--outFuncs', nargs='*', help='Supply one or more\
+output functions.  If none are provided, they will be selected interactively\
+during %(prog) execution')
+parser.add_argument('--outFileNames', nargs='*', help='Optionally, supply the\
+names of the respective output files to be used for each output function.  If\
+none are provided, the output files will be named \'output1\', \'output2\',\
+...')
+parser.add_argument('-v','--verbose', help='Supply False here to disable\
+verbose execution', default=True)
+Namespace gnomespice = parser.parse_args()
+process_files(gnomespice.directory, gnomespice.filelist, gnomespice.extension,
+              gnomespice.subtype, gnomespice.outFuncs, gnomespice.outFileNames,
+              gnomespice.verbose)
