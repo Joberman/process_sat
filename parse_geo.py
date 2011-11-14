@@ -66,8 +66,6 @@ NotImplementedError when called.
                  the get function in terms of inputs and output.
                  
 This framework can be extended by adding classes for particular (sub)class
-
-T-T-T-TESTING
 '''
 
 import os
