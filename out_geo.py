@@ -497,8 +497,8 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 # loop over gridboxes in map and calculate weights
                 for (gridCell, pixTup) in map.iteritems():
                     # translate gridCell to account for possible non-zero ll corner
-                    gridRow = gridCell(0)
-                    gridCol = gridCell(1)
+                    gridRow = gridCell[0]
+                    gridCol = gridCell[1]
                     gridInd = (gridRow - minRow, gridCol - minCol)
                     # get the values needed to calculate weight
                     sumFlag = numpy.array([p.get_cm(self.fnames['overallQualFlag'], pxind)
