@@ -3,6 +3,7 @@ Created on May 26, 2011
 
 @author: oberman
 '''
+
 import os
 import datetime
 from itertools import izip
@@ -111,7 +112,7 @@ none are provided, the output files will be named \'output1\', \'output2\',\
 ...')
 parser.add_argument('-v','--verbose', help='Supply False here to disable\
 verbose execution', default=True)
-Namespace gnomespice = parser.parse_args()
+gnomespice = parser.parse_args()
 process_files(gnomespice.directory, gnomespice.filelist, gnomespice.extension,
               gnomespice.subtype, gnomespice.outFuncs, gnomespice.outFileNames,
               gnomespice.verbose)
