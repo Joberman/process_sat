@@ -12,10 +12,9 @@ import cmd_line_io as geo_io
 
 from parse_geo import get_parser
 import argparse
-
-def process_files(directory=None, filelist=None, extension=None, subtype='',
-                   griddef=None, mapFunc=None, outFuncs=None, 
-                   outFileNames=None, parserList=None, verbose=True):
+from grid_geo import ValidProjections
+from map_geo import ValidMaps
+ 
     """
     Process a series of files, generating some kind of output for each
     
@@ -49,70 +48,100 @@ def process_files(directory=None, filelist=None, extension=None, subtype='',
     If verbose is set to True, all default status updates will be printed.  
     If set to False, the program will run silently
     """
-    directory = directory or os.getcwd()
-    filelist = filelist or os.listdir(directory)
-    griddef = griddef or geo_io.generate_griddef()
-    mapFunc = mapFunc or geo_io.ask_for_map()
-    outFuncs = outFuncs or geo_io.ask_for_outfuncs()
-    outFileNames = outFileNames or \
-        [os.path.join(directory, 'output%s' % i) for i in range(len(outFuncs))]
-    extension = extension or geo_io.ask_for_extension()
-    subtype = subtype or geo_io.ask_for_subtype()
-    if parserList:
-        if verbose: print 'Ignoring filelist, using parserList'
-        parsers = parserList
-    else:
-        if verbose: print('building filelist '+str(datetime.datetime.now()))
-        files = [os.path.join(directory, f) for f in filelist]
-        parsers = []
-        if verbose: print('getting parsers '+str(datetime.datetime.now()))
-        for f in files:
-            try:
-                parsers.append(get_parser(f, subtype, extension))
-            except(IOError):
-                answer = geo_io.bad_file(f)
-                if answer is 1:
-                    continue
-                elif answer is 2:
-                    break
-                elif answer is 3:
-                    raise SystemExit
-    if verbose: print('calculating maps '+str(datetime.datetime.now()))
-    maps = [mapFunc(p, griddef) for p in parsers]
-    if verbose: print('creating outfiles '+str(datetime.datetime.now()))
-    outputs = [out(maps, griddef, fnames)
-                for (out, fnames) in izip(outFuncs, outFileNames)]
-    # eventually, we may want to do stuff to outputs, but for now...
-    del(outputs)
-    
 
-#if __name__ == '__main__':
-#    process_files()
-parser = argparse.ArgumentParser("Process a series of files, generating some\
-kind of output for each")
-parser.add_argument('-d','--directory', help='The directory containing the\
-files to %(prog) (default: current working directory)' )
-parser.add_argument('-f','--filelist', help='The list of files in the\
-directory to %(prog) (default: %(prog) all files')
-parser.add_argument('-e','--extension', help='Optional override extension')
-parser.add_argument('-s','--subtype', help='Optional file subtype',
-                    default='')
-#parser.add_argument('-g','--griddef', help='Supply a pre-formed grid\
-#projection definition.  If none is provided, one will be constructed\
-#interactively during %(prog) execution')
-#parser.add_argument('-m','--mapFunc', help='Supply a mapping function.\
-#If none is provided, one will be selected interactively during %(prog)\
-#execution')
-parser.add_argument('-o','--outFuncs', nargs='*', help='Supply one or more\
-output functions.  If none are provided, they will be selected interactively\
-during %(prog) execution')
-parser.add_argument('--outFileNames', nargs='*', help='Optionally, supply the\
-names of the respective output files to be used for each output function.  If\
-none are provided, the output files will be named \'output1\', \'output2\',\
-...')
-parser.add_argument('-v','--verbose', help='Supply False here to disable\
-verbose execution', default=True)
+parser = argparse.ArgumentParser("Process a series of files, generating some kind of output for each")
+
+class ProjArgsAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        for string in values:
+            pair = string.strip('()').split(',')
+            setattr(namespace, pair[0], pair[1])
+def double(string):
+    if len(string.split(',')) != 2:
+        msg = "%r is not correctly formatted.  Correct format: 'varName,varVal'" % string
+        raise argparse.ArgumentTypeError(msg)
+    return string
+parser.add_argument('--directory', help='The directory containing the files to process (default: current working directory)')
+parser.add_argument('--filelist', help='The list of files in the directory to process (default: process all files')
+parser.add_argument('--gridProj', help='Supply a valid grid projection type with which to form a grid', choices=ValidProjections())
+parser.add_argument('--progAttrs', nargs='*', action= ProjArgsAction, type=double, help='Supply the attributes required for the projection')
+parser.add_argument('--mapFunc', help='Supply a valid mapping function.', choices = ValidMaps())
+parser.add_argument('--outFuncs', nargs='+', help='Supply desired output function(s)', choices=ValidOutfuncs())
+parser.add_argument('--outFileNames', nargs='*', help='Optionally, supply the names of the respective output files to be used for each output function.  If none are provided, the output files will be named \'output1\', \'output2\', ...')
+parser.add_argument('--extension', help='Optional override extension')
+parser.add_argument('--subtype', help='Optional file subtype', default='')
+parser.add_argument('--verbose', help='Supply False here to disable verbose execution', default=True)
+parser.add_argument('--interactive', help='Supply True here to enable interactive error handling in the event that the program encounters an invalid input file. (default behavior ignores any invalid files and continues processing all requested files)', default=False) 
+
 gnomespice = parser.parse_args()
-process_files(gnomespice.directory, gnomespice.filelist, gnomespice.extension,
-              gnomespice.subtype, gnomespice.outFuncs, gnomespice.outFileNames,
-              gnomespice.verbose)
+
+directory = gnomespice.directory or os.getcwd()
+filelist = gnomespice.filelist or os.listdir(directory)
+gridDict = dict()
+for attr in gnomespice.gridProj.requiredParms():
+    try:
+        gridDict[attr] = getattr(gnomespice, attr)
+    except AttributeError:
+        raise argparse.ArgumentError('Missing argument %r, which is required for selected projection. Please include a value for %r.' % (attr, attr))
+griddef = projClass(gridDict)
+outFileNames = gnomespice.outFileNames or \
+    [os.path.join(directory, 'output%s' % i) for i in range(len(outFuncs))]
+badfile = gnomespice.interactive and bad_file or bad_file_default
+
+if parserList:
+    if verbose: print 'Ignoring filelist, using parserList'
+    parsers = parserList
+else:
+    if verbose: print('building filelist '+str(datetime.datetime.now()))
+    files = [os.path.join(directory, f) for f in filelist]
+    parsers = []
+    if verbose: print('getting parsers '+str(datetime.datetime.now()))
+    for f in files:
+        try:
+            parsers.append(\
+                get_parser(f, gnomespice.subtype, gnomespice.extension))
+        except(IOError):
+            answer = badfile(f)
+            if answer is 1:
+                return 'continue'
+            elif answer is 2:
+                return 'break'
+            elif answer if 3:
+                raise SystemExit
+
+            
+if verbose: print('calculating maps '+str(datetime.datetime.now()))
+maps = [mapFunc(p, griddef) for p in parsers]
+if verbose: print('creating outfiles '+str(datetime.datetime.now()))
+outputs = [out(maps, griddef, fnames) for (out, fnames) in izip(outFuncs, outFileNames)]
+
+# eventually, we may want to do stuff to outputs, but for now...
+del(outputs)
+
+def bad_file_default(filename):
+    return 1
+
+def bad_file(filename):
+    '''
+    Determine what the user wants to do when one fo the
+    files turns out to be invalid.
+    '''
+    valid = False
+    first = True
+    while not valid:
+        if not first:
+            print("Invalid answer.  Please try again.")
+        first = False
+        prompt = "File %s couldn't be read properly.  What \n\
+        do you wish to do?  Enter (1) to skip this file, \n\
+        but continue processing other files.  Enter (2) to \n\
+        stop reading files but continue with data \n\
+        processing.  Enter (3) to quit this program.  Enter \n\
+        your selection here: " % filename
+        answer = raw_input(prompt)
+        try:
+            answer = int(answer)
+        except(ValueError, TypeError):
+            continue
+        valid = answer in [1,2,3]
+    return answer
