@@ -69,10 +69,14 @@ This framework can be extended by adding classes for particular (sub)class
 '''
 
 import os
+import sys
 
 import tables
 import numpy
-import sys
+
+import pyhdf.HDF
+import pyhdf.V
+import pyhdf.VS
 
 def get_parser(file, subtype='', extension=None):
     """Retrieve appropriate instantiated parser for a file"""
@@ -102,14 +106,198 @@ class GeoFile():
     def get_cm(self, key, indices=None):
         raise NotImplementedError
 
+class HDF4File(GeoFile):
+    """Provide generic interface for HDF 4 files"""
+    def __init__(self, filename, subtype='', extension=None):
+        GeoFile.__init__(self, filename, subtype=subtype, extension=extension)
+        if pyhdf.HDF.ishdf(self.name):
+            pass
+        else:
+            raise IOError('Attempt to read non HDF4 file as HDF4')
+
+    def walkHDF4(self, fid, pathList, vInt=None, vsInt=None):
+        """
+        Retrives a variable or variable group from an HDF4 file
+
+        Requires the file handle fid and a list that contains each
+        element of the path to the leaf that we want.  Returns the leaf,
+        which may be of any type.
+
+        Assumes that the leaf we want is a Vgroup or Vdata datatype.
+
+        Optional arguments vInt and vsInt are the VG and VS interfaces
+        as defined by pyhdf.  If passed, they will be used and WILL NOT
+        be closed.  If not passed, they will be both opened and closed.
+        To repeat, if the interfaces are passed in they will NOT be
+        safely closed.
+        """
+        vIntLocal = not bool(vInt)
+        vsIntLocal = not bool(vsInt)
+        leafName = pathList[-1]
+        pList = list(pathList) # shallow Copy
+        if vIntLocal:
+            vInt = fid.vgstart()
+        if vsIntLocal:
+            vsInt = fid.vstart()
+        parent = vInt.attach(vInt.find(-1))
+        while parent._name != leafName:
+            cName = pList.pop(0)
+            children = parent.tagrefs()
+            for (childType, childRef) in children:
+                
+                if childType == pyhdf.HDF.HC.DFTAG_VG:
+                    child = vInt.attach(childRef)
+                elif childType == pyhdf.HDF.HC.DFTAG_VH:
+                    child = vsInt.attach(childRef)
+                else:
+                    raise IOError('Unknown data format.  Check data structure.')
+                
+                if child._name = cName:
+                    parent.detach()
+                    parent = child
+                    break
+                else:
+                    child.detach
+                    
+            if parent is not child:
+                raise AttributeError('Bad data path.  Check parser/data structure.')
+
+        # clean up if necessary
+        if vIntLocal:
+            vInt.end()
+        if vsIntLocal:
+            vsInt.end()
+
+        return parent
+
+    def get(self, key, indices=None, missingValue=None):
+        """
+        Provide get functionality for HDF 4 files.  
+
+        Assumes absolutely no attributes present.
+
+        If missingValue is provided, it will be used to mask floating
+        point data properly with NaN's.  If it is not provided, the data
+        will be returned as is, -9999.0's and all.
+
+        Requires that parser be set up with _nameExpMap and _indexMap 
+        variables.  These must be defined as:
+        
+        _nameExpMap -   Dictionary.  Keys are field names available to user.
+                        Values are the full path to that field in the HDF file.
+                       
+        _indexMap -     Dictionary.  Keys are field names available to user.  
+                        Values are functions that when passed (var, ind) where
+                        ind is a n-element tuple will return the proper slice.
+                        n is the number of fundamental dimensions of the 
+                        file type.
+        """
+        fid = pyhdf.HDF.HDF(self.name)
+        try:
+            path = self._nameExpMap[key]
+            pathList = [el for el in path.split('/') if el] # path list with no empty strings
+            vNode = self.walkHDF4(fid, pathList)
+            vData = numpy.array(vNode[:])
+            vNode.detach()
+        except AttributeError:
+            raise IOError("No field %s.  May be attempt to read non-NASA Aura OMI file as such." % self._nameExpMap[key])
+        except KeyError:
+            raise IOError("Attempt to use fieldname not associated with this filetype.")
+        finally:
+            fid.close()
+        
+        # convert missing values if appropriate
+        if missingValue and vData.dtype in ['float32', 'float64']:
+            vData = numpy.where(vData == missingValue, numpy.NaN, vData)
+
+        # use indices if we have them
+            if indices is not None:
+                # we want specific indices, use _indexMap
+                indFunc = self._indexMap.get(key, self._indexMap['default'])
+                return indFunc(vData, indices)
+            else:
+                # just fetch everything
+                return vData
+
+    def __enter__(self):
+        '''Open up file and leave open.'''
+        self._fid = pyhdf.HDF.HDF(self.name)
+        self._open_vars = dict()
+        self._vsInt = self._fid.vsstart()
+        self._vInt = self._fid.vgstart()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        '''Close file and delete references to file object and nodes.'''
+        self._fid.close()
+        self._vsInt.close()
+        self._vInt.close()
+        del self._open_vars
+        del self._fid
+        del self._vsInt
+        del self._vInt
+        return False
+
+    def get_cm(self, key, indices=None, missingValue=None):
+        """
+        Provide get_cm function for HDF files
+
+        get_cm works the same as get, but relies on a context manager to speed
+        up access by allowing it safely leave open variables in memory.
+
+        Assumes absolutely no attributes present.
+
+        If missingValue is provided, it will be used to mask floating
+        point data properly with NaN's.  If it is not provided, the data
+        will be returned as is, -9999.0's and all.
+
+        Requires that parser be set up with _nameExpMap and _indexMap 
+        variables.  These must be defined as:
+        
+        _nameExpMap -   Dictionary.  Keys are field names available to user.
+                        Values are the full path to that field in the HDF file.
+                       
+        _indexMap -     Dictionary.  Keys are field names available to user.  
+                        Values are functions that when passed (var, ind) where
+                        ind is a n-element tuple will return the proper slice.
+                        n is the number of fundamental dimensions of the 
+                        file type.
+        """
+        # open the variable if it isn't open already.
+        if key not in self._open_vars.keys():
+            try:
+                path = self._nameExpMap[key]
+                pathList = [el for el in path.split('/') if el] 
+                vNode = self.walkHDF4(self._fid, pathList, vInt=self._vInt, self._vsInt)
+                self._open_vars[key] = numpy.array(vNode[:])
+                vNode.detach()
+            except AttributeError:
+                raise IOError("No field %s.  May be attempt to read non-NASA Aura OMI file as such." % self._nameExpMap[key])
+            except KeyError:
+                raise IOError("Attempt to use fieldname not associated with this filetype.")
+                
+            # convert missing values if appropriate
+            if missingValue and vData.dtype in ['float32', 'float64']:
+                self._open_vars[key] = numpy.where(self._open_vars[key] == missingValue,
+                                                   numpy.NaN, self._open_vars[key])
+
+        # retrieve value of interest from the (newly?) open variable
+        if indices is not None:
+            # we want specific indices, use _indexMap
+            indFunc = self._indexMap.get(key, self._indexMap['default'])
+            return indfunc(self._openVars[key], indices)
+        else:
+            # just fetch everything
+            return vData
+            
 class HDFFile(GeoFile):
-    """Provide generic interface for HDF files"""
+    """Provide generic interface for HDF 5 files"""
     def __init__(self, filename, subtype='', extension=None):
         GeoFile.__init__(self, filename, subtype=subtype, extension=extension)
         if tables.isHDF5File(self.name):  # sanity check
             pass
         else:
-            raise IOError('Attempt to read non-HDF file as HDF.')
+            raise IOError('Attempt to read non-HDF 5 file as HDF 5.')
         
     def get(self, key, indices=None):
         """
@@ -156,8 +344,7 @@ class HDFFile(GeoFile):
         except (tables.exceptions.NoSuchNodeError, AttributeError):
             raise IOError("No field %s.  May be attempt to read non-KNMI Aura OMI file as such." % self._nameExpMap[key])
         except KeyError:
-            print "Attempt to use fieldname not associated with this filetype."
-            raise    
+            raise KeyError("Attempt to use fieldname not associated with this filetype.")
         finally:
             fid.close()
                 
@@ -485,7 +672,8 @@ class HDFmopittl2File(HDFFile):
                    'Swath Index' : '/MOP02/Data Fields/Swath Index'}
     _indexMap = {'default' : lambda var, ind: var[ind[0], ...],
                  'Pressure Grid' : lambda var,ind: ind[:]}
-    
+        
+
     def get_geo_centers(self):
         '''Retrieves array of the corners of the pixels'''
         lat = self.get('Latitude')
