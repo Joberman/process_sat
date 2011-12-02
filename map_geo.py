@@ -34,14 +34,13 @@ from shapely.prepared import prep
 import shapely.geometry as geom
 import numpy
 
-
 def ValidMaps():
     '''Return a list of valid map names'''
     currentModule = sys.modules[__name__]
     names = dir(currentModule)
     return [el[:-8] for el in names if el.endswith("_map_geo")]
 
-def regional_intersect_map_geo(parser, griddef):
+def regional_intersect_map_geo(parser, griddef, verbose):
     '''
     For each pixel, find all gridcells that it intersects
 
@@ -63,7 +62,9 @@ def regional_intersect_map_geo(parser, griddef):
         - we AREN'T dealing with a global projection
         - grid is rectilinear
     '''
-    print('Mapping '+parser.name+'\nat '+str(datetime.datetime.now()))
+    
+    if verbose:
+        print('Mapping '+parser.name+'\nat '+str(datetime.datetime.now()))
     map = map_helpers.init_output_map(griddef.indLims())
     map['parser'] = parser
     bounds = prep(map_helpers.rect_bound_poly(griddef.indLims()))
@@ -72,10 +73,10 @@ def regional_intersect_map_geo(parser, griddef):
     # polys, but still do fast comparisons
     gridPolys = map_helpers.rect_grid_polys(griddef.indLims())
     prepPolys = map_helpers.rect_grid_polys(griddef.indLims())
-    print('prepping polys in grid')
+    if verbose: print('prepping polys in grid')
     for poly in prepPolys.itervalues():
         poly = prep(poly)  # prepare these, they're going to get compared a lot
-    print('done prepping polys in grid')
+    if verbose: print('done prepping polys in grid')
     cornersStruct = parser.get_geo_corners()
     (row, col) = griddef.geoToGridded(cornersStruct['lat'], cornersStruct['lon']) 
     ind = cornersStruct['ind']
@@ -83,20 +84,38 @@ def regional_intersect_map_geo(parser, griddef):
     row = row.reshape(-1,4)
     col = col.reshape(-1,4)
     ind = ind.reshape(row.shape[0],-1)
-    griddedPix = 0 
-    print('Intersecting pixels')
-    for (pxrow, pxcol, pxind) in izip(row, col, ind):
-        if not any([bounds.contains(geom.asPoint((r,c))) for (r,c) in izip(pxrow, pxcol)]):
-            continue  # if none of the corners are in bounds, skip
-        griddedPix += 1
-        pixPoly = geom.MultiPoint(zip(pxrow, pxcol)).convex_hull
-        for key in gridPolys.iterkeys():
-            if prepPolys[key].intersects(pixPoly) and not gridPolys[key].touches(pixPoly) :
-                map[key].append((tuple(pxind), None))
-    print('Done intersecting. Approximately %i pixels gridded.' % griddedPix)
+    if verbose:
+        griddedPix = 0 
+        print('Intersecting pixels')
+        sys.stdout.write("Approximately 0 pixels gridded. ")
+        sys.stdout.flush()
+        for (pxrow, pxcol, pxind) in izip(row, col, ind):
+            if not any([bounds.contains(geom.asPoint((r,c))) \
+                       for (r,c) in izip(pxrow, pxcol)]):
+                continue  # if none of the corners are in bounds, skip
+            griddedPix += 1
+            sys.stdout.write("\rApproximately {0} pixels gridded. ".\
+                             format(griddedPix))
+            sys.stdout.flush()
+            pixPoly = geom.MultiPoint(zip(pxrow, pxcol)).convex_hull
+            for key in gridPolys.iterkeys():
+                if prepPolys[key].intersects(pixPoly) and not \
+                                  gridPolys[key].touches(pixPoly) :
+                    map[key].append((tuple(pxind), None))
+        print('Done intersecting.')
+    else:
+        for (pxrow, pxcol, pxind) in izip(row, col, ind):
+            if not any([bounds.contains(geom.asPoint((r,c))) for (r,c) \
+                                        in izip(pxrow, pxcol)]):
+                continue  # if none of the corners are in bounds, skip
+            pixPoly = geom.MultiPoint(zip(pxrow, pxcol)).convex_hull
+            for key in gridPolys.iterkeys():
+                if prepPolys[key].intersects(pixPoly) and not \
+                                  gridPolys[key].touches(pixPoly) :
+                    map[key].append((tuple(pxind), None))
     return map
 
-def point_in_cell_map_geo(parser, griddef):
+def point_in_cell_map_geo(parser, griddef, verbose):
     '''
     For each object, find the single cell to which it should be assigned.
     
@@ -114,7 +133,8 @@ def point_in_cell_map_geo(parser, griddef):
         - the lat/lon of the col,row origin is the lower left hand corner of 
         the 0,0 gridbox.
     '''
-    print('Mapping '+parser.name+'\nat '+str(datetime.datetime.now()))
+    if verbose:
+        print('Mapping '+parser.name+'\nat '+str(datetime.datetime.now()))
     # Create an empty map to be filled
     mapLims = griddef.indLims()
     map = map_helpers.init_output_map(mapLims)
@@ -127,14 +147,24 @@ def point_in_cell_map_geo(parser, griddef):
     col = numpy.floor(col.flatten())
     ind = ind.reshape(row.size, -1)
     # loop over pixels and grid as appropriate
-    nGriddedPix = 0
     (minRow, maxRow, minCol, maxCol) = mapLims  # unpack this so we can use it
-    print('Assigning pixels to gridboxes.')
-    for (pxrow, pxcol, pxind) in izip(row, col, ind):
-        if minRow <= pxrow <= maxRow and minCol <= pxcol <= maxCol:
-            map[(pxrow, pxcol)].append((tuple(pxind), None))
-            nGriddedPix += 1
-    print('Done intersecting.  Approximately %i pixels gridded.' % nGriddedPix)
+    if verbose:
+        nGriddedPix = 0
+        print('Assigning pixels to gridboxes.')
+        sys.stdout.write("Approximately 0 pixels gridded. ")
+        sys.stdout.flush()
+        for (pxrow, pxcol, pxind) in izip(row, col, ind):
+            if minRow <= pxrow <= maxRow and minCol <= pxcol <= maxCol:
+                map[(pxrow, pxcol)].append((tuple(pxind), None))
+                nGriddedPix += 1
+                sys.stdout.write("\rApproximately {0} pixels gridded. "\
+                                 .format(nGriddedPix))
+                sys.stdout.flush()
+        print('Done intersecting.')
+    else:
+        for (pxrow, pxcol, pxind) in izip(row, col, ind):
+            if minRow <= pxrow <= maxRow and minCol <= pxcol <= maxCol:
+                map[(pxrow, pxcol)].append((tuple(pxind), None))
     
     
     
