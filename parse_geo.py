@@ -157,7 +157,7 @@ class HDF_File(GeoFile):
                 # only cast if we have a type that features nans
                 var = numpy.where(var == missing, numpy.NaN, var)
                 
-            if indices:
+            if indices is not None:
                 # we want specific indices, use _indexMap
                 indFunc = self._indexMap.get(key, self._indexMap['default'])  # fetch default if not in index map
             else:
@@ -207,9 +207,10 @@ class HDF_File(GeoFile):
                 raise KeyError("No variable " + key + " in file " + self.name)
             except(tables.exceptions.NoSuchNodeError, AttributeError):
                 raise IOError("No field %s.  May be attempt to read non-KNMI Aura OMI file as such." % self._nameExpMap[key])
+        
         # return the values from the open var
         
-        if indices:
+        if indices is not None:
             # we have indices, use _indexMap
             indFunc = self._indexMap.get(key, self._indexMap['default']) # fetch default if not index map
         else:
@@ -439,13 +440,14 @@ class HDFnasaomil2_File(HDF_File):
         lonNodeName = '/HDFEOS/SWATHS/OMI Ground Pixel Corners VIS/Data Fields/FoV75CornerLongitude'
         try:
             pxFid = tables.openFile(self.pixCorners)
+        except AttributeError:
+            raise IOError('Unable to open pixel corners file.  File may not have been specified.')
+        try:
             latNode = pxFid.getNode('/', latNodeName)
             lonNode = pxFid.getNode('/', lonNodeName)
             # Note: it is assumed that there are no missing values.
             lat = latNode[:].transpose((1,2,0))
-            lon = lonNode[:].transpose((1,2,0))
-        except AttributeError:
-            raise IOError('Unable to open pixel corners file.  File may not have been specified.')
+            lon = lonNode[:].transpose((1,2,0))            
         finally:
             pxFid.close()
         ind = numpy.indices(lat.shape[0:2]).transpose((1,2,0))
