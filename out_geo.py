@@ -34,7 +34,9 @@ though something more descriptive is preferable)
 import sys
 from itertools import izip
 import datetime
+import warnings
 import pdb
+
 
 import numpy
 from scipy.io import netcdf_file
@@ -104,15 +106,15 @@ class OMNO2e_wght_avg_out_func(out_func):
                 'solarZenithAngle' : ('The name of the field containing the '+\
                                       'solar zenith angle',None),
                 'cloudFractUpperCutoff' : ('The maximum cloud fraction to ' + \
-                                           'include (0<=x<=1)',None),
+                                           'include (0<=x<=1)','decimal'),
                 'solarZenAngUpperCutoff' : ('The maximum solar zenith angle '+\
                                             'to include (in degrees 0<=x<=90)'\
-                                            ,None),
+                                            ,'decimal'),
                 'pixIndXtrackAxis' : ('The element of each index tuple ' +\
                                       'representing the cross-track index ' +\
-                                      '(...whatever that means)',None),
+                                      '(...whatever that means)','int'),
                 'fillVal' : ('The value with which to fill cells without ' +\
-                             'valid measurements',None)}
+                             'valid measurements','int')}
 
     #No longer Necessary
     def ask_for_fnames(self):
@@ -360,19 +362,19 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                     '\'UTC\'(where each pixel is compared '  \
                                     'to time in UTC standard)',None),
                 'timeStart' : ('The first time to be included (hh:mm:dd ' \
-                               'MM-DD-YYYY)',None),
+                               'MM-DD-YYYY)','int'),
                 'timeStop' : ('The final time to be included (hh:mm:dd ' \
-                              'MM-DD-YYYY)',None),
+                              'MM-DD-YYYY)','int'),
                 'cloudFractUpperCutoff' : ('The maximum cloud fraction for ' \
-                                           'valid pixels (0<=x<=1)',None),
+                                           'valid pixels (0<=x<=1)','decimal'),
                 'solarZenAngUpperCutoff' : ('The maximum solar zenith angle '\
                                             'for valid pixels (in degrees 0' \
-                                            '<=x<=90)',None),
+                                            '<=x<=90)','int'),
                 'pixIndXtrackAxis' : ('The element of each index tuple ' \
                                       'representing the cross-track index ' \
-                                      'number',None),
+                                      'number','int'),
                 'fillVal' : ('The fill value for cells that do not contain ' \
-                             'valid data',None)}
+                             'valid data','decimal')}
 
     #No longer necessary
     def ask_for_fnames(self):
@@ -599,6 +601,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
         # loop over maps
         if not isinstance(maps, list):
             maps = [maps] # create list if we only got a single map
+        
         for map in maps:
             # open up context manager
             with map.pop('parser') as p: # remove parser for looping
@@ -666,14 +669,17 @@ class OMNO2e_netCDF_avg_out_func(out_func):
         # divide out variables by weights to get avgs. 
         oldSettings = numpy.seterr(divide='ignore')
         avgs = dict()
-        for (field,var) in sumVars.iteritems():
-            unfiltAvgs = var/sumWght
-            filtAvgs = numpy.where(sumWght != 0, unfiltAvgs, self.parmDict['fillVal'])
-            # strip trailing singlet for 2D arrays
-            if filtAvgs.shape[-1] == 1:
-                avgs[field] = filtAvgs.reshape(filtAvgs.shape[0:2])
-            else:
-                avgs[field] = filtAvgs
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for (field,var) in sumVars.iteritems():
+                unfiltAvgs = var/sumWght
+                filtAvgs = numpy.where(sumWght != 0, unfiltAvgs, \
+                           self.parmDict['fillVal'])
+                # strip trailing singlet for 2D arrays
+                if filtAvgs.shape[-1] == 1:
+                    avgs[field] = filtAvgs.reshape(filtAvgs.shape[0:2])
+                else:
+                    avgs[field] = filtAvgs
         numpy.seterr(divide=oldSettings['divide'])
         
         # associate coindexed parameters into dicts 

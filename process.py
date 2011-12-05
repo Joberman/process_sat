@@ -2,36 +2,6 @@
 New command-line io for oberman's process scripts
 
 Process a series of files, generating some kind of output for each
-    
-By default, files in the current folder are processed using the generic 
-filetype appropriate for their extension.  Griddef is obtained 
-interactively from the user if no griddef instance is passed. 
-Similarly, map is obtained from user if no mapping function is passed. 
- 
-OutFuncs are obtained from the user as well.  OutFuncs must be a LIST
-of outFuncs, even if only one function is desired.  Outfuncs passed
-into the function are expected to be properly initialized.  When
-the user specifies outfunctions, the outfunctions are responsible
-for obtaining fieldnames and parameters from the user.
-
-OutFileNames are expected to passed as a LIST of the same length
-as OutFuncs, if the user provides them.
-If no outFileNames are given, any files generated are saved into
-the current directory under the name "output<num>" where <num>
-is the index of the outFunc associated with that output.
-  
-Ordinarily, directory signifies the directory and filelist the subset
-of files within that directory that should be processed.  If no 
-argument is passed for filelist, all files in the directory are 
-processed.  If no directory is passed, the current working directory
-is assumed.
-    
-Alternately, a list of pre-instantiated parsers may be passed.**  Note that 
-if parsers are passed, the files in the filelist are IGNORED and the files
-with which the parsers are associated are used instead.
-**It has been noted that this requires knowledge of both python -and-
-oberman's parsers classes.  This functionality has therefor been removed
-for the forseeable future.
   
 If verbose is set to True, all default status updates will be printed.  
 If set to False, the program will run silently
@@ -183,7 +153,7 @@ filetype = gnomespice.filetype
 gridDef = getattr(grid_geo, gnomespice.gridProj + '_GridDef')
 mapFunc = getattr(map_geo, gnomespice.mapFunc + '_map_geo')
 outFunc = getattr(out_geo, gnomespice.outFunc + '_out_func')
-outFileNames = os.path.join(outDirectory,gnomespice.outFileNames) or \
+outFileNames = os.path.join(outDirectory,gnomespice.outFileNames) or
                os.path.join(outDirectory, 'output1') 
 if not os.access(outDirectory, os.W_OK) or (os.path.isfile(outFileNames)\
           and not os.access(outFileNames, os.W_OK)):
@@ -203,11 +173,19 @@ if verbose: print('Finished parsing inputs. '+str(datetime.datetime.now()) + \
 def argerrmsg(attr, type): 
     return textwrap.TextWrapper(initial_indent = "Argument Error: ", \
                                 subsequent_indent = "                ", \
-                                width = 80).wrap('Missing argument %s, '\
+                                width = 80).wrap('Missing argument {0}, '\
                                                  'which is required for '\
-                                                 'selected %s.  Please '\
+                                                 'selected {1}.  Please '\
                                                  'include a value for '\
-                                                 '%s.\n' % (attr,type,attr))
+                                                 '{0}.\n'.format(attr,type))
+def formerrmsg(attr, type):
+    return textwrap.TextWrapper(initial_indent = "Argument Error: ", \
+                                subsequent_indent = "                ", \
+                                width = 80).wrap('Invalid input for argument '\
+                                                 '{0}.  Argument should be a '\
+                                                 '{1}.  Please include a valid'\
+                                                 'value for {0}.\n'\
+                                                 .format(attr,type))
 unitParms = []
 gridDict = dict()
 outParms = dict()
@@ -218,16 +196,32 @@ for attr in gridDef.requiredParms():
         unitParms = unitParms + argerrmsg(attr, 'projection (' \
                                               + gnomespice.gridProj + ')')
 parms = outFunc.required_parms()
+
 for attr in parms:
 
-    try:
-        if parms[attr][1] is None:
-            outParms[attr] = getattr(gnomespice, attr)
-        else:
-            outParms[attr] = getattr(gnomespice, \
+   
+        if parms[attr][1] == 'int':
+            try:   
+                outParms[attr] = int(getattr(gnomespice, attr))
+            except AttributeError:
+                unitParms = unitParms + formerrmsg(attr,"\bn integer")
+        elif parms[attr][1] == 'decimal':
+            try:
+                outParms[attr] = float(getattr(gnomespice, attr))
+            except AttributeError:
+                unitParms = unitParms + formerrmsg(attr,"decimal")
+        elif parms[attr][1] == 'list':
+            try:
+                outParms[attr] = getattr(gnomespice, \
                                        attr).split(',')
-    except AttributeError:
-        unitParms = unitParms + argerrmsg(attr, 'output function (' + \
+            except AttributeError:
+                unitParms = unitParms + argerrmsg(attr, 'output function (' + \
+                                          gnomespice.outFunc + ')')
+        else:
+            try:
+                outParms[attr] = getattr(gnomespice, attr)
+            except AttributeError:
+                unitParms = unitParms + argerrmsg(attr, 'output function (' + \
                                           gnomespice.outFunc + ')') 
 if unitParms != []:
     print '\n'.join(unitParms)
@@ -265,10 +259,10 @@ else:
 #Process the files          
 if verbose: print('calculating maps '+str(datetime.datetime.now()))
 maps = [mapFunc(p, griddef, verbose) for p in parsers]
-paif verbose: print('creating outfiles '+str(datetime.datetime.now()))
-outputs = set()
-outF = outFunc(outParms) #need to figure these out
-outputs.add(outF(maps,griddef,outFileNames))
+if verbose: print('creating outfiles '+str(datetime.datetime.now()))
+outputs = []
+outF = outFunc(outParms)
+outputs.append(outF(maps,griddef,outFileNames))
 # eventually, we may want to do stuff to outputs, but for now...
 del(outputs)
 
