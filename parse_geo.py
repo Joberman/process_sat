@@ -1,4 +1,3 @@
-
 '''
 Framework for parsing geolocated satellite files
 
@@ -89,7 +88,7 @@ def SupportedFileTypes():
 
 def get_parser(file, filetype):
     """Retrieve appropriate instantiated parser for a file"""
-    filename = os.path.split(file)[1]
+    # filename = os.path.split(file)[1]
     subclass = '%s_File' % (filetype)
     module = sys.modules[GeoFile.__module__]
     parserClass = getattr(module, subclass) 
@@ -168,7 +167,7 @@ class HDF4_File(GeoFile):
                 else:
                     raise IOError('Unknown data format.  Check data structure.')
                 
-                if child._name = cName:
+                if child._name == cName:
                     parent.detach()
                     parent = child
                     break
@@ -284,7 +283,7 @@ class HDF4_File(GeoFile):
             try:
                 path = self._nameExpMap[key]
                 pathList = [el for el in path.split('/') if el] 
-                vNode = self.walkHDF4(self._fid, pathList, vInt=self._vInt, self._vsInt)
+                vNode = self.walkHDF4(self._fid, pathList, vInt=self._vInt, vsInt=self._vsInt)
                 self._open_vars[key] = numpy.array(vNode[:])
                 vNode.detach()
             except AttributeError:
@@ -293,7 +292,7 @@ class HDF4_File(GeoFile):
                 raise IOError("Attempt to use fieldname not associated with this filetype.")
                 
             # convert missing values if appropriate
-            if missingValue and vData.dtype in ['float32', 'float64']:
+            if missingValue and self._open_vars[key].dtype in ['float32', 'float64']:
                 self._open_vars[key] = numpy.where(self._open_vars[key] == missingValue,
                                                    numpy.NaN, self._open_vars[key])
 
@@ -301,10 +300,10 @@ class HDF4_File(GeoFile):
         if indices is not None:
             # we want specific indices, use _indexMap
             indFunc = self._indexMap.get(key, self._indexMap['default'])
-            return indfunc(self._openVars[key], indices)
+            return indFunc(self._openVars[key], indices)
         else:
             # just fetch everything
-            return vData
+            return self._open_vars[key]
             
 class HDF_File(GeoFile):
     """Provide generic interface for HDF 5 files"""
@@ -518,7 +517,7 @@ class HDFnasaomil2_File(HDF_File):
     the "SlantColumnAmountH20Std" variable due to a case typo.
     """
     def __init__(self, filename, subtype='', extension=None, pixCornerFname=None):
-        HDFFile.__init__(self, filename, subtype, extension)
+        HDF_File.__init__(self, filename, subtype, extension)
         self.pixCorners = pixCornerFname
         
     __dataPath = '/HDFEOS/SWATHS/ColumnAmountNO2/Data Fields/'
@@ -697,11 +696,11 @@ class HDFmopittl2File(HDF4_File):
         
     def get(self, key, indices=None):
         '''Overloaded version of get that applies the correct missing value.'''
-        HDF4File.get(self, key, indices, missingValue=-9999.0)
+        HDF4_File.get(self, key, indices, missingValue=-9999.0)
 
     def get_cm(self, key, indices=None):
         '''Overloaded version of get_cm that applied the correct missing value.'''
-        HDF4File.get_cm(self, key, indices, missingValue=-9999.0)
+        HDF4_File.get_cm(self, key, indices, missingValue=-9999.0)
 
 
     def get_geo_centers(self):

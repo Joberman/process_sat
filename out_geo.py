@@ -561,7 +561,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                    "timeStart should be an integer value.  Call 'python "\
                    "process.py --AttributeHelp OMNO2e_netCDF_avg' to get a "\
                    "more thorough description of the required arguments for "\
-                   "the selected projection.").format(parmDict['timeStart'])
+                   "the selected projection.").format(self.parmDict['timeStart'])
             sys.exit(0) 
         try:
             self.parmDict['timeStop'] = int(self.parmDict['timeStop'])
@@ -570,7 +570,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                    "timeStop should be an integer value.  Call 'python "\
                    "process.py --AttributeHelp OMNO2e_netCDF_avg' to get a "\
                    "more thorough description of the required arguments for "\
-                   "the selected projection.").format(parmDict['timeStop'])
+                   "the selected projection.").format(self.parmDict['timeStop'])
             sys.exit(0) 
 
         if self.parmDict['timeStart'] > self.parmDict['timeStop']:
