@@ -34,12 +34,13 @@ though something more descriptive is preferable)
 import sys
 from itertools import izip
 import datetime
+import warnings
 import pdb
+
 
 import numpy
 from scipy.io import netcdf_file
 
-import cmd_line_io as geo_io
 import utils
 
 def ValidOutfuncs():
@@ -50,16 +51,14 @@ def ValidOutfuncs():
 
 class out_func:
     '''Abstract class to for <>_out_geo classes'''
-    def __init__(self, fieldnames=None, parms=None):
-        self.fnames = fieldnames or self.ask_for_fnames()
-        self.parms = parms or self.ask_for_parms()
+    def __init__(self, parmDict=None):
+        self.parmDict = parmDict
     def __call__(self, map_geo, griddef, outfilenames):
         raise NotImplementedError
-    def ask_for_fnames(self):
+    @staticmethod
+    def required_parms():
         raise NotImplementedError
-    def ask_for_parms(self):
-        raise NotImplementedError
-            
+
 def _OMNO2e_formula(cloudFrac, fieldOfView, totalFlag):
     eps = 1.5*pow(10,15)*(1+3*cloudFrac)
     capE = pow(10,-16)*(18.5+2.8*pow(10,-4)*pow(abs(fieldOfView-29.7), 3.5))
@@ -97,6 +96,27 @@ class OMNO2e_wght_avg_out_func(out_func):
     file with all numbers in e-format scientific 
     notation.  Cells without valid measurements contain the fillvalue.
     '''  
+    @staticmethod
+    def required_parms():
+        return {'toAvg' : ('The name of the field to be averaged',None),
+                'overallQualFlag' : ('The name of the field containing' + \
+                                     ' the overall quality flag',None),
+                'cloudFrac' : ('The name of the field containing the ' + \
+                               'cloud fraction',None),
+                'solarZenithAngle' : ('The name of the field containing the '+\
+                                      'solar zenith angle',None),
+                'cloudFractUpperCutoff' : ('The maximum cloud fraction to ' + \
+                                           'include (0<=x<=1)','decimal'),
+                'solarZenAngUpperCutoff' : ('The maximum solar zenith angle '+\
+                                            'to include (in degrees 0<=x<=90)'\
+                                            ,'decimal'),
+                'pixIndXtrackAxis' : ('The element of each index tuple ' +\
+                                      'representing the cross-track index ' +\
+                                      '(...whatever that means)','int'),
+                'fillVal' : ('The value with which to fill cells without ' +\
+                             'valid measurements','int')}
+
+    #No longer Necessary
     def ask_for_fnames(self):
         '''
         Get strings for each required fieldname from user.
@@ -122,6 +142,7 @@ class OMNO2e_wght_avg_out_func(out_func):
             retDict[key] = geo_io.get_val(dflt, pmpt)
         return retDict
     
+    #No longer necessary
     def ask_for_parms(self):
         '''
         Get values for all parameters from user
@@ -163,19 +184,19 @@ class OMNO2e_wght_avg_out_func(out_func):
                 print('Processing %s for output at %s.' % 
                       (p.name, str(datetime.datetime.now())))
                 for (k,v) in map.iteritems():
-                    sumFlag = numpy.array([p.get_cm(self.fnames['overallQualFlag'], pxind)
+                    sumFlag = numpy.array([p.get_cm(self.parmDict['overallQualFlag'], pxind)
                                             for (pxind, unused_weight) in v])
                     sumFlag = numpy.mod(sumFlag, 2)
-                    cFrac = numpy.array([p.get_cm(self.fnames['cloudFrac'], pxind)
+                    cFrac = numpy.array([p.get_cm(self.parmDict['cloudFrac'], pxind)
                                           for (pxind, unused_weight) in v])
-                    cFracFlag = cFrac > self.parms['cloudFractUpperCutoff']
-                    solZen = numpy.array([p.get_cm(self.fnames['solarZenithAngle'], pxind)
+                    cFracFlag = cFrac > self.parmDict['cloudFractUpperCutoff']
+                    solZen = numpy.array([p.get_cm(self.parmDict['solarZenithAngle'], pxind)
                                           for (pxind, unused_weight) in v])
-                    solZenFlag = solZen > self.parms['solarZenAngUpperCutoff']
+                    solZenFlag = solZen > self.parmDict['solarZenAngUpperCutoff']
                     totFlag = numpy.logical_or(numpy.logical_or(sumFlag, cFracFlag), solZenFlag)
-                    fov = numpy.array([pxind[self.parms['pixIndXtrackAxis']]
+                    fov = numpy.array([pxind[self.parmDict['pixIndXtrackAxis']]
                                         for (pxind, unused_weight) in v])
-                    toAvg = numpy.array([p.get_cm(self.fnames['toAvg'], pxind)
+                    toAvg = numpy.array([p.get_cm(self.parmDict['toAvg'], pxind)
                                           for (pxind, unused_weight) in v])
                     weights = _OMNO2e_formula(cFrac, fov, totFlag)
                     assert ~any(numpy.logical_and(~numpy.isnan(weights), numpy.isnan(toAvg)))
@@ -190,7 +211,7 @@ class OMNO2e_wght_avg_out_func(out_func):
         oldsettings = numpy.seterr(divide='ignore')  # ignore any div by zero errors
         avgs = numpy.where(sum_weights != 0, 
                            numpy.divide(sum_weighted_vals, sum_weights), 
-                           self.parms['fillVal'])
+                           self.parmDict['fillVal'])
         numpy.seterr(divide=oldsettings['divide'])  # reset to default
         numpy.savetxt(outfilename, avgs, delimiter=',', fmt='%7e')
         return avgs
@@ -305,6 +326,57 @@ class OMNO2e_netCDF_avg_out_func(out_func):
     where it was valid acccording to the averaging
     scheme dedfined in the NASA document linked above.
     '''
+    @staticmethod
+    def required_parms():
+        return {'overallQualFlag' : ('The name of the field containing ' \
+                                     'the overall quality flag',None),
+                'cloudFrac' : ('The name of the field containing the ' \
+                               'cloud fraction',None),
+                'solarZenithAngle' : ('The name of the field containing the '\
+                                      'solar zenith angle',None),
+                'time' : ('The name of the field containing the timestamps', \
+                          None),
+                'longitude' : ('The name of the field containing longitudes '\
+                               'at cell centers',None),
+                'inFieldNames' : ('The fields to be output.  Input full ' \
+                                  'field names delimited by commas','list'),
+                'outFieldNames' : ('The names of the output variables.  ' \
+                                   'Must be the same length as input fields, '\
+                                   'and delimited by commas','list'),
+                'outUnits' : ('The units for each of the output variables. ' \
+                              'Must be the same length as the input fields, '\
+                              'delimited by commas','list'),
+                'extraDimLabel' : ('The labels for the extra dimensions '  \
+                                   'present in the output variables.  Only ' \
+                                   'used if output variable has an extra ' \
+                                   'dimension.  Must be same length as input '\
+                                   'field, delimited by commas','list'),
+                'extraDimSize' : ('The size of the extra dimensions.  For '  \
+                                  'variables without an extra dimension, use '\
+                                  '0.  Must be the same length as the input'  \
+                                  ' field, delimited by commas.','list'),
+                'timeComparison' : ('The time filtering selection.  Select ' \
+                                    '\'local\' (each pixel\'s timestamp is '  \
+                                    'compared to the start/stop time for that'\
+                                    ' pixel\'s approximate timezone) or '  \
+                                    '\'UTC\'(where each pixel is compared '  \
+                                    'to time in UTC standard)',None),
+                'timeStart' : ('The first time to be included (hh:mm:dd ' \
+                               'MM-DD-YYYY)','int'),
+                'timeStop' : ('The final time to be included (hh:mm:dd ' \
+                              'MM-DD-YYYY)','int'),
+                'cloudFractUpperCutoff' : ('The maximum cloud fraction for ' \
+                                           'valid pixels (0<=x<=1)','decimal'),
+                'solarZenAngUpperCutoff' : ('The maximum solar zenith angle '\
+                                            'for valid pixels (in degrees 0' \
+                                            '<=x<=90)','int'),
+                'pixIndXtrackAxis' : ('The element of each index tuple ' \
+                                      'representing the cross-track index ' \
+                                      'number','int'),
+                'fillVal' : ('The fill value for cells that do not contain ' \
+                             'valid data','decimal')}
+
+    #No longer necessary
     def ask_for_fnames(self):
         '''
         Get strings for each required fieldname from user.
@@ -458,7 +530,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
         # eventually this should be replaced with proper,
         # interactive checks, but for now it's too much 
         # of a pain to get the parameters to interact
-        if retDict['startTime'] > retDict['stopTime']:
+        if retDict['timeStart'] > retDict['timeStop']:
             msg = 'Input start time must come before stop time.'
             raise IOError(msg)
         if (len(retDict['inFieldNames']) != len(retDict['outFieldNames']) or 
@@ -472,14 +544,54 @@ class OMNO2e_netCDF_avg_out_func(out_func):
     
     def __call__(self, maps, griddef, outfilename):
         '''Write out a weighted-average file in netcdf format.'''
-        
+        dimsizes = self.parmDict['extraDimSize']
+        for i in range(len(dimsizes)):
+            try:
+                dimsizes[i-1] = int(dimsizes[i-1])
+            except ValueError:
+                print ("Warning: {0} is not a valid extraDimSize value.  " \
+                      "Using 0 instead").format(dimsizes[i-1])
+                dimsizes[i-1] = 0
+                continue
+        self.parmDict['extraDimSize'] = dimsizes
+        try:
+            self.parmDict['timeStart'] = int(self.parmDict['timeStart'])
+        except ValueError:
+            print ("Error: {!r} is not a valid value for timeStart.\n" \
+                   "timeStart should be an integer value.  Call 'python "\
+                   "process.py --AttributeHelp OMNO2e_netCDF_avg' to get a "\
+                   "more thorough description of the required arguments for "\
+                   "the selected projection.").format(parmDict['timeStart'])
+            sys.exit(0) 
+        try:
+            self.parmDict['timeStop'] = int(self.parmDict['timeStop'])
+        except ValueError:
+            print ("Error: {!r} is not a valid value for timeStop.\n" \
+                   "timeStop should be an integer value.  Call 'python "\
+                   "process.py --AttributeHelp OMNO2e_netCDF_avg' to get a "\
+                   "more thorough description of the required arguments for "\
+                   "the selected projection.").format(parmDict['timeStop'])
+            sys.exit(0) 
+
+        if self.parmDict['timeStart'] > self.parmDict['timeStop']:
+            msg = 'Input start time must come before stop time.'
+            raise IOError(msg)
+        if (len(self.parmDict['inFieldNames']) !=  \
+            len(self.parmDict['outFieldNames']) or  
+            len(self.parmDict['inFieldNames']) !=  \
+            len(self.parmDict['outUnits']) or      
+            len(self.parmDict['inFieldNames']) !=  \
+            len(self.parmDict['extraDimLabel'])):
+            msg = 'All whitespace delimited field/unit inputs ' + \
+                'should have the same number of elements.'
+            raise IOError(msg)
         # create numpy arrays to hold our data
         (minRow, maxRow, minCol, maxCol) = griddef.indLims()
         nRows = maxRow - minRow + 1
         nCols = maxCol - minCol + 1
         sumWght = numpy.zeros((nRows, nCols, 1))  # needs extra dim to generalize for 3D vars
         sumVars = dict()
-        for field, size in zip(self.parms['inFieldNames'], self.parms['extraDimSize']):
+        for field, size in zip(self.parmDict['inFieldNames'], self.parmDict['extraDimSize']):
             if size:
                 sumVars[field] = numpy.zeros((nRows, nCols, size))
             else:
@@ -489,6 +601,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
         # loop over maps
         if not isinstance(maps, list):
             maps = [maps] # create list if we only got a single map
+        
         for map in maps:
             # open up context manager
             with map.pop('parser') as p: # remove parser for looping
@@ -501,30 +614,30 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                     gridCol = gridCell[1]
                     gridInd = (gridRow - minRow, gridCol - minCol)
                     # get the values needed to calculate weight
-                    sumFlag = numpy.array([p.get_cm(self.fnames['overallQualFlag'], pxind)
+                    sumFlag = numpy.array([p.get_cm(self.parmDict['overallQualFlag'], pxind)
                                            for (pxind, unused_weight) in pixTup])
                     sumFlag = numpy.mod(sumFlag, 2)
-                    cFrac = numpy.array([p.get_cm(self.fnames['cloudFrac'], pxind)
+                    cFrac = numpy.array([p.get_cm(self.parmDict['cloudFrac'], pxind)
                                           for (pxind, unused_weight) in pixTup])
-                    cFracFlag = cFrac > self.parms['cloudFractUpperCutoff']
-                    solZen = numpy.array([p.get_cm(self.fnames['solarZenithAngle'], pxind)
+                    cFracFlag = cFrac > self.parmDict['cloudFractUpperCutoff']
+                    solZen = numpy.array([p.get_cm(self.parmDict['solarZenithAngle'], pxind)
                                           for (pxind, unused_weight) in pixTup])
-                    solZenFlag = solZen > self.parms['solarZenAngUpperCutoff']
-                    time = numpy.array([p.get_cm(self.fnames['time'], pxind)
+                    solZenFlag = solZen > self.parmDict['solarZenAngUpperCutoff']
+                    time = numpy.array([p.get_cm(self.parmDict['time'], pxind)
                                         for (pxind, unused_weight) in pixTup])
                     # calculate and factor in offsets if we wanted local time
-                    if self.parms['timeComparison'] == 'local':
-                        pixLons = (p.get_cm(self.fnames['longitude'], pxind)
+                    if self.parmDict['timeComparison'] == 'local':
+                        pixLons = (p.get_cm(self.parmDict['longitude'], pxind)
                                             for (pxind, unused_weight) in pixTup)
                         offsets = numpy.array([utils.UTCoffset_from_lon(lon) for lon in pixLons])
                         time += offsets
                     # create time flag
-                    timeFlag = numpy.logical_or(time < self.parms['timeStart'],
-                                                time > self.parms['timeStop'])
+                    timeFlag = numpy.logical_or(time < self.parmDict['timeStart'],
+                                                time > self.parmDict['timeStop'])
                     totFlag = numpy.logical_or(sumFlag, cFracFlag)
                     totFlag = numpy.logical_or(totFlag, solZenFlag)
                     totFlag = numpy.logical_or(totFlag, timeFlag)
-                    fov = numpy.array([pxind[self.parms['pixIndXtrackAxis']]
+                    fov = numpy.array([pxind[self.parmDict['pixIndXtrackAxis']]
                                         for (pxind, unused_weight) in pixTup])
                     # compute all weights and add if necessary
                     weights = _OMNO2e_formula(cFrac, fov, totFlag)
@@ -533,7 +646,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                     if cellWght > 0:
                         sumWght[gridInd] = numpy.nansum([sumWght[gridInd][0], cellWght])
                         # loop over variables we're outputting
-                        for field in self.parms['inFieldNames']:
+                        for field in self.parmDict['inFieldNames']:
                             # pull out the array for this cell 
                             toAvg = numpy.array([p.get_cm(field, pxind) 
                                                  for (pxind, unused_weight) in pixTup])
@@ -556,21 +669,24 @@ class OMNO2e_netCDF_avg_out_func(out_func):
         # divide out variables by weights to get avgs. 
         oldSettings = numpy.seterr(divide='ignore')
         avgs = dict()
-        for (field,var) in sumVars.iteritems():
-            unfiltAvgs = var/sumWght
-            filtAvgs = numpy.where(sumWght != 0, unfiltAvgs, self.parms['fillVal'])
-            # strip trailing singlet for 2D arrays
-            if filtAvgs.shape[-1] == 1:
-                avgs[field] = filtAvgs.reshape(filtAvgs.shape[0:2])
-            else:
-                avgs[field] = filtAvgs
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for (field,var) in sumVars.iteritems():
+                unfiltAvgs = var/sumWght
+                filtAvgs = numpy.where(sumWght != 0, unfiltAvgs, \
+                           self.parmDict['fillVal'])
+                # strip trailing singlet for 2D arrays
+                if filtAvgs.shape[-1] == 1:
+                    avgs[field] = filtAvgs.reshape(filtAvgs.shape[0:2])
+                else:
+                    avgs[field] = filtAvgs
         numpy.seterr(divide=oldSettings['divide'])
         
         # associate coindexed parameters into dicts 
         # so we can loop by field
-        outFnames = dict(izip(self.parms['inFieldNames'], self.parms['outFieldNames']))
-        units = dict(izip(self.parms['inFieldNames'], self.parms['outUnits']))
-        extraDim = dict(izip(self.parms['inFieldNames'], self.parms['extraDimLabel']))
+        outFnames = dict(izip(self.parmDict['inFieldNames'], self.parmDict['outFieldNames']))
+        units = dict(izip(self.parmDict['inFieldNames'], self.parmDict['outUnits']))
+        extraDim = dict(izip(self.parmDict['inFieldNames'], self.parmDict['extraDimLabel']))
                 
         # write out results to a netcdf file
         outFid = netcdf_file(outfilename, 'w')
@@ -578,18 +694,18 @@ class OMNO2e_netCDF_avg_out_func(out_func):
         outFid.createDimension('row', nRows)
         outFid.createDimension('col', nCols)
         # write global attributes
-        setattr(outFid, 'File_start_time', utils.nsecs_to_timestr(self.parms['timeStart'], '00:00:00 01-01-1993'))
-        setattr(outFid, 'File_end_time', utils.nsecs_to_timestr(self.parms['timeStop'], '00:00:00 01-01-1993'))
-        setattr(outFid, 'Max_valid_cloud_fraction', self.parms['cloudFractUpperCutoff'])
-        setattr(outFid, 'Max_valid_solar_zenith_angle', self.parms['solarZenAngUpperCutoff'])
-        setattr(outFid, 'Time_comparison_scheme', self.parms['timeComparison'])
+        setattr(outFid, 'File_start_time', utils.nsecs_to_timestr(self.parmDict['timeStart'], '00:00:00 01-01-1993'))
+        setattr(outFid, 'File_end_time', utils.nsecs_to_timestr(self.parmDict['timeStop'], '00:00:00 01-01-1993'))
+        setattr(outFid, 'Max_valid_cloud_fraction', self.parmDict['cloudFractUpperCutoff'])
+        setattr(outFid, 'Max_valid_solar_zenith_angle', self.parmDict['solarZenAngUpperCutoff'])
+        setattr(outFid, 'Time_comparison_scheme', self.parmDict['timeComparison'])
         fileListStr = ' '.join([map['parser'].name for map in maps])
         setattr(outFid, 'Input_files', fileListStr)
         setattr(outFid, 'Projection', griddef.__class__.__name__[:-8])
         for (k,v) in griddef.parms.iteritems():
             setattr(outFid, k, v)
         # loop over fields and write variables
-        for field in self.parms['inFieldNames']:
+        for field in self.parmDict['inFieldNames']:
             # create tuple of dimensions, defining new dim
             # if necessary
             if len(avgs[field].shape) == 2:
@@ -606,7 +722,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             varHandle[:] = avgs[field]
             # assign variable attributes
             setattr(varHandle, 'Units', units[field])
-            setattr(varHandle, '_FillValue', self.parms['fillVal'])
+            setattr(varHandle, '_FillValue', self.parmDict['fillVal'])
         outFid.close()
         # create a dict with teh same data as avgs, but diff names
         outAvg = dict()

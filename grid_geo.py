@@ -104,12 +104,12 @@ class latlon_GridDef(GridDef):
     @staticmethod
     def requiredParms():
         '''Parameters that must be in the dictonary passed to instantiate'''
-        return ("xOrig",
-                "yOrig",
-                "xCell",
-                "yCell",
-                "nRows",
-                "nCols")
+        return {"xOrig":'[xOrig description]',
+                "yOrig":'[yOrig description]',
+                "xCell":'[xCell description]',
+                "yCell":'[yCell description]',
+                "nRows":'[nRows description]',
+                "nCols":'[nCols description]'}
     def indLims(self):
         return (0, self.parms['nRows']-1, 0, self.parms['nCols']-1)
     def geoToProjected(self, lat, lon):
@@ -136,17 +136,17 @@ class lcc2par_GridDef(GridDef):
         parameters that must be in the dictionary passed to
         instantiate this class
         '''
-        return ("stdPar1",
-                "stdPar2",
-                "refLat",
-                "refLon",
-                "xOrig",
-                "yOrig",
-                "xCell",
-                "yCell",
-                "nRows",
-                "nCols",
-                "earthRadius")
+        return {"stdPar1":'[stdPar1 description]',
+                "stdPar2":'[stdPar2 description]',
+                "refLat":'[refLat description]',
+                "refLon":'[refLon description]',
+                "xOrig":'[xOrig description]',
+                "yOrig":'[yOrig description]',
+                "xCell":'[xCell description]',
+                "yCell":'[yCell description]',
+                "nRows":'[nRows description]',
+                "nCols":'[nCols description]',
+                "earthRadius":'[earthRadius description]'}
     def __init__(self, parms):
         GridDef.__init__(self, parms)
         self.parms = { "stdPar1" : float(parms["stdPar1"]),

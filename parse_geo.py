@@ -1,3 +1,4 @@
+
 '''
 Framework for parsing geolocated satellite files
 
@@ -70,6 +71,7 @@ This framework can be extended by adding classes for particular (sub)class
 
 import os
 import sys
+import string
 
 import tables
 import numpy
@@ -78,13 +80,27 @@ import pyhdf.HDF
 import pyhdf.V
 import pyhdf.VS
 
-def get_parser(file, subtype='', extension=None):
+
+def SupportedFileTypes():
+    '''Return a list of supported file types'''
+    currentModule = sys.modules[__name__]
+    names = dir(currentModule)
+    return [el[:-5] for el in names if el.endswith("_File")]
+
+def get_parser(file, filetype):
     """Retrieve appropriate instantiated parser for a file"""
     filename = os.path.split(file)[1]
-    ext = extension or os.path.splitext(filename)[1][1:]
-    subclass = '%s%sFile' % (ext.upper(), subtype.lower())
+    subclass = '%s_File' % (filetype)
     module = sys.modules[GeoFile.__module__]
-    parserClass = hasattr(module, subclass) and getattr(module, subclass) or GeoFile
+    parserClass = getattr(module, subclass) 
+                  # or GeoFile
+    extension = ''
+    subtype = ''
+    for i in filetype:
+        if subtype == '' and i in string.ascii_uppercase:
+            extension += i
+        else:
+            subtype += i
     return parserClass(file, subtype, extension)
 
 class GeoFile():
@@ -106,7 +122,7 @@ class GeoFile():
     def get_cm(self, key, indices=None):
         raise NotImplementedError
 
-class HDF4File(GeoFile):
+class HDF4_File(GeoFile):
     """Provide generic interface for HDF 4 files"""
     def __init__(self, filename, subtype='', extension=None):
         GeoFile.__init__(self, filename, subtype=subtype, extension=extension)
@@ -290,7 +306,7 @@ class HDF4File(GeoFile):
             # just fetch everything
             return vData
             
-class HDFFile(GeoFile):
+class HDF_File(GeoFile):
     """Provide generic interface for HDF 5 files"""
     def __init__(self, filename, subtype='', extension=None):
         GeoFile.__init__(self, filename, subtype=subtype, extension=extension)
@@ -412,7 +428,7 @@ class HDFFile(GeoFile):
         del self._fid
         return False
 
-class HDFknmiomil2File(HDFFile):
+class HDFknmiomil2_File(HDF_File):
     """Provide interface to KNMI OMI L2 NRT product"""
     _nameExpMap = {"AirMassFactor"                          : "/HDFEOS/SWATHS/DominoNO2/Data Fields/AirMassFactor",
                   "AirMassFactorGeometric"                  : "/HDFEOS/SWATHS/DominoNO2/Data Fields/AirMassFactorGeometric",
@@ -485,7 +501,7 @@ class HDFknmiomil2File(HDFFile):
         return struct
 
         
-class HDFnasaomil2File(HDFFile):
+class HDFnasaomil2_File(HDF_File):
     """
     Provide interface to NASA OMI L2 product, with pixel corners
     
@@ -637,7 +653,7 @@ class HDFnasaomil2File(HDFFile):
         (struct['lat'], struct['lon'], struct['ind']) = (lat, lon, ind)
         return struct
         
-class HDFmopittl2File(HDF4File):
+class HDFmopittl2File(HDF4_File):
     """
     Provide interface to MOPITT level 2 V5 product
 
