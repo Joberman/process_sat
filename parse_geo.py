@@ -637,8 +637,14 @@ class HDFnasaomil2File(HDFFile):
         (struct['lat'], struct['lon'], struct['ind']) = (lat, lon, ind)
         return struct
         
-class HDFmopittl2File(HDFFile):
-    """Provide interface to MOPITT level 2 V5 product"""
+class HDFmopittl2File(HDF4File):
+    """
+    Provide interface to MOPITT level 2 V5 product
+
+    Automatically setes the missing value for the data to
+    -9999.0, as this is the missing value used (but not 
+    documented) within the data.
+    """
     _nameExpMap = {'Time' : '/MOP02/Geolocation Fields/Time',
                    'Latitude' : '/MOP02/Geolocation Fields/Latitude', 
                    'Longitude' : '/MOP02/Geolocation Fields/Longitude',
@@ -673,6 +679,14 @@ class HDFmopittl2File(HDFFile):
     _indexMap = {'default' : lambda var, ind: var[ind[0], ...],
                  'Pressure Grid' : lambda var,ind: ind[:]}
         
+    def get(self, key, indices=None):
+        '''Overloaded version of get that applies the correct missing value.'''
+        HDF4File.get(self, key, indices, missingValue=-9999.0)
+
+    def get_cm(self, key, indices=None):
+        '''Overloaded version of get_cm that applied the correct missing value.'''
+        HDF4File.get_cm(self, key, indices, missingValue=-9999.0)
+
 
     def get_geo_centers(self):
         '''Retrieves array of the corners of the pixels'''
