@@ -25,6 +25,13 @@ class Helpers:
         zeros = numpy.zeros(shape)
         zeros[:] = numpy.NaN
         return zeros
+    
+def skipUnlessSamples():
+    '''Skip this test unless our folder has the sample data'''
+    dir = os.path.dirname(__file__)
+    sDataPath = os.path.join(dir, 'sample_data')
+    reason = "Skipped due to lack of sample data.  Download data to use."
+    return unittest.skipUnless(os.path.exists(sDataPath), reason)
 
 class fakeParser(parse_geo.GeoFile):
     """Duck-types a parser for testing purposes"""
@@ -198,7 +205,7 @@ class TestGetParserFunc(unittest.TestCase):
         self.assertEqual(obj.ext, 'hdf')
         self.assertEqual(obj.sub, 'bar')
 
-    
+@skipUnlessSamples()    
 class TestGeneralHDFParser(unittest.TestCase):
 
 
@@ -227,7 +234,7 @@ class TestGeneralHDFParser(unittest.TestCase):
         with self.assertRaises(IOError):
             unused_obj = parse_geo.HDF_File(self.nonHDF_Filename)
 
-
+@skipUnlessSamples()
 class TestKnmiOmiL2Parser(unittest.TestCase):
 
 
@@ -542,7 +549,7 @@ class TestKnmiOmiL2Parser(unittest.TestCase):
             self.assertEqual(numpy.rank(p.get_cm('CloudFraction', (0,0))), 0) #Nan, applies scale-offset
             self.assertEqual(numpy.rank(p.get_cm('SolarZenithAngle', (6,5))), 0) #Nan, no apply scale offset
     
-        
+@skipUnlessSamples()        
 class TestKnmiOmiL2GetGeoCorners(TestKnmiOmiL2Parser):
 
 
@@ -626,7 +633,7 @@ class TestKnmiOmiL2GetGeoCorners(TestKnmiOmiL2Parser):
                 self.assert_array_equal(row[latAxis], p.get_cm('LatitudeCornerpoints', row[indAxis]))
                 self.assert_array_equal(row[lonAxis], p.get_cm('LongitudeCornerpoints', row[indAxis]))
                 
-                
+@skipUnlessSamples()                
 class TestKnmiOmiL2GetGeoCenters(TestKnmiOmiL2Parser):
 
 
@@ -710,7 +717,7 @@ class TestKnmiOmiL2GetGeoCenters(TestKnmiOmiL2Parser):
                 self.assert_array_equal(row[latAxis], p.get_cm('Latitude', row[indAxis]))
                 self.assert_array_equal(row[lonAxis], p.get_cm('Longitude', row[indAxis]))
 
-
+@skipUnlessSamples()
 class TestNASAOmiL2Parser(unittest.TestCase):
     
 
@@ -884,7 +891,8 @@ class TestNASAOmiL2Parser(unittest.TestCase):
             self.assertEqual(numpy.rank(p.get_cm('SolarZenithAngle', self.valElInd)), 0)
             self.assertEqual(numpy.rank(p.get_cm('CloudFraction', self.nanElInd)), 0)
             self.assertEqual(numpy.rank(p.get_cm('SolarZenithAngle', self.nanElInd)), 0)
-    
+
+@skipUnlessSamples()    
 class TestNASAOmiL2GetGeoCorners(unittest.TestCase):
     
     def setUp(self):
@@ -949,7 +957,8 @@ class TestNASAOmiL2GetGeoCorners(unittest.TestCase):
         parser = parse_geo.HDFnasaomil2_File(self.fname, pixCornerFname=self.cornerName)
         unused_geoarray = parser.get_geo_corners()
         self.assertFalse(fid.isopen)
-
+        
+@skipUnlessSamples()
 class TestNASAOmiL2GetGeoCenters(TestNASAOmiL2Parser):
     
     
@@ -1022,7 +1031,14 @@ class TestNASAOmiL2GetGeoCenters(TestNASAOmiL2Parser):
             for i in range(0, flatarray.size, 500):
                 row = flatarray[i]
                 self.assert_array_equal(row[latAxis], p.get_cm('Latitude', row[indAxis]))
-                self.assert_array_equal(row[lonAxis], p.get_cm('Longitude', row[indAxis]))       
+                self.assert_array_equal(row[lonAxis], p.get_cm('Longitude', row[indAxis]))  
+
+@skipUnlessSamples()                
+class TestMOPPITl2Parser(unittest.TestCase):    
+    
+    def setUp(self):
+        dir = os.path.dirname(__file__)
+        self.fname = os.path.join(dir, 'sample_data', 'moppitl2sample.hdf')
         
         
 

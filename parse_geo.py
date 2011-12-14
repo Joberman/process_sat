@@ -652,7 +652,7 @@ class HDFnasaomil2_File(HDF_File):
         (struct['lat'], struct['lon'], struct['ind']) = (lat, lon, ind)
         return struct
         
-class HDFmopittl2File(HDF4_File):
+class HDFmopittl2_File(HDF4_File):
     """
     Provide interface to MOPITT level 2 V5 product
 
