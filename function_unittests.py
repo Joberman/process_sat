@@ -12,11 +12,11 @@ import numpy
 import scipy.io as sio
 import tables
 
-from process_sat import parse_geo
-from process_sat import grid_geo
-from process_sat import map_geo
-from process_sat import out_geo
-from process_sat import utils
+import parse_geo
+import grid_geo
+import map_geo
+import out_geo
+import utils
 
 class Helpers:
 
@@ -137,7 +137,7 @@ class TestParserParentInstantiation(unittest.TestCase):
         self.assertEqual(obj.ext, 'foo')
         self.assertEqual(obj.sub, 'baz')
 
-    
+@unittest.skip("Skipped until it can be rewritten to reflect changes since UI update")    
 class TestGetParserFunc(unittest.TestCase):
 
 
@@ -1672,7 +1672,8 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
                          'solarZenAngUpperCutoff' : 80,
                          'pixIndXtrackAxis' : 1,
                          'fillVal' : -99999}
-        self.outfunc = out_geo.OMNO2e_wght_avg_out_func(fieldnames=fieldnames, parms=outfuncParms)
+        outfuncParms.update(fieldnames)
+        self.outfunc = out_geo.OMNO2e_wght_avg_out_func(outfuncParms)
         self.outFname = (tempfile.mkstemp())[1]
         # create a bunch of empty arrays to put data in.
         self.cfrac = numpy.zeros((20,60))
@@ -1865,7 +1866,9 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
                     'solarZenAngUpperCutoff' : 80,
                     'pixIndXtrackAxis' : 1,
                     'fillVal' : -99999.0}
-        self.defOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(fieldnames=self.fnames, parms=self.defParms)
+        self.defParms.update(self.fnames)
+        self.fnames.update(self.defParms)
+        self.defOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(self.defParms)
         self.outFname = (tempfile.mkstemp())[1]
         # create empty arrays to hold data
         self.cfrac = numpy.zeros((20,60))
@@ -2095,7 +2098,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
-        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(fieldnames=self.fnames, parms=newParms)
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)
         resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])
         
@@ -2111,7 +2114,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
-        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(fieldnames=self.fnames, parms=newParms)
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)
         resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)                
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[1,:])
         
@@ -2153,7 +2156,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
-        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(fieldnames=self.fnames, parms=newParms)        
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)        
         resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])
 
@@ -2169,7 +2172,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]        
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
-        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(fieldnames=self.fnames, parms=newParms)        
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)        
         resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[1,:])
         
@@ -2198,7 +2201,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
-        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(fieldnames=self.fnames, parms=newParms)
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)
         resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])        
         
@@ -2227,7 +2230,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
-        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(fieldnames=self.fnames, parms=newParms)
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)
         resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])
                         
