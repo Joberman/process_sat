@@ -2,9 +2,6 @@
 Interactive value-fetching class
 Please, please, please replace me...
 '''
-import map_geo
-import grid_geo
-import out_geo
 
 def get_val_instr():
     '''Display instructions to user for get_val'''
@@ -31,7 +28,7 @@ def get_val(default, prompt, limFunc=(lambda x: True), cast=(lambda x: x)):
     msg = prompt+' (s): ' % str(default)
     err = "Invalid input.  Please try again."
     while True:
-        answer = raw_input(msg)
+        ans = raw_input(msg)
         try:
             ans = cast(ans)
         except(AttributeError, TypeError):

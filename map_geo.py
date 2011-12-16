@@ -40,7 +40,7 @@ def ValidMaps():
     names = dir(currentModule)
     return [el[:-8] for el in names if el.endswith("_map_geo")]
 
-def regional_intersect_map_geo(parser, griddef, verbose):
+def regional_intersect_map_geo(parser, griddef, verbose=True):
     '''
     For each pixel, find all gridcells that it intersects
 
