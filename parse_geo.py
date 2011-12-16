@@ -244,9 +244,9 @@ class HDF4_File(GeoFile):
 
     def __exit__(self, exc_type, exc_value, traceback):
         '''Close file and delete references to file object and nodes.'''
-        self._fid.close()
         self._vsInt.close()
         self._vInt.close()
+        self._fid.close()
         del self._open_vars
         del self._fid
         del self._vsInt
