@@ -31,26 +31,28 @@ def bad_file(filename):
     Determine what the user wants to do when one of the
     files turns out to be invalid.
     '''
-    prompt = "File %s couldn't be read properly.  What \n\
-    do you wish to do?  Enter (1) to skip this file, \n\
-    but continue processing other files.  Enter (2) to \n\
-    stop reading files but continue with data \n\
-    processing.  Enter (3) to quit this program.  Enter \n\
-    your selection here: " % filename
+    prompt = '\n'.join(\
+             textwrap.wrap("File {0} couldn't be read properly.  What do you " \
+                           "wish to do?  Enter (1) to skip this file, but " \
+                           "continue processing other files.  Enter (2) to " \
+                           "stop reading files but continue with data " \
+                           "processing.  Enter (3) to quit this program.  " \
+                           "Enter your selection here: ".format(filename)))
     while True:
-        answer = raw_input(prompt)
+        print prompt 
+        answer = raw_input(" ==> ")
         try:
             answer = int(answer)
         except(ValueError, TypeError):
             answer = 0
         if answer in [1,2,3]:
             return answer
-        print ("Invalid answer.  Please try again.")
+        print ("\nInvalid answer.  Please try again.")
 
 class ProjArgsAction(argparse.Action):
     '''
     values contains a list of strings in the form "name:value" 
-    ProjArgsAction assigns value to namespace.name for each pair
+    For each string, ProjArgsAction assigns value to namespace.name
     '''
     def __call__(self, parser, namespace, values, option_string=None):
         for string in values:
@@ -95,8 +97,8 @@ def double(string):
     and string 2 may or may not contain colon characters.
     '''
     if not len(string.split(':')) >= 2:
-        msg = "%s is not correctly formatted.  Correct format: 'varName:" \
-              "varVal'" % string
+        msg = "{0} is not correctly formatted.  Correct format: 'varName:" \
+              "varVal'".format(string)
         raise argparse.ArgumentTypeError(msg)
     return string
 
@@ -132,9 +134,9 @@ parser.add_argument('--outFuncAttrs', nargs='*', action=ProjArgsAction, \
                     'the output function', metavar='AttributeName:Value'\
                     '[,value,...]')
 parser.add_argument('--outDirectory', help='The directory to which output ' \
-                    'files will be written to.', metavar='DirectoryPath', \
-                    required = True)
-parser.add_argument('--outFileNames', help='Optionally, supply the name ' \
+                    'files will be written to.  This argument is required.', \
+                    metavar = 'DirectoryPath', required = True)
+parser.add_argument('--outFileName', help='Optionally, supply the name ' \
                     'of the output file.  If no name is provided, the ' \
                     'output file will be named \'output1\'', metavar = \
                     'FileName')
@@ -146,18 +148,21 @@ parser.add_argument('--interactive', help='Supply True here to enable ' \
                     'program encounters an invalid input file. (Default: ' \
                     'False ignores any invalid files and continues ' \
                     'processing all requested files)', default=False, \
-                    choices={'True','False'}) 
+                    choices = {'True','False'}) 
 parser.add_argument('--AttributeHelp', nargs='*', help='Supply this flag, ' \
                     'followed by a list of projection names and/or output ' \
                     'functions to see a list of additional parameters ' \
                     'required for those selections, and a brief ' \
                     'description of each parameter.', action=ListAttrsAction, \
-                    metavar='ProjectionName/OutputFunctionName')
+                    metavar = 'ProjectionName/OutputFunctionName')
 
 # ---------------- #
 # Parse the inputs #
 # ---------------- #
 gnomespice = parser.parse_args()
+
+# Parse verbose flag
+verbose = gnomespice.verbose != 'False'
 
 # parse directory input, using '.' character as shorthand 
 # for current working directory path
@@ -165,8 +170,9 @@ directory = (gnomespice.directory or os.getcwd()).split('.')
 if len(directory) == 1:
     directory = directory[0]
 else:
-    print "Using '.' character as shorthand for current working directory"
-    directory = os.getcwd().join(outDirectory)
+    if verbose:
+        print "Using '.' character as shorthand for current working directory"
+    directory = os.getcwd().join(directory)
 outDirectory = gnomespice.outDirectory.split('.')
 if len(outDirectory) == 1:
     outDirectory = outDirectory[0]
@@ -183,29 +189,33 @@ if not os.path.isdir(outDirectory):
     sys.exit(0)
 
 # parse output filename
-outFileNames = os.path.join(outDirectory,gnomespice.outFileNames) or \
-               os.path.join(outDirectory, 'output1') 
+outFileName = (gnomespice.outFileName and \
+                    os.path.join(outDirectory,gnomespice.outFileName)) \
+               or os.path.join(outDirectory, 'output1') 
 
 # Make sure that both the output directory and the given output file
 # can be accessed and written to 
-if not os.access(outDirectory, os.W_OK) or (os.path.isfile(outFileNames)\
-          and not os.access(outFileNames, os.W_OK)):
+if not os.access(outDirectory, os.W_OK) or (os.path.isfile(outFileName)\
+          and not os.access(outFileName, os.W_OK)):
     print textwrap.wrap("Error: Unable to write output to file {1} in "\
-          "directory {0}.  You may not have write permissions to that "\
-          "directory, or that directory may already contain an existing "\
-          "file of that name, for which you do not have write permissions.  "\
-          "Check the output directory and try again.".format(outDirectory, \
-          gnomespice.outFileNames), 75)
+                        "directory {0}.  You may not have write permissions "\
+                        "to that directory, or that directory may already "\
+                        "contain an existing file of that name, for which "\
+                        "you do not have write permissions.  Check the "\
+                        "output directory and try again.".format(\
+                        outDirectory, gnomespice.outFileName), 75)
     sys.exit(0)
 
 # To be implemented later (maybe)
 parserList = None                        
 
-# Parse verbose flag
-verbose = gnomespice.verbose != 'False'
-
+# retrieve grid definition function from grid_geo
+gridDef = getattr(grid_geo, gnomespice.gridProj + '_GridDef')
 # grid definition parameter dictionary
 gridDict = dict()
+
+# retrieve output function function from out_geo
+outFunc = getattr(out_geo, gnomespice.outFunc + '_out_func')
 # output function parameter dictionary
 outParms = dict()
 
@@ -228,44 +238,55 @@ def formerrmsg(attr, type):
                                 width = 80).wrap('Invalid input for argument '\
                                                  '{0}.  Argument should be a '\
                                                  '{1}.  Please include a valid'\
-                                                 'value for {0}.\n'\
+                                                 ' value for {0}.\n'\
                                                  .format(attr,type))
-# error message for unitialized parameters
+# error message for uninitialized parameters
 unitParms = []
+
 # Build the error message for grid definition parameters
-for attr in gridDef.requiredParms():
+parms = gridDef.requiredParms()
+for attr in parms:
+    # Need to cast input to correct types, then add to dictionary
     try:
-        gridDict[attr] = getattr(gnomespice, attr)
+        if parms[attr][1] == 'int':
+            try:
+                gridDict[attr] = int(getattr(gnomespice, attr))
+            except ValueError:
+                unitParms = unitParms + formerrmsg(attr, "\bn integer")
+        elif parms[attr][1] == 'decimal':
+            try:
+                gridDict[attr] = float(getattr(gnomespice, attr))
+            except ValueError:
+                unitParms = unitParms + formerrmsg(attr, "decimal")
+        else:
+            gridDict[attr] = getattr(gnomespice, attr)
     except AttributeError:
         unitParms = unitParms + argerrmsg(attr, 'projection (' \
-                                              + gnomespice.gridProj + ')')
-parms = outFunc.required_parms()
+                                          + gnomespice.gridProj + ')')
+
 # Build the error message for output function parameters 
+parms = outFunc.required_parms()
 for attr in parms:
-    # This is a little tougher; some values have to be of certain types
-    if parms[attr][1] == 'int':
-        try:   
-            outParms[attr] = int(getattr(gnomespice, attr))
-        except AttributeError:
-            unitParms = unitParms + formerrmsg(attr,"\bn integer")
-    elif parms[attr][1] == 'decimal':
-        try:
-            outParms[attr] = float(getattr(gnomespice, attr))
-        except AttributeError:
-            unitParms = unitParms + formerrmsg(attr,"decimal")
-    elif parms[attr][1] == 'list':
-        try:
+    # Again, need to cast input to correct type, then add to dictionary
+    try:
+        if parms[attr][1] == 'int':
+            try:   
+                outParms[attr] = int(getattr(gnomespice, attr))
+            except ValueError:
+                unitParms = unitParms + formerrmsg(attr,"\bn integer")
+        elif parms[attr][1] == 'decimal':
+            try:
+                outParms[attr] = float(getattr(gnomespice, attr))
+            except ValueError:
+                unitParms = unitParms + formerrmsg(attr,"decimal")
+        elif parms[attr][1] == 'list':
             outParms[attr] = getattr(gnomespice, \
-                                   attr).split(',')
-        except AttributeError:
-            unitParms = unitParms + argerrmsg(attr, 'output function (' + \
-                                    gnomespice.outFunc + ')')
-    else:
-        try:
+                                     attr).split(',')
+        else:
             outParms[attr] = getattr(gnomespice, attr)
-        except AttributeError:
-            unitParms = unitParms + argerrmsg(attr, 'output function (' + \
-                                    gnomespice.outFunc + ')') 
+    except AttributeError:
+        unitParms = unitParms + argerrmsg(attr, 'output function (' + \
+                                gnomespice.outFunc + ')') 
 # Unless everything checked out, print those messages and quit
 if unitParms != []:
     print '\n'.join(unitParms)
@@ -291,10 +312,11 @@ else:
     if verbose: print('getting parsers '+str(datetime.datetime.now()))
     badfile = gnomespice.interactive == 'True' and bad_file or bad_file_default
     for f in files:
+        if verbose: print "Instantiating parser for file {0}".format(f)
         try:
             parser = parse_geo.get_parser(f, filetype)
         except(IOError):
-            print "there was an IOError when instantiating parser"
+            if verbose: print "there was an IOError when instantiating parser"
             answer = badfile(f) # badfile() depends on --interactive
             if answer is 1:
                 continue
@@ -310,7 +332,8 @@ else:
 # ----------------- #
 
 # Construct the grid definition
-griddef = getattr(grid_geo, gnomespice.gridProj + '_GridDef')(gridDict)
+if verbose: print('constructing grid '+str(datetime.datetime.now()))
+griddef = gridDef(gridDict)
 
 # Map data to grid
 if verbose: print('calculating maps '+str(datetime.datetime.now()))
@@ -319,8 +342,7 @@ maps = [mapFunc(p, griddef, verbose) for p in parsers]
 
 # Construct output
 if verbose: print('creating outfiles '+str(datetime.datetime.now()))
-outFunc = getattr(out_geo, gnomespice.outFunc + '_out_func')
-outputs = outFunc(outParms)(maps,griddef,outFileNames)
+outputs = outFunc(outParms)(maps,griddef,outFileName, verbose)
 
 # eventually, we may want to do stuff to outputs, but for now...
 del(outputs)

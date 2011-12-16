@@ -78,7 +78,8 @@ def regional_intersect_map_geo(parser, griddef, verbose):
         poly = prep(poly)  # prepare these, they're going to get compared a lot
     if verbose: print('done prepping polys in grid')
     cornersStruct = parser.get_geo_corners()
-    (row, col) = griddef.geoToGridded(cornersStruct['lat'], cornersStruct['lon']) 
+    (row, col) = griddef.geoToGridded(cornersStruct['lat'], \
+                                      cornersStruct['lon']) 
     ind = cornersStruct['ind']
     # reshape the matrixes to make looping workable
     row = row.reshape(-1,4)
@@ -111,7 +112,7 @@ def regional_intersect_map_geo(parser, griddef, verbose):
             pixPoly = geom.MultiPoint(zip(pxrow, pxcol)).convex_hull
             for key in gridPolys.iterkeys():
                 if prepPolys[key].intersects(pixPoly) and not \
-                                  gridPolys[key].touches(pixPoly) :
+                                  gridPolys[key].touches(pixPoly):
                     map[key].append((tuple(pxind), None))
     return map
 
@@ -142,7 +143,8 @@ def point_in_cell_map_geo(parser, griddef, verbose):
     centersStruct = parser.get_geo_centers()
     # get the data to geolocate the pixels and reshape to make looping feasible
     ind = centersStruct['ind']
-    (row, col) = griddef.geoToGridded(centersStruct['lat'], centersStruct['lon'])
+    (row, col) = griddef.geoToGridded(centersStruct['lat'], \
+                                      centersStruct['lon'])
     row = numpy.floor(row.flatten()) # we floor values to get the cell indices
     col = numpy.floor(col.flatten())
     ind = ind.reshape(row.size, -1)

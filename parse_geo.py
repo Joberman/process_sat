@@ -85,7 +85,7 @@ def SupportedFileTypes():
 def get_parser(file, filetype):
     """Retrieve appropriate instantiated parser for a file"""
     filename = os.path.split(file)[1]
-    subclass = '%s_File' % (filetype)
+    subclass = '{0}_File'.format(filetype)
     module = sys.modules[GeoFile.__module__]
     parserClass = getattr(module, subclass) 
                   # or GeoFile

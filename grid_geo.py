@@ -93,23 +93,18 @@ class latlon_GridDef(GridDef):
     - Make sure parameters units and standard match
       coordinates being put in.
     '''
-    def __init__(self, parmDict):
-        GridDef.__init__(self, parmDict)
-        self.parms = { "xOrig" : float(parmDict["xOrig"]),
-                        "yOrig" : float(parmDict["yOrig"]),
-                        "xCell" : float(parmDict["xCell"]),
-                        "yCell" : float(parmDict["yCell"]),
-                        "nRows" : int(parmDict["nRows"]),
-                        "nCols" : int(parmDict["nCols"]) }
     @staticmethod
     def requiredParms():
         '''Parameters that must be in the dictonary passed to instantiate'''
-        return {"xOrig":'[xOrig description]',
-                "yOrig":'[yOrig description]',
-                "xCell":'[xCell description]',
-                "yCell":'[yCell description]',
-                "nRows":'[nRows description]',
-                "nCols":'[nCols description]'}
+        return {"xOrig":('[xOrig description]', 'decimal'),
+                "yOrig":('[yOrig description]', 'decimal'),
+                "xCell":('[xCell description]', 'decimal'),
+                "yCell":('[yCell description]', 'decimal'),
+                "nRows":('[nRows description]', 'int'),
+                "nCols":('[nCols description]', 'int')}
+    def __init__(self, parmDict):
+        GridDef.__init__(self, parmDict)
+        self.parms = parmDict
     def indLims(self):
         return (0, self.parms['nRows']-1, 0, self.parms['nCols']-1)
     def geoToProjected(self, lat, lon):
@@ -136,30 +131,20 @@ class lcc2par_GridDef(GridDef):
         parameters that must be in the dictionary passed to
         instantiate this class
         '''
-        return {"stdPar1":'[stdPar1 description]',
-                "stdPar2":'[stdPar2 description]',
-                "refLat":'[refLat description]',
-                "refLon":'[refLon description]',
-                "xOrig":'[xOrig description]',
-                "yOrig":'[yOrig description]',
-                "xCell":'[xCell description]',
-                "yCell":'[yCell description]',
-                "nRows":'[nRows description]',
-                "nCols":'[nCols description]',
-                "earthRadius":'[earthRadius description]'}
+        return {"stdPar1":('[stdPar1 description]', 'decimal'),
+                "stdPar2":('[stdPar2 description]', 'decimal'),
+                "refLat":('[refLat description]', 'decimal'),
+                "refLon":('[refLon description]', 'decimal'),
+                "xOrig":('[xOrig description]', 'decimal'),
+                "yOrig":('[yOrig description]', 'decimal'),
+                "xCell":('[xCell description]', 'decimal'),
+                "yCell":('[yCell description]', 'decimal'),
+                "nRows":('[nRows description]', 'int'),
+                "nCols":('[nCols description]', 'int'),
+                "earthRadius":('[earthRadius description]','decimal')}
     def __init__(self, parms):
         GridDef.__init__(self, parms)
-        self.parms = { "stdPar1" : float(parms["stdPar1"]),
-                        "stdPar2" : float(parms["stdPar2"]),
-                        "refLat"  : float(parms["refLat"]),
-                        "refLon"  : float(parms["refLon"]),
-                        "xOrig" : float(parms["xOrig"]),
-                        "yOrig" : float(parms["yOrig"]),
-                        "xCell" : float(parms["xCell"]),
-                        "yCell" : float(parms["yCell"]),
-                        "nRows" : int(parms["nRows"]),
-                        "nCols" : int(parms["nCols"]),
-                        "earthRadius" : float(parms["earthRadius"]) }
+        self.parms = parms
 
         # remap parms into a dictionary readable by pyproj
         pyprojParms = {'proj'   : 'lcc',
