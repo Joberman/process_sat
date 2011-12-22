@@ -1030,8 +1030,8 @@ class TestNASAOmiL2GetGeoCenters(TestNASAOmiL2Parser):
         flatarray = self.geoarray.flatten()
         for i in range(0,flatarray.size, 5000):
             row = flatarray[i]
-            self.assert_array_equal(row[latAxis], self.parser.get('Latitude', row[indAxis]))
-            self.assert_array_equal(row[lonAxis], self.parser.get('Longitude', row[indAxis]))
+            numpy.testing.assert_array_equal(row[latAxis], self.parser.get('Latitude', row[indAxis]))
+            numpy.testing.assert_array_equal(row[lonAxis], self.parser.get('Longitude', row[indAxis]))
             
     def test_geocenters_can_feed_ind_to_get_cm(self): 
         latAxis = self.geoarray.dtype.names.index('lat')
@@ -1041,8 +1041,8 @@ class TestNASAOmiL2GetGeoCenters(TestNASAOmiL2Parser):
         with self.parser as p:
             for i in range(0, flatarray.size, 500):
                 row = flatarray[i]
-                self.assert_array_equal(row[latAxis], p.get_cm('Latitude', row[indAxis]))
-                self.assert_array_equal(row[lonAxis], p.get_cm('Longitude', row[indAxis]))  
+                numpy.testing.assert_array_equal(row[latAxis], p.get_cm('Latitude', row[indAxis]))
+                numpy.testing.assert_array_equal(row[lonAxis], p.get_cm('Longitude', row[indAxis]))  
 
 @skipUnlessSamples()                
 class TestMOPPITl2Parser(TestParser):    
@@ -1067,7 +1067,7 @@ class TestMOPPITl2Parser(TestParser):
                           'A Priori CO Mixing Ratio Profile',
                           'A Priori CO Surface Mixing Ratio',
                           'Retrieved CO Total Column Diagnostics',
-                          'Retrieval Averaging Kernal Matrix', 
+                          'Retrieval Averaging Kernel Matrix', 
                           'Degrees of Freedom for Signal',
                           'Water Vapor Climatology Content', 'Retrieval Iterations',
                           'Retrieval Error Covariance Matrix', 
@@ -1105,24 +1105,24 @@ class TestMOPPITl2Parser(TestParser):
         vElVals = [3.950208313689997*10**8, presGrid, [72.061165, 25.169048], vElProf, 0]
         self.valElVals = self.bldFlatArray(vElVals)
         self.valElInd = (50,)
-        retKeys = ['Time', 'Pressure Grid', 
+        self.retKeys = ['Time', 'Pressure Grid', 
                         'Retrieved CO Surface Mixing Ratio',
                         'A Priori CO Mixing Ratio Profile',
                         'A Priori CO Mixing Ratio Profile',
                         'Surface Index'] # need to get 2 slices from profile
-        retInd = [slice(None), slice(None), slice(None), slice(None,0),
-                       slice(None,1), slice(None)] # how to cut up keys
+        self.retInd = [slice(None), slice(None), slice(None), (slice(None),0),
+                       (slice(None),1), slice(None)] # how to cut up keys
         
     def retrieve_values_get(self, fileInd, parser):
         '''This function retrieves a flat array from a file parser with get'''
-        chkList = [parser.get(k, fileInd)(i) for (k,i) in izip(self.retKeys, self.retInd)]
+        chkList = [parser.get(k, fileInd)[i] for (k,i) in izip(self.retKeys, self.retInd)]
         return self.bldFlatArray(chkList)
     
     def retrieve_values_get_cm(self, fileInd, parser):
         '''This function retrieves a flat array from a cm file parser with get_cm'''
-        chkList = [parser.get_cm(k, fileInd)(i) for (k,i) in izip(self.retKeys, self.retInd)]
+        chkList = [parser.get_cm(k, fileInd)[i] for (k,i) in izip(self.retKeys, self.retInd)]
         return self.bldFlatArray(chkList)
-        
+
     def test_instantiate(self):
         self.assertIsInstance(self.parser, parse_geo.HDFmopittl2_File)
         
@@ -1154,7 +1154,7 @@ class TestMOPPITl2Parser(TestParser):
         with self.parser as p:
             for key in self.validKeys:
                 var = p.get_cm(key)
-                self.assertIsInstnace(var, numpy.ndarray)
+                self.assertIsInstance(var, numpy.ndarray)
             
     @unittest.skip("We should check this but we don't have the technology")    
     def test_get_cm_cleans_up_open_file(self):
@@ -1180,44 +1180,45 @@ class TestMOPPITl2Parser(TestParser):
         
     def test_get_retrieves_first_element(self):
         chkVals = self.retrieve_values_get(self.firstElInd, self.parser)
-        numpy.testing.assert_array_almost_equal(chkVals, self.firstElVals)
+        numpy.testing.assert_array_almost_equal(chkVals, self.firstElVals, decimal=5)
         
     def test_get_cm_retrieves_first_element(self):
         with self.parser as p:
             chkVals = self.retrieve_values_get_cm(self.firstElInd, p)
-        numpy.testing.assert_array_almost_equal(chkVals, self.firstElVals)
+        numpy.testing.assert_array_almost_equal(chkVals, self.firstElVals, decimal=5)
         
     def test_get_retrieves_last_element(self):
         chkVals = self.retrieve_values_get(self.lastElInd, self.parser)
-        numpy.testing.assert_array_almost_equal(chkVals, self.lastElVals)
+        numpy.testing.assert_array_almost_equal(chkVals, self.lastElVals, decimal=5)
         
     def test_get_cm_retrieves_last_element(self):
         with self.parser as p:
             chkVals = self.retrieve_values_get_cm(self.lastElInd, p)
-        numpy.testing.assert_array_almost_equal(chkVals, self.lastElVals)
+        numpy.testing.assert_array_almost_equal(chkVals, self.lastElVals, decimal=5)
         
     def test_get_retrieves_nan_element(self):
         chkVals = self.retrieve_values_get(self.nanElInd, self.parser)
-        numpy.testing.assert_array_almost_equal(chkVals, self.nanElVals)
+        numpy.testing.assert_array_almost_equal(chkVals, self.nanElVals, decimal=5)
         
     def test_get_cm_retrieves_nan_element(self):
         with self.parser as p:
             chkVals = self.retrieve_values_get_cm(self.nanElInd, p)
-        numpy.testing.assert_array_almost_equal(chkVals, self.nanElVals)
+        numpy.testing.assert_array_almost_equal(chkVals, self.nanElVals, decimal=5)
         
     def test_get_retrieves_valid_element(self):
-        chkVals = self.retrieve_values_get_cm(self.valElInd, self.parser)
-        numpy.testing.assert_array_almost_equal(chkVals, self.valElVals)
+        chkVals = self.retrieve_values_get(self.valElInd, self.parser)
+        numpy.testing.assert_array_almost_equal(chkVals, self.valElVals, decimal=5)
         
     def test_get_cm_retrieves_valid_element(self):
         with self.parser as p:
             chkVals = self.retrieve_values_get_cm(self.valElInd, p)
-        numpy.testing.assert_array_almost_equal(chkVals, self.valElVals)
+        numpy.testing.assert_array_almost_equal(chkVals, self.valElVals, decimal=5)
         
 @skipUnlessSamples()
 class TestMOPPITL2GetGeoCenters(unittest.TestCase):
     
     def setUp(self):
+        dir = os.path.dirname(__file__)
         fname = os.path.join(dir, 'sample_data', 'moppitl2sample.hdf')
         self.parser= parse_geo.HDFmopittl2_File(fname, subtype='HDFmoppittl2')
         self.geoarray = self.parser.get_geo_centers()
@@ -1234,37 +1235,38 @@ class TestMOPPITL2GetGeoCenters(unittest.TestCase):
         
     def test_centers_lat_first_element(self):
         knownLat = -12.894982
-        latInd = utils.find_occurences(self.geoarray['ind'], [0])
+        latInd = 0
         fileLat = self.geoarray['lat'][latInd].squeeze()
         numpy.testing.assert_allclose(knownLat, fileLat)
         
     def test_centers_lon_first_element(self):
         knownLon = -19.320307
-        lonInd = utils.find_occurences(self.geoarray['ind'], [0])
+        lonInd = 0
+
         fileLon = self.geoarray['lon'][lonInd].squeeze()
         numpy.testing.assert_allclose(knownLon, fileLon)
         
     def test_centers_lat_last_element(self):
         knownLat = -8.817091
-        latInd = utils.find_occurences(self.geoarray['ind'], [200031])
+        latInd = 200031
         fileLat = self.geoarray['lat'][latInd].squeeze()
         numpy.testing.assert_allclose(knownLat, fileLat)
         
     def test_centers_lon_last_element(self):
         knownLon = 158.08238
-        lonInd = utils.find_occurences(self.geoarray['ind'], [200031])
+        lonInd = 200031
         fileLon = self.geoarray['lon'][lonInd].squeeze()
-        numpy.test.assert_allclose(knownLon, fileLon)
+        numpy.testing.assert_allclose(knownLon, fileLon)
         
     def test_centers_lat_rand_element(self):
         knownLat = -77.91937
-        latInd = utils.find_occurences(self.geoarray['ind'], [40000])
+        latInd = 40000
         fileLat = self.geoarray['lat'][latInd].squeeze()
-        numpy.test.assert_allclose(knownLat, fileLat)
+        numpy.testing.assert_allclose(knownLat, fileLat)
         
     def test_centers_lon_rand_element(self):
         knownLon = 34.588852
-        lonInd = utils.find_occurences(self.geoarray['ind'], [40000])
+        lonInd = 40000
         fileLon = self.geoarray['lon'][lonInd].squeeze()
         numpy.testing.assert_allclose(knownLon, fileLon)
         
@@ -1275,10 +1277,10 @@ class TestMOPPITL2GetGeoCenters(unittest.TestCase):
         tupleArray = self.geoarray.flatten()
         for i in range(0, tupleArray.size, 5000):
             row = tupleArray[i]
-            self.assert_array_equal(row[latAxis], self.parser.get('Latitude', row[indAxis]))
-            self.assert_array_equal(row[lonAxis], self.parser.get('Longitude', row[indAxis]))
+            numpy.testing.assert_array_equal(row[latAxis], self.parser.get('Latitude', row[indAxis]))
+            numpy.testing.assert_array_equal(row[lonAxis], self.parser.get('Longitude', row[indAxis]))
             
-    def test_geocenters_can_feed_to_get_cm(self):
+    def test_geocenters_can_feed_ind_to_get_cm(self):
         latAxis = self.geoarray.dtype.names.index('lat')
         lonAxis = self.geoarray.dtype.names.index('lon')
         indAxis = self.geoarray.dtype.names.index('ind')
@@ -1286,8 +1288,8 @@ class TestMOPPITL2GetGeoCenters(unittest.TestCase):
         with self.parser as p:
             for i in range(0, tupleArray.size, 500):
                 row = tupleArray[i]
-                self.assert_array_equal(row[latAxis], p.get_cm('Latitude', row[indAxis]))
-                self.assert_array_equal(row[lonAxis], p.get_cm('Longitude', row[indAxis]))
+                numpy.testing.assert_array_equal(row[latAxis], p.get_cm('Latitude', row[indAxis]))
+                numpy.testing.assert_array_equal(row[lonAxis], p.get_cm('Longitude', row[indAxis]))
             
         
 class TestOverallGridGeo(unittest.TestCase):
@@ -3057,16 +3059,19 @@ def get_full_test_suite():
                 shortNames.append(name)
     return unittest.defaultTestLoader.loadTestsFromNames(longNames)
 
+
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
     testSuite = get_full_test_suite()
     unittest.TextTestRunner(verbosity=2).run(testSuite)
 '''  
 if __name__ == '__main__':
-    foo = '__main__.TestNASAOmiL2Parser.test_get_retrieve_all_vars'
+    foo = '__main__.TestMOPPITl2Parser.test_get_cm_retrieves_all_vars'
     suite = unittest.defaultTestLoader.loadTestsFromName(foo)
     unittest.TextTestRunner(verbosity=2).run(suite)
-
+'''
+'''
 if __name__ == '__main__':
     unittest.main()
 '''
+
