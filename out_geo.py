@@ -772,6 +772,20 @@ class wght_avg_vals_netCDF_out_func(out_func):
             output variable.  These will be attached as the "units" attribute
             for each variable in the output netCDF file.  Must be of the same 
             length and co-indexed to the lists above.
+        logNormal:
+            Boolean vector indicating whether or not we want to take the
+            lognormal mean (as opposed to the simple, arithmetic mean).  If 
+            this parameter is set to True, the mean will be taken as follows:
+                logData = log(data)
+                logAvg = sum(logData*wghts)/sum(wghts)
+                avg = 10^logAvg
+            whereas if this parameter is set to false the mean will be simply:
+                avg = sum(data*wghts)/sum(wghts)
+            To allow finer-grained control of the output, logNormal must be 
+            set individually for each output field (as it may be appropriate
+            to use the log normal distribution only for select fields).  Thus,
+            logNormal must be of the same length and co-indexed to the lists
+            above
         dimLabels:
             List of tuples, each of which contains as many strings as there are
             extra dimensions in the corresponding field.  IE, if a field has 
@@ -821,15 +835,10 @@ class wght_avg_vals_netCDF_out_func(out_func):
             file.  This value must be castable to the type of all output 
             variables.  Each variable will document the fill value in its
             attributes.
-        logNormal:
-            Boolean parameter indicating whether or not we want to take the
-            lognormal mean (as opposed to the simple, arithmetic mean).  If 
-            this parameter is set to True, the mean will be taken as follows:
-                logData = log(data)
-                logAvg = sum(logData*wghts)/sum(wghts)
-                avg = 10^logAvg
-            whereas if this parameter is set to false the mean will be simply:
-                avg = sum(data*wghts)/sum(wghts)
+        notes:
+            String to be included in the output attributes of the final file.  
+            Use this to hold any extra if you you'd like to be packaged with
+            the data.
         weightFunction:
             Function that computes the weight of a value.  This can be as 
             simple as assigning a weight of 1 to that value (creating an 
@@ -846,12 +855,34 @@ class wght_avg_vals_netCDF_out_func(out_func):
             for this function will be included as a global attribute in the 
             output file, so the docstring should be sufficient to describe the
             function in it's entirety.
+        filterFunction:
+            Function that looks at the entire stack of pixels for a cell and 
+            selects any pixels that need to be filtered out.  Note that for 
+            efficiency reasons this should not be used to catch filter
+            conditions unique to each pixel.  Those sort of filters should
+            be applied in the weightFunction.  This function is strictly
+            intended for operations that can only be performed once the entire
+            stack for a particular cell is available (IE if a value is checked
+            for each pixel in the cell and those pixels not matching the 
+            majority value are rejected).  The function must be of the form
+                flagVec = filterFunction(parser, indStack)
+            where indStack is an iterable of index tuples and parser is the 
+            parser for the file under consideration.  flagVec (the return
+            vector) should be boolean and true for those values that should
+            NOT be included in the final average.  It should be the same length
+            as indStack.  To reiterate: flagVec should true for those values
+            that should be REMOVED, and false for those values to be kept.
+            The docstring of this function will be included as a global 
+            attribute in the final output file, so the docstring should be
+            sufficient to describe the function in it's entirety.  Note that it
+            is safe to use both get and get_cm functions within this function -
+            it is guaranteed to be called within a context manager.
     '''
     def __init__(self, fieldnames, parms):
         out_func.__init__(self, fieldnames, parms)
         # convert all the parameters co-indexed to inFieldNames to dictionaries
         # keyed off of inFieldNames
-        toConvert = ['outFieldNames', 'outUnits', 'dimLabels', 'dimSizes']
+        toConvert = ['outFieldNames', 'outUnits', 'dimLabels', 'dimSizes', 'logNormal']
         inFnames = self.parms['inFieldNames']  
         for key in toConvert:
             self.parms[key] = dict(zip(inFnames, self.parms[key]))
@@ -873,6 +904,7 @@ class wght_avg_vals_netCDF_out_func(out_func):
         # prep for computing weights
         wghtDict = dict()  # we only want to compute each weight once
         wghtFunc = self.parms['weightFunction']
+        filtFunc = self.parms['filterFunction']
         
         # convert the times to the proper format
         tConvFunc = self.parms['timeConv']
@@ -891,7 +923,8 @@ class wght_avg_vals_netCDF_out_func(out_func):
                 # loop over the cells in the map, processing each
                 for (cellInd, pixTups) in map.iteritems():
                     
-                    # compute the weight only if we haven't already
+                    # compute the weight only if we haven't already.  In either
+                    # case, put the weightss in array.
                     wghts = [wghtDict.setdefault(ind, wghtFunc(p, ind, wgt))
                             for (ind, wgt) in pixTups]
                     
@@ -905,20 +938,35 @@ class wght_avg_vals_netCDF_out_func(out_func):
                         tArray += offsets
                     tFlag = numpy.logical_or(tArray < timeStart, tArray > timeStop)
                     
+                    # use the filter function on the stack to apply user-defined
+                    # filter conditions
+                    pixIndStack = [pInd for (pInd, unused_weight) in pixTups]
+                    uFlag = numpy.array(filtFunc(p, pixIndStack))
+
+                    # combine time filter and user filter into a single, global flag 
+                    gFlag = numpy.logical_or(uFlag, tFlag)
+
+                    # filter the weights so that values that will be rejected don't
+                    # have their weights included in the denominator of the final
+                    # average.
+                    wghts = numpy.where(gFlag, numpy.NaN, wghts)
+
                     # loop over fields.  For each, compute avg and save
                     for field in self.parms['inFieldNames']:
                         
                         # create the array of weighted values    
                         vals = numpy.array([p.get_cm(field, ind)
                                             for (ind, wgt) in pixTups])
-                        if self.parms['logNormal']:
+                        if self.parms['logNormal'][field]:
                             vals = numpy.log(vals) # work with logarithm of data
                         wghtSlice = [Ellipsis]
                         nExtraDims = len(self.parms['dimSizes'][field])
                         # create a slice object that will allow us to broadcast
                         # weights against the values
                         wghtSlice.extend([numpy.newaxis]*nExtraDims)
-                        wghtVals = numpy.where(tFlag, numpy.NaN, vals*wghts[wghtSlice])
+
+                        # compute weighted values
+                        wghtVals = vals*wghts[wghtSlice]
                         
                         # average the weighted Values
                         wghtValSum = numpy.nansum(wghtVals, axis=0)
@@ -960,9 +1008,11 @@ class wght_avg_vals_netCDF_out_func(out_func):
         setattr(outFid, 'Time_comparison_scheme', self.parms['timeComparison'])
         flistStr = ' '.join([map['parser'].name for map in maps])
         setattr(outFid, 'Input_files', flistStr)
-        setattr(outFid, 'Avg_func_description', wghtFunc.__doc__)
+        setattr(outFid, 'Weighting_function_description', wghtFunc.__doc__)
+        setattr(outFid, 'Filter_function_description', filtFunc.__doc__)
         # add in attributes for the projection
         setattr(outFid, 'Projection', griddef.__class__.__name[:-8])
+        setattr(outFid, 'Notes', self.parms['notes'])
         for (k,v) in griddef.parms.iteritems():
             setattr(outFid, k, v)
             
@@ -995,3 +1045,75 @@ class wght_avg_vals_netCDF_out_func(out_func):
             finalOutArrays[self.parms['outFieldNames'][k]] = v
         return finalOutArrays 
             
+class unweighted_filtered_MOPITT_avg_netCDF_out_func(out_func):
+    '''
+    Output averager designed to work with MOPITT Level 2 data.  Emulates the 
+    NASA developed averaging algorithm for level 3 (mostly) faithfully.  
+
+    Following the NASA precedent, data are separated into either daytime or 
+    nighttime values according to solar zenith angle.  Unfortunately, since 
+    none of the NASA documentation actually specifies what cutoff value was
+    used for solar zenith angle, the value is left up to the user with a 
+    default of 85.  Also, in contrast to the NASA product, only one time (day
+    or night) is actually included.  Which one is left to the user and noted
+    in the attributes of the output file.
+
+    Also following NASA precedent, data are filtered based on surface type.
+    For cells where one surface type makes up more than 75% of the pixels,
+    that surface type is used exclusively.  For cells where no surface type
+    reaches the 75% threshold, all pixels are included.
+
+    Again following the NASA algorithm, if pixels containing differing numbers
+    of valid levels are present in a single grid cell, only the pixels 
+    comprising the majority are retained.  This is tested using the retrieved
+    CO mixing ratio profile field.
+
+    The user is given the option of averaging each field assuming either a
+    normal or log-normal distribution.  This is left to the user's discretion
+    so make sure you know which fields it is appropriate to average and which
+    should be log-averaged.
+
+    For further details (don't get your hopes up) on the NASA algorithm, refer
+    to 
+        Deeter, Merritt N (2009). MOPITT (Measurements of Pollution in the 
+          Troposphere) Validated Version 4 Product Users Guide.  Available
+          from <http://www.acd.ucar.edu/mopitt/products.shtml>
+
+    The output will be a netCDF file with the name determined in the standard
+    way.  Will have the appropriate dimensions for those input fields being
+    processed, as well as the fundamental rows/cols determined by grid_geo
+
+    The parameters dictionary must contain the following keys:
+        time:           SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+                            NOTE: must be in TAI93 format
+        longitude:      SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        inFieldNames:   SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        outFieldNames:  SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        outUnits:       SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        logNormal:      SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        dimLabels:      SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        dimSizes:       SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        timeStart:      SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        timeStop:       SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        timeComparison: SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        fillVal:        SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        solZenAng: The string for the field associated with the solar zenith
+            angle.  Must be in degrees
+        solZenAngCutoff: The cutoff solar zenith angle value dividing night
+            from day.  Pixels with SZA > solZenAngCutoff will be considered
+            nighttime pixels.  90 is mathematically correct, values between 
+            are typeically used in practice.  In degrees.
+        dayTime: Boolean variable setting whether the desired output file 
+            will be for the daytime or nighttime.  If set to true, the output
+            file will feature daylight retrievals only.  If set to false, the
+            output will feature night retrievals only.  Note that by most 
+            estimates, daylight retrievals are higher quality.
+        surfTypeField: The string for the field associated with the surface
+            type.  This field is assumed to have integers corresponding to 
+            different surface types.  No effort is made to distinguish 
+            between surface types (only to ensure they are consistent) so 
+            the mapping of integers to physical surface types is irrelevant.
+    '''
+
+
+    
