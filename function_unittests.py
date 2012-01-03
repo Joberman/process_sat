@@ -1579,6 +1579,14 @@ class TestMapGeo(unittest.TestCase):
         for name in maps:
             if not hasattr(map_geo, name+'_map_geo'):
                 raise AssertionError
+            
+    def assertMapsEqual(self, mapper):
+        '''
+        Function to compare the output of the the mapper function to the test
+        dictionary.  Assumes that the parser and test dictionary have been
+        prepped and are stored in the variables laid out in setUp()'''
+        mapDict = mapper(self.parser, self.grid)
+        self.assertEqual(mapDict, self.testMapDict)
     
 
 class Test_regional_intersect(TestMapGeo):
@@ -1795,6 +1803,117 @@ class Test_regional_intersect(TestMapGeo):
         for k in keys:
             self.testMapDict[k] = listEntry
         self.assertEqual(mapDict, self.testMapDict)
+        
+class Test_point_in_cell(TestMapGeo):
+    
+    
+    def setUp(self):
+        TestMapGeo.setUp(self)
+        self.mapper = getattr(map_geo, 'point_in_cell_map_geo')
+        
+    def test_single_pix_inside_cell(self):
+        lat = numpy.array([1.2])
+        lon = numpy.array([2.1])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(1,2)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_mult_pix_inside_cells(self):
+        lat = numpy.array([1.2, 1.9, 1.5])
+        lon = numpy.array([2.1, 2.9, 7.5])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(1,2)] = [((0,), None), ((1,), None)]
+        self.testMapDict[(1,7)] = [((2,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_pixel_on_cell_col_edge(self):
+        '''As laid out in documentation, should go to right-hand cell'''
+        lat = numpy.array([3.1])
+        lon = numpy.array([6.0])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(3,6)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_pixel_on_cell_row_edge(self):
+        '''As laid out in documentation, should go to upper cell'''
+        lat = numpy.array([2.0])
+        lon = numpy.array([4.4])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(2, 4)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_accepts_pixel_on_lower_edge(self):
+        lat = numpy.array([0.0])
+        lon = numpy.array([2.4])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(0,2)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_accepts_pixel_on_left_edge(self):
+        lat = numpy.array([1.2])
+        lon = numpy.array([0.0])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(1,0)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_rejects_pixel_on_upper_edge(self):
+        lat = numpy.array([5])
+        lon = numpy.array([8.3])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.assertMapsEqual(self.mapper)
+        
+    def test_rejects_pixel_on_right_edge(self):
+        lat = numpy.array([4.2])
+        lon = numpy.array([10])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.assertMapsEqual(self.mapper)
+        
+    def test_rejects_exterior_pixels_sides(self):
+        '''Test that pixels "straight out" from the sides are properly rejected'''
+        lat = numpy.array([2.5, 10, 2.5, -10])
+        lon = numpy.array([-15, 5, 15, 5])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.assertMapsEqual(self.mapper)
+        
+    def test_rejects_exterior_pixels_corners(self):
+        '''
+        Test that pixels beyond corners (out of bounds in 2 categories)
+        are properly rejected.
+        '''
+        lat = numpy.array([10, 10, -10, -10])
+        lon = numpy.array([-15, 15, 15, -15])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.assertMapsEqual(self.mapper)
+        
+    def test_arbitrary_index(self):
+        lat = numpy.array([2.3])
+        lon = numpy.array([3.1])
+        ind = numpy.array([[1010, 2020]])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(2,3)] = [((1010,2020), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_2D_array_of_points(self):
+        lat = numpy.array([[0.5, 1.5, 2.5], [3.5, 4.5, 5.5]])
+        lon = numpy.array([[10.5, 8.5, 6.5], [4.5, 2.5, 0.5]])
+        ind = numpy.array([[[0,0], [0,1], [0,2]], [[1,0], [1,1], [1,2]]])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(1,8)] = [((0,1), None)]
+        self.testMapDict[(2,6)] = [((0,2), None)]
+        self.testMapDict[(3,4)] = [((1,0), None)]
+        self.testMapDict[(4,2)] = [((1,1), None)]
+        self.assertMapsEqual(self.mapper)
+        
         
 class TestUtils(unittest.TestCase):
     
