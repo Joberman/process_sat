@@ -62,10 +62,13 @@ class fakeParser(parse_geo.GeoFile):
         get_geo_centers() is called
         """
         # figure out dims of ind
-        indDim = ind.shape[-1] if len(ind.shape)>1 else 1
-        dtype = [('lat', lat.dtype, (1,)),
-                 ('ind', ind.dtype, (indDim,)),
-                 ('lon', lon.dtype, (1,))]
+        if len(ind.shape)==len(lat.shape)+1:
+            indDtype = ('ind', ind.dtype, (ind.shape[-1],))
+        else:
+            indDtype = ('ind', ind.dtype, tuple())
+        dtype = [('lat', lat.dtype, tuple()),
+                 indDtype,
+                 ('lon', lon.dtype, tuple())]
         self._next_centers = numpy.zeros(lat.shape, dtype=dtype)
         self._next_centers['lat'] = lat
         self._next_centers['lon'] = lon
@@ -1584,7 +1587,8 @@ class TestMapGeo(unittest.TestCase):
         '''
         Function to compare the output of the the mapper function to the test
         dictionary.  Assumes that the parser and test dictionary have been
-        prepped and are stored in the variables laid out in setUp()'''
+        prepped and are stored in the variables laid out in setUp()
+        '''
         mapDict = mapper(self.parser, self.grid)
         self.assertEqual(mapDict, self.testMapDict)
     
@@ -3185,7 +3189,7 @@ if __name__ == "__main__":
     unittest.TextTestRunner(verbosity=2).run(testSuite)
 '''  
 if __name__ == '__main__':
-    foo = '__main__.TestMOPPITl2Parser.test_get_cm_retrieves_all_vars'
+    foo = '__main__.Test_point_in_cell.test_mult_pix_inside_cells'
     suite = unittest.defaultTestLoader.loadTestsFromName(foo)
     unittest.TextTestRunner(verbosity=2).run(suite)
 '''

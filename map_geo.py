@@ -115,7 +115,7 @@ def regional_intersect_map_geo(parser, griddef, verbose=True):
                     map[key].append((tuple(pxind), None))
     return map
 
-def point_in_cell_map_geo(parser, griddef, verbose):
+def point_in_cell_map_geo(parser, griddef, verbose=True):
     '''
     For each object, find the single cell to which it should be assigned.
     
@@ -172,7 +172,7 @@ def point_in_cell_map_geo(parser, griddef, verbose):
         for (pxrow, pxcol, pxind) in izip(row, col, ind):
             if minRow <= pxrow <= maxRow and minCol <= pxcol <= maxCol:
                 map[(pxrow, pxcol)].append((tuple(pxind), None))
-    
+    return map
     
     
     
