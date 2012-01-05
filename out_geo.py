@@ -730,7 +730,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             outAvg[outFnames[k]] = v
         return outAvg
     
-class __wght_avg_netCDF(out_func):
+class wght_avg_netCDF(out_func):
     '''
     Generalized weighted average algorithm
     
@@ -786,20 +786,22 @@ class __wght_avg_netCDF(out_func):
             above.  Note that this vector must be set as strings "True" and 
             "False", not as actual boolean values.  
         dimLabels:
-            List of tuples, each of which contains as many strings as there are
+            List of tuple-like strings(delimited by periods with no whitespace),
+            each of which contains as many strings as there are
             extra dimensions in the corresponding field.  IE, if a field has 
             dimensions (xtrack, time, layer, quant) and we allocate along
-            xtrack and time, then the tuple for that field should be 
-            ('layer', 'quant') so that the dimensions are named properly in the
+            xtrack and time, then the tuple-like string for that field should be 
+            "(layer.quant)" so that the dimensions are named properly in the
             otuput netCDF file.  The list (not the individual tuples) must be
             of the same length and co-indexed to the lists above.  Note that 
             the dimensions looped over and allocated to cells in the map_geo
             function DO NOT need to be represented here.
         dimSizes:
-            List of tuples, each of which contains as many integers as there
+            List of tuple-like strings (delimited by periods with no whitespace),
+            each of which contains as many strings (castable to ints) as there
             are extra dimensions in the corresponding field.  IE if the field
             described in dimLabels had dimensions (60, 1300, 9, 4) then the 
-            tuple for that field should be (9, 4).  The list (not the 
+            tuple-like string for that field should be "(9.4)".  The list (not the 
             individual tuples) must be of the same length and co-indexed to the
             lists above.  If the field has no extra dimensions, then an empty 
             tuple should be used as a placeholder.Note that the dimensions 
@@ -878,16 +880,47 @@ class __wght_avg_netCDF(out_func):
             it is guaranteed to be called within a context manager.
     '''
     def __init__(self, parmDict=None):
+        # call ancestor method
         out_func.__init__(self, parmDict)
-        # cast some things from strings to appropriate types
-        for ind in range(len(self.parms['dimSizes'])):
-            try:
-                self.parms['dimSizes'][i] = int(self.parms['dimSizes'][i])
-            except ValueError:
-                print "The value %s is not a valid dimension size. Replacing invalid" \
-                    " value with 0 (no extra dimension" % self.parms['dimSizes'][i]
-                self.parms['dimSizes'][i] = 0
-                continue
+
+        # check that all the lists are teh same length
+        lists = ['outFieldNames', 'outUnits', 'dimLabels', 'dimSizes', 'logNormal']
+        canonicalLength = len(self.parmDict['inFieldNames'])
+        isCorrectLength = [len(self.parmDict[list]) == canonicalLength for list in lists]
+        if not all(isCorrectLength):
+            wrongLength = [name for (name, corr) in izip(lists,isCorrectLength) if not corr]
+            msg = "All lists must be the same length.  The following list lengths do " \
+                "not match the length of inFieldNames: " + ' '.join(wrongLength)
+            raise ValueError(msg)
+
+        # process lists of tuple-like objects into lists of appropriately-typed tuples
+        labelTupLike = self.parmDict['dimLabels']
+        sizeTupLike = self.parmDict['dimSizes']
+        labelTups = [tup.strip('()').split('.') for tup in labelTupLike]
+        sizeStrTups = [tup.strip('()').split('.') for tup in sizeTupLike]
+        # confirm that each tuple is the same size
+        tupsMatch = [len(l) == len(s) for (l,s) in izip(labelTups, sizeStrTups)]
+        if not all(tupsMatch):
+            misMatch = [l+' does not match '+s for (l,s,m) in izip(labelTupLike,sizeTupLike,tupsMatch) if not m]
+            msg = "All tuple-like strings must correspond to tuples of corresponding size. " \
+                "The following sets do not correspond: "+' '.join(misMatch)
+            raise ValueError(msg)
+        # remove empty strings in labels
+        labelTups = [[l for l in labelTup if l !=''] for labelTup in labelTups]
+        # convert sizes to integers
+        try:
+            sizeIntTups = [[int(s) for s in strTup if s != ''] for strTup in sizeStrTups]
+        except ValueError as err:
+            messageWords = err.message.split()
+            uncastable = messageWords[-1].strip("'")
+            msg = "The value %s in the dimSizes argument was not castable to " \
+                "an integer." % uncastable
+            raise ValueError(msg)
+        # put back into parameter dictionary
+        self.parmDict['dimLabels'] = labelTups
+        self.parmDict['dimSizes'] = sizeIntTups
+
+        # process logNormal
         def boolCaster(boolStr):
             if boolStr == 'True':
                 return True
@@ -897,16 +930,16 @@ class __wght_avg_netCDF(out_func):
                 msg = 'Attempt to cast invalid string %s to boolean' % boolStr
                 raise ValueError(msg)
         try:
-            self.parms['logNormal'] = [boolCaster(el) for el in self.parms['logNormal']]
+            self.parmDict['logNormal'] = [boolCaster(el) for el in self.parmDict['logNormal']]
         except ValueError:
             print('Bad string in logNormal.  Must be either "True" or "False". Exiting.')
             raise
+
         # convert all the parameters co-indexed to inFieldNames to dictionaries
         # keyed off of inFieldNames
-        toConvert = ['outFieldNames', 'outUnits', 'dimLabels', 'dimSizes', 'logNormal']
-        inFnames = self.parms['inFieldNames']  
-        for key in toConvert:
-            self.parms[key] = dict(zip(inFnames, self.parms[key]))
+        inFnames = self.parmDict['inFieldNames']  
+        for key in lists:
+            self.parmDict[key] = dict(zip(inFnames, self.parmDict[key]))
         
     def __call__(self, maps, griddef, outfilename, verbose=True):
         '''Write out a weighted-average file in netcdf format.'''
@@ -917,20 +950,19 @@ class __wght_avg_netCDF(out_func):
         nRows = maxRow - minRow + 1
         nCols = maxCol - minCol + 1
         outputArrays = dict()
-        for field in self.parms['inFieldNames']:
-            dims = [nRows, nCols]
-            dims.extend(self.parms['dimSizes'][field])
+        for field in self.parmDict['inFieldNames']:
+            dims = [nRows, nCols] + self.parmDict['dimSizes'][field]
             outputArrays[field] = numpy.zeros(dims)
             
         # prep for computing weights
         wghtDict = dict()  # we only want to compute each weight once
-        wghtFunc = self.parms['weightFunction']
-        filtFunc = self.parms['filterFunction']
+        wghtFunc = self.parmDict['weightFunction']
+        filtFunc = self.parmDict['filterFunction']
         
         # convert the times to the proper format
-        tConvFunc = self.parms['timeConv']
-        timeStart = tConvFunc(self.parms['timeStart'])
-        timeStop = tConvFunc(self.parms['timeStop'])
+        tConvFunc = self.parmDict['timeConv']
+        timeStart = tConvFunc(self.parmDict['timeStart'])
+        timeStop = tConvFunc(self.parmDict['timeStop'])
             
         # loop over maps
         if not isinstance(maps, list):
@@ -950,11 +982,11 @@ class __wght_avg_netCDF(out_func):
                             for (ind, wgt) in pixTups]
                     
                     # create the time array we'll be using to filter
-                    tArray = numpy.array([p.get_cm(self.fnames['time'], ind)
+                    tArray = numpy.array([p.get_cm(self.parmDict['time'], ind)
                                           for (ind, wgt) in pixTups])
-                    if self.parms['timeComparison'] == 'local':
+                    if self.parmDict['timeComparison'] == 'local':
                         offsets = numpy.array([utils.UTCoffset_from_lon(
-                                               p.get_cm(self.fnames['longitude'], ind)) 
+                                               p.get_cm(self.parmDict['longitude'], ind)) 
                                                for (ind, wgt) in pixTups])
                         tArray += offsets
                     tFlag = numpy.logical_or(tArray < timeStart, tArray > timeStop)
@@ -971,20 +1003,26 @@ class __wght_avg_netCDF(out_func):
                     # have their weights included in the denominator of the final
                     # average.
                     wghts = numpy.where(gFlag, numpy.NaN, wghts)
-
+                    
                     # loop over fields.  For each, compute avg and save
-                    for field in self.parms['inFieldNames']:
+                    for field in self.parmDict['inFieldNames']:
                         
                         # create the array of weighted values    
                         vals = numpy.array([p.get_cm(field, ind)
                                             for (ind, wgt) in pixTups])
-                        if self.parms['logNormal'][field] == 'True':
+                        if self.parmDict['logNormal'][field]:
                             vals = numpy.log(vals) # work with logarithm of data
-                        wghtSlice = [Ellipsis]
-                        nExtraDims = len(self.parms['dimSizes'][field])
+
                         # create a slice object that will allow us to broadcast
                         # weights against the values
-                        wghtSlice.extend([numpy.newaxis]*nExtraDims)
+                        extraDims = self.parmDict['dimSizes'][field]
+                        nExtraDims = len(extraDims)
+                        wghtSlice = [Ellipsis]+[numpy.newaxis]*nExtraDims
+
+                        # handle special case where there were no pixels in
+                        # cell
+                        if vals.size == 0:
+                            vals = vals.reshape([0]+extraDims)
 
                         # compute weighted values
                         wghtVals = vals*wghts[wghtSlice]
@@ -999,11 +1037,12 @@ class __wght_avg_netCDF(out_func):
                             wghtValAvg = numpy.NaN
                         
                         # re-exponentiate if we took log average
-                        wghtValAvg = numpy.exp(wghtValAvg)
+                        if self.parmDict['logNormal'][field]:
+                            wghtValAvg = numpy.exp(wghtValAvg)
                         
                         # mask nan's with fillVal, then slot into output array
                         wghtValAvg = numpy.where(numpy.isnan(wghtValAvg),
-                                                 self.parms['fillVal'], 
+                                                 self.parmDict['fillVal'], 
                                                  wghtValAvg)
                         outputArrays[field][cellInd] = wghtValAvg
         
@@ -1024,38 +1063,38 @@ class __wght_avg_netCDF(out_func):
         outFid.createDimension('row', nRows)
         outFid.createDimension('col', nCols)
         # set global attributes
-        setattr(outFid, 'File_start_time', self.parms['timeStart'])
-        setattr(outFid, 'File_stop_time', self.parms['timeStop'])
-        setattr(outFid, 'Time_comparison_scheme', self.parms['timeComparison'])
+        setattr(outFid, 'File_start_time', self.parmDict['timeStart'])
+        setattr(outFid, 'File_stop_time', self.parmDict['timeStop'])
+        setattr(outFid, 'Time_comparison_scheme', self.parmDict['timeComparison'])
         flistStr = ' '.join([map['parser'].name for map in maps])
         setattr(outFid, 'Input_files', flistStr)
         setattr(outFid, 'Weighting_function_description', wghtFunc.__doc__)
         setattr(outFid, 'Filter_function_description', filtFunc.__doc__)
         # add in attributes for the projection
-        setattr(outFid, 'Projection', griddef.__class__.__name[:-8])
-        setattr(outFid, 'Notes', self.parms['notes'])
+        setattr(outFid, 'Projection', griddef.__class__.__name__[:-8])
+        setattr(outFid, 'Notes', self.parmDict['notes'])
         for (k,v) in griddef.parms.iteritems():
             setattr(outFid, k, v)
             
         # loop over fields and write all information for each field
-        for field in self.parms['inFieldNames']:
+        for field in self.parmDict['inFieldNames']:
             
             # create the dimensions in the file
-            extraDimSizes = self.parms['dimSizes'][field]
-            extraDimLabels = self.parms['dimLabels'][field]
+            extraDimSizes = self.parmDict['dimSizes'][field]
+            extraDimLabels = self.parmDict['dimLabels'][field]
             for (size, label) in zip(extraDimSizes, extraDimLabels):
                 outFid.createDimension(label, size)
                 
             # write the variable to file
             vDims = ['row', 'col']
             vDims.extend(extraDimLabels)
-            outFieldName = self.parms['outFieldNames'][field]
+            outFieldName = self.parmDict['outFieldNames'][field]
             varHand = outFid.createVariable(outFieldName, 'd', vDims)
             varHand[:] = outputArrays[field]
             
             # write variable attributes
-            setattr(varHand, 'Units', self.parms['outUnits'][field])
-            setattr(varHand, '_FillValue', self.parms['fillVal'])
+            setattr(varHand, 'Units', self.parmDict['outUnits'][field])
+            setattr(varHand, '_FillValue', self.parmDict['fillVal'])
             
         # flush the output file to disk
         outFid.close()
@@ -1063,10 +1102,10 @@ class __wght_avg_netCDF(out_func):
         # create an output dictionary keyed to output field names
         finalOutArrays = dict()
         for (k,v) in outputArrays.iteritems():
-            finalOutArrays[self.parms['outFieldNames'][k]] = v
+            finalOutArrays[self.parmDict['outFieldNames'][k]] = v
         return finalOutArrays 
             
-class unweighted_filtered_MOPITT_avg_netCDF_out_func(__wght_avg_netCDF):
+class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
     '''
     Output averager designed to work with MOPITT Level 2 data.  Emulates the 
     NASA developed averaging algorithm for level 3 (mostly) faithfully.  
@@ -1087,7 +1126,12 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(__wght_avg_netCDF):
     Again following the NASA algorithm, if pixels containing differing numbers
     of valid levels are present in a single grid cell, only the pixels 
     comprising the majority are retained.  This is tested using the retrieved
-    CO mixing ratio profile field.
+    CO mixing ratio profile field.  Note that this applies to BOTH 3D AND 
+    NON-3D FIELDS.  That is, a surface measurement will still be filtered
+    if the corresponding column measurement does not have the majority number
+    of layers present, EVEN IF NO COLUMN MEASUREMENTS ARE REQUESTED.  Furthermore,
+    all columns are filtered based on the chosen column measurement, even
+    if they have information present in an 'invalid' layer
 
     The user is given the option of averaging each field assuming either a
     normal or log-normal distribution.  This is left to the user's discretion
@@ -1162,28 +1206,34 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(__wght_avg_netCDF):
                               ' variables.  Listed in parameters of output ' \
                               'file.  Must be same length as input fields.  ' \
                               'Input strings for units delimited by commas.',
-                              'list')
+                              'list'),
                 'logNormal' : ('Boolean determining whether or not we wish ' \
                                'to perform the averaging operation in log-' \
                                'space.  Input list of strings "True" or ' \
                                '"False" for each field.  Must be same length' \
                                ' as input fields.  Delimited by commas.', 
-                               'list')                
+                               'list'),                
                 'dimLabels' : ('The names of the extra dimensions in the ' \
                                'output file.  Only used if output variable ' \
-                               'has extra dimensions.  Must be the same ' \
-                               'length as input fields.  Input strings ' \
-                               'delimited by commas.', 'list')
-                'dimSizes' : ('The sizes of the extra dimensions.  Input 0 ' \
-                              'for variables that do not have any extra ' \
-                              'dimensions.  Must be of the same length as ' \
-                              'input fields.  Input as strings that are ' \
-                              'castable to integers, delimited by commas.',
-                              'list')
+                               'has extra dimensions.  Must be a comma-' \
+                               'delimited list of parenthesis-enclosed ' \
+                               'period-delimited strings.  Use empty ' \
+                               'parentheses for fields with no extra ' \
+                               'dimensions.  A correct entry should look ' \
+                               'like this: (),(foo),(),(foo.bar)', 'list'),
+                'dimSizes' : ('The sizes of the extra dimensions.  Only ' \
+                              'used if the output variable has extra ' \
+                              'dimensions.  Must be a comma-delimited list ' \
+                              'of parenthesis-enclosed, period-delimited ' \
+                              'integers.  Overall list (comma-delimited) ' \
+                              'must be same length as input fields.  Use ' \
+                              'empty parentheses for fields with no extra ' \
+                              'dimensions.  A correct entry should look ' \
+                              'like this: (),(4),(),(4.5)', 'list'),
                 'timeStart' : ('The first time to be included (hh:mm:ss ' \
-                               'MM-DD-YYYY).', None)
+                               'MM-DD-YYYY).', None),
                 'timeStop' : ('The final time to be included (hh:mm:ss ' \
-                              'MM-DD-YYYY).', None)
+                              'MM-DD-YYYY).', None),
                 'timeComparison' : ('Selection of how we want to filter ' \
                                     'times.  Valid options are "local" or ' \
                                     '"UTC".  If "local" is selected start ' \
@@ -1191,21 +1241,21 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(__wght_avg_netCDF):
                                     'the approximate local time for each pixel.' \
                                     '  If "UTC" is selected start and stop ' \
                                     'are directly compared to the UTC ' \
-                                    'timestamp of the pixel.', None)
+                                    'timestamp of the pixel.', None),
                 'fillVal' : ('The fill value for cells that do not contain ' \
-                             'valid data.', 'decimal')
+                             'valid data.', 'decimal'),
                 'solZenAngCutoff' : ('The solar zenith angle that defines ' \
                                'day to night transition.  Astronomically ' \
                                'canonical value is 90.  Typically chosen ' \
-                               'between 80 and 85 in practice.', 'decimal')
+                               'between 80 and 85 in practice.', 'decimal'),
                 'solZenAng' : ('The name of the field containing the solar' \
-                               ' zenith angle in degrees.', None)
+                               ' zenith angle in degrees.', None),
                 'dayTime' : ('Boolean variable to determine what time of ' \
                              'day output file will represent.  Must be ' \
                              'either "True" or "False".  If set to "True" ' \
                              'output file will represent the daytime.  If ' \
                              'set to "False" output file will represent the' \
-                             ' nighttime.', None)
+                             ' nighttime.', None),
                 'surfTypeField' : ('The name of the field containing the ' \
                                    'surface type index.', None),
                 'colMeasField' : ('the name of the field containing the ' \
@@ -1213,13 +1263,17 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(__wght_avg_netCDF):
                                   'determine which levels are valid in a ' \
                                   'cell.  Canonically the retrieved CO mixing' \
                                   ' ratio profile field.', None)}
-    def __init__(self, parmDict):
+    def __init__(self, pDict):
         '''Convert input to format of parent input'''
+        # make a shallow copy to the parameter dict, as we'll be making changes
+        # and we don't want to mutate the argument
+        parmDict = dict(pDict)
+
         # add time converter (based on standards we selected and dictated by data)
         def tConvFunc(timeStr):
             # function to conver to TAI93
             epoch = '00:00:00 01-01-1993'
-            format = 'hh:mm:ss MM-DD-YYYY'
+            format = '%H:%M:%S %m-%d-%Y'
             return utils.timestr_to_nsecs(timeStr, epoch, format)
         parmDict['timeConv'] = tConvFunc
         
@@ -1272,8 +1326,13 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(__wght_avg_netCDF):
             in the minority are rejected.  In the case of a tie the pixels with
             more levels present are retained.
             '''
+            # short-circuit an empty indstack because it's a common case that's
+            # difficult to efficiently code for
+            if len(indStack) == 0:
+                return numpy.array([])
+
             # first filter
-            sTypes = [p.get_cm(surfField, ind) for ind in indStack]
+            sTypes = [parser.get_cm(surfField, ind) for ind in indStack]
             uniques = set(sTypes)
             uniqueFracs = [sTypes.count(un)/len(sTypes) for un in uniques]
             cellType = None
@@ -1281,7 +1340,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(__wght_avg_netCDF):
                 # at most one value can meet threshold
                 if frac >= .75:
                     cellType = type
-            if threshold is None:
+            if cellType is None:
                 # none met threshold, all are used
                 sFlag = numpy.array([False]*len(sTypes))
             else:
@@ -1289,7 +1348,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(__wght_avg_netCDF):
                 sFlag = numpy.array([sType != cellType for sType in sTypes])
             
             # second filter
-            columns = [p.get_cm(colMeasField, ind) for ind in indStack]
+            columns = [parser.get_cm(colMeasField, ind) for ind in indStack]
             nValidInCol = numpy.array([col.size - numpy.isnan(col).sum() for col in columns])
             uniqueNvals = set(nValidInCol)
             uniqueCounts = numpy.array([(nValidInCol == val).sum() for val in uniqueNvals])
@@ -1305,4 +1364,4 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(__wght_avg_netCDF):
         parmDict['filterFunction'] = filterFunc
 
         # invoke parent's constructor
-        __wght_avg_netCDF.__init__(parmDict)
+        wght_avg_netCDF.__init__(self, parmDict)

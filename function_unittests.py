@@ -3174,25 +3174,25 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         numpy.testing.assert_array_almost_equal(expected, out)
 
 
-class Test_unwighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
+class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
     
     def setUp(self):
         TestOutGeo.setUp(self)
-        six_el_gridParms = {'xOrig' : 0, 'yOrig' : 0, 'xCell' : 1,
+        self.six_el_gridParms = {'xOrig' : 0, 'yOrig' : 0, 'xCell' : 1,
                             'yCell' : 1, 'nRows' : 2, 'nCols' : 3}
-        self.sixElGr = grid_geo.latlon_GridDef(six_el_gridParms)
+        self.sixElGr = grid_geo.latlon_GridDef(self.six_el_gridParms)
         # initialize the dictionaries empty for all cells.  Only have to change
         # to add actual reference
-        self.MapDict = {'parser' : self.parser, (0,0) : [], (1,0) : [],
+        self.mapDict = {'parser' : self.parser, (0,0) : [], (1,0) : [],
                         (0,1) : [], (1,1) : [], (0,2) : [], (1,2) : []}
         self.pDict = { 'time' : 'time',
                        'longitude' : 'lon',
-                       'inFieldNames' : ['2Dnorm', '3Dnorm', '2Dlog', '3Dlog'],
-                       'outFieldNames' : ['2Dnorm', '3Dnorm', '2Dlog', '3Dlog'],
+                       'inFieldNames' : ['twoDnorm', 'threeDnorm', 'twoDlog', 'threeDlog'],
+                       'outFieldNames' : ['twoDnorm', 'threeDnorm', 'twoDlog', 'threeDlog'],
                        'outUnits' : ['foo', 'bar', 'baz', 'qux'],
                        'logNormal' : ['False', 'False', 'True', 'True'],
-                       'dimLabels' : ['', 'normLayer', '', 'logLayer'],
-                       'dimSizes' : [0, 3, 0, 3],
+                       'dimLabels' : ['()', '(layer)', '()', '(layer)'],
+                       'dimSizes' : ['()', '(3)', '()', '(3)'],
                        'timeStart' : '00:00:00 01-04-2012',
                        'timeStop' : '23:59:59 01-04-2012',
                        'timeComparison' : 'UTC',
@@ -3200,13 +3200,13 @@ class Test_unwighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
                        'solZenAngCutoff' : 85,
                        'solZenAng' : 'SZA',
                        'dayTime' : 'True',
-                       'surfTypeField', 'sType',
-                       'colMeasField' : '3Dnorm' }
-        defaultOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
+                       'surfTypeField': 'sType',
+                       'colMeasField' : 'threeDnorm' }
+        self.defaultOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
         # define a default output function, as we'll be using the same grid, map and outfile 
         # many times.
         self.outFname = (tempfile.mkstemp())[1]
-        self.defaultOutFunc = lambda: defaultOutClass(self.mapDict, self.sixElGr, self.outFname)
+        self.defaultOutFunc = lambda: self.defaultOutClass(self.mapDict, self.sixElGr, self.outFname)
         # create default arrays.  These arrays are defined such that 
         # the values to be averaged are random, and the values that determine
         # the validity of the data show it all to be valid.  Thus, test
@@ -3216,14 +3216,14 @@ class Test_unwighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         self.lon = numpy.zeros_like(self.time)
         self.SZA = numpy.zeros_like(self.time)
         self.sType = numpy.zeros_like(self.time)
-        self.2Dnorm = numpy.random.rand(4,5)
-        self.2Dlog = numpy.random.rand(4,5)
-        self.3Dnorm = numpy.random.rand(4,5,3)
-        self.3Dlog = numpy.random.rand(4,5,3)
+        self.twoDnorm = numpy.random.rand(4,5)
+        self.twoDlog = numpy.random.rand(4,5)
+        self.threeDnorm = numpy.random.rand(4,5,3)
+        self.threeDlog = numpy.random.rand(4,5,3)
         # bind the default arrays into the parser.  they can still be 
         # modified, and these changes will be reflected in what comes
         # back out of the parser.
-        fNames = ['time', 'lon', 'SZA', 'sType', '2Dnorm', '2Dlog', '3Dnorm', '3Dlog']
+        fNames = ['time', 'lon', 'SZA', 'sType', 'twoDnorm', 'twoDlog', 'threeDnorm', 'threeDlog']
         for fn in fNames:
             self.parser.prime_get(fn, getattr(self, fn))
             
@@ -3245,128 +3245,146 @@ class Test_unwighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
 
     def test_2D_norm_results_right_shape_empty_map(self):
         resDict = self.defaultOutFunc()
-        self.assertEqual(resDict['2Dnorm'].shape, (4,5))
+        self.assertEqual(resDict['twoDnorm'].shape, (2,3))
 
     def test_2D_log_results_right_shape_empty_map(self):
         resDict = self.defaultOutFunc()
-        self.assertEqual(resDict['2Dlog'].shape, (4,5))
+        self.assertEqual(resDict['twoDlog'].shape, (2,3))
 
     def test_3D_norm_results_right_shape_empty_map(self):
         resDict = self.defaultOutFunc()
-        self.assertEqual(resDict['3Dnorm'].shape, (4,5,3))
+        self.assertEqual(resDict['threeDnorm'].shape, (2,3,3))
 
     def test_3D_log_results_right_shape_empty_map(self):
         resDict = self.defaultOutFunc()
-        self.assertEqual(resDict['3Dlog'].shape, (4,5,3))
+        self.assertEqual(resDict['threeDlog'].shape, (2,3,3))
 
     def test_2D_norm_results_right_shape_non_empty_map(self):
         self.mapDict[(0,0)] = [((2,3), None)]
         self.mapDict[(1,2)] = [((3,4), None), ((0,0), None)]
         resDict = self.defaultOutFunc()
-        self.assertEqual(resDict['2Dnorm'].shape, (4,5))
+        self.assertEqual(resDict['twoDnorm'].shape, (2,3))
 
     def test_2D_log_results_right_shape_non_empty_map(self):
         self.mapDict[(0,0)] = [((2,3), None)]
         self.mapDict[(1,2)] = [((3,4), None), ((0,0), None)]
         resDict = self.defaultOutFunc()
-        self.assertEqual(resDict['2Dlog'].shape, (4,5))
+        self.assertEqual(resDict['twoDlog'].shape, (2,3))
 
     def test_3D_norm_results_right_shape_non_empty_map(self):
         self.mapDict[(0,0)] = [((2,3), None)]
         self.mapDict[(1,2)] = [((3,4), None), ((0,0), None)]
         resDict = self.defaultOutFunc()
-        self.assertEqual(resDict['3Dnorm'].shape, (4,5,3))
+        self.assertEqual(resDict['threeDnorm'].shape, (2,3,3))
 
     def test_3D_log_results_right_shape_non_empty_map(self):
         self.mapDict[(0,0)] = [((2,3), None)]
         self.mapDict[(1,2)] = [((3,4), None), ((0,0), None)]
         resDict = self.defaultOutFunc()
-        self.assertEqual(resDict['3Dlog'].shape, (4,5,3))
+        self.assertEqual(resDict['threeDlog'].shape, (2,3,3))
 
     def test_single_valid_pixel_2D_norm(self):
         self.mapDict[(1,2)] = [((2,3), None)]
-        expected = self.2Dnorm[2,3]
+        expected = self.twoDnorm[2,3]
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
     def test_single_valid_pixel_2D_log(self):
         self.mapDict[(1,2)] = [((2,3), None)]
-        expected = self.2Dlog[2,3]
+        expected = self.twoDlog[2,3]
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dlog'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDlog'][1,2], expected)
 
     def test_single_valid_pixel_3D_norm(self):
         self.mapDict[(1,2)] = [((2,3), None)]
-        expected = self.3Dnorm[2,3,:]
+        expected = self.threeDnorm[2,3,:]
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
         
     def test_single_valid_pixel_3D_log(self):
         self.mapDict[(1,2)] = [((2,3), None)]
-        expected = self.3Dlog[2,3,:]
+        expected = self.threeDlog[2,3,:]
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dlog'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
 
     def test_two_valid_pixel_2D_norm(self):
         self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
-        self.2Dnorm[2,3] = 4.2
-        self.2Dnorm[2,4] = 4.9
+        self.twoDnorm[2,3] = 4.2
+        self.twoDnorm[2,4] = 4.9
         expected = 4.55
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
     def test_two_valid_pixel_2D_log(self):
         self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
-        self.2Dlog[2,3] = 4.2
-        self.2Dlog[2,4] = 4.9
+        self.twoDlog[2,3] = 4.2
+        self.twoDlog[2,4] = 4.9
         expected = 4.53651848888
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dlog'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDlog'][1,2], expected)
 
     def test_two_valid_pixel_3D_norm(self):
         self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
-        self.3Dnorm[2,3,:] = numpy.array([1.9, 2.7, 3.1, 4.8])
-        self.3Dnorm[2,4,:] = numpy.array([1.7, 2.4, 5.1, 0.4])
+        self.threeDnorm[2,3,:] = numpy.array([1.9, 2.7, 3.1])
+        self.threeDnorm[2,4,:] = numpy.array([1.7, 2.4, 5.1])
         expected = [1.8, 2.55, 4.1, 2.6]
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_two_valid_pixel_3D_log(self):
         self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
-        self.3Dlog[2,3,:] = numpy.array([1.9, 2.7, 3.1, 4.8])
-        self.3Dlog[2,4,:] = numpy.array([1.7, 2.4, 5.1, 0.4])
+        self.threeDlog[2,3,:] = numpy.array([1.9, 2.7, 3.1])
+        self.threeDlog[2,4,:] = numpy.array([1.7, 2.4, 5.1])
         expected = [1.630950643030, 2.545584412271, 
                     3.9761790704142, 1.385640646055]
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dlog'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
 
     def test_zero_weight_if_SZA_gt_thresh_2D_norm(self):
         self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
         self.SZA[2,4] = 100
-        expected = self.2Dnorm[2,3]
+        expected = self.twoDnorm[2,3]
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
         
     def test_zero_weight_if_SZA_gt_thresh_2D_log(self):
         self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
         self.SZA[2,4] = 100
-        expected = self.2Dlog[2,3]
+        expected = self.twoDlog[2,3]
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dlog'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDlog'][1,2], expected)
 
     def test_zero_weight_if_SZA_gt_thresh_3D_norm(self):
         self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
         self.SZA[2,4] = 100
-        expected = self.3Dnorm[2,3,:]
+        expected = self.threeDnorm[2,3,:]
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_zero_weight_if_SZA_gt_thresh_3D_log(self):
         self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
         self.SZA[2,4] = 100
-        expected = self.3Dlog[2,3,:]
+        expected = self.threeDlog[2,3,:]
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dlog'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
+
+    def test_properly_flips_SZA_when_night_specified_2D(self):
+        self.pDict['dayTime'] = 'False'
+        newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.SZA[2,4] = 100
+        expected = self.twoDnorm[2,4]
+        resDict = newOutClass(self.mapDict, self.sixElGr, self.outFname)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_properly_flips_SZA_when_night_specified_3D(self):
+        self.pDict['dayTime'] = 'False'
+        newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.SZA[2,4] = 100
+        expected = self.threeDnorm[2,4,:]
+        resDict = newOutClass(self.mapDict, self.sixElGr, self.outFname)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_screen_out_bad_sTypes_2D(self):
         self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), 
@@ -3375,12 +3393,12 @@ class Test_unwighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         self.sType[0,0] = 1
         self.sType[0,1] = 2
         expected = numpy.random.rand()
-        self.2Dnorm[0,2] = expected
+        self.twoDnorm[0,2] = expected
         for i in [0,1,2]:
-            self.2Dnorm[1,i] = expected-i
-            self.2Dnorm[2,i] = expected+i
+            self.twoDnorm[1,i] = expected-i
+            self.twoDnorm[2,i] = expected+i
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
     def test_screen_out_bad_sTypes_3D(self):
         self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), 
@@ -3388,173 +3406,173 @@ class Test_unwighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
                                ((2,0), None), ((2,1), None), ((2,2), None)]
         self.sType[0,0] = 1
         self.sType[0,1] = 2
-        expected = numpy.random.rand(4)
-        self.3Dnorm[0,2,:] = expected
+        expected = numpy.random.rand(3)
+        self.threeDnorm[0,2,:] = expected
         for i in [0,1,2]:
-            self.3Dnorm[1,i,:] = expected-i
-            self.3Dnorm[2,i,:] = expected+i
+            self.threeDnorm[1,i,:] = expected-i
+            self.threeDnorm[2,i,:] = expected+i
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_use_all_sTypes_if_no_threshold_met_2D(self):
         self.mapDict[(1,2)] = [((3,1), None), ((3,2), None), ((3,3), None), ((3,4), None)]
         self.sType[3,1] = 10
-        self.stype[3,2] = 100
+        self.sType[3,2] = 100
         expected = numpy.random.rand()
-        self.2Dnorm[3,1] = expected+1
-        self.2Dnorm[3,2] = expected+1
-        self.2Dnorm[3,3] = expected+1
-        self.2Dnorm[3,4] = expected-3
+        self.twoDnorm[3,1] = expected+1
+        self.twoDnorm[3,2] = expected+1
+        self.twoDnorm[3,3] = expected+1
+        self.twoDnorm[3,4] = expected-3
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
         
     def test_use_all_sTypes_if_no_threshold_met_3D(self):
         self.mapDict[(1,2)] = [((3,1), None), ((3,2), None), ((3,3), None), ((3,4), None)]
         self.sType[3,1] = 10
-        self.stype[3,2] = 100
-        expected = numpy.random.rand(4)
-        self.3Dnorm[3,1,:] = expected+1
-        self.3Dnorm[3,2,:] = expected+1
-        self.3Dnorm[3,3,:] = expected+1
-        self.3Dnorm[3,4,:] = expected-3
+        self.sType[3,2] = 100
+        expected = numpy.random.rand(3)
+        self.threeDnorm[3,1,:] = expected+1
+        self.threeDnorm[3,2,:] = expected+1
+        self.threeDnorm[3,3,:] = expected+1
+        self.threeDnorm[3,4,:] = expected-3
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_screen_properly_on_exactly_threshold_2D(self):
         self.mapDict[(1,2)] = [((3,0), None), ((3,1), None), ((3,2), None), ((3,4), None)]
         self.sType[3,4] = -1
         expected = numpy.random.rand()
-        self.2Dnorm[3,0] = expected*1.5
-        self.2Dnorm[3,1] = expected*.5
-        self.2Dnorm[3,2] = expected
+        self.twoDnorm[3,0] = expected*1.5
+        self.twoDnorm[3,1] = expected*.5
+        self.twoDnorm[3,2] = expected
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
     def test_screen_properly_on_exactly_threshold_3D(self):
         self.mapDict[(1,2)] = [((3,0), None), ((3,1), None), ((3,2), None), ((3,4), None)]
         self.sType[3,4] = -1
-        expected = numpy.random.rand(4)
-        self.3Dnorm[3,0,:] = expected*1.5
-        self.3Dnorm[3,1,:] = expected*0.5
-        self.3Dnorm[3,2,:] = expected
+        expected = numpy.random.rand(3)
+        self.threeDnorm[3,0,:] = expected*1.5
+        self.threeDnorm[3,1,:] = expected*0.5
+        self.threeDnorm[3,2,:] = expected
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_screen_out_minority_levels_when_fewer_2D(self):
         self.mapDict[(1,2)] = [((0,0), None), ((1,0), None), ((2,0), None)]
-        self.3Dnorm[0,0,3] = numpy.NaN
-        expected = numpy.random.rand
-        self.2Dnorm[1,0] = expected+3.5
-        self.2Dnorm[2,0] = expected-3.5
+        self.threeDnorm[0,0,2] = numpy.NaN
+        expected = numpy.random.rand()
+        self.twoDnorm[1,0] = expected+3.5
+        self.twoDnorm[2,0] = expected-3.5
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
     def test_screen_out_minority_levels_when_fewer_3D_same(self):
         self.mapDict[(1,2)] = [((0,0), None), ((1,0), None), ((2,0), None)]
-        self.3Dnorm[0,0,3] = numpy.NaN
-        expected = numpy.random.rand(4)
-        self.3Dnorm[1,0,:] = expected+numpy.array([3.5, 4.5, 5.5, 6.5])
-        self.3Dnorm[2,0,:] = expected-numpy.array([3.5, 4.5, 5.5, 6.5])
+        self.threeDnorm[0,0,2] = numpy.NaN
+        expected = numpy.random.rand(3)
+        self.threeDnorm[1,0,:] = expected+numpy.array([3.5, 4.5, 5.5])
+        self.threeDnorm[2,0,:] = expected-numpy.array([3.5, 4.5, 5.5])
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_screen_out_minority_levels_when_fewer_3D_diff(self):
-        self.pDict['colMeasField'] = '3Dlog'
+        self.pDict['colMeasField'] = 'threeDlog'
         newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
-        self.mapDict[(1,2)] = [((0,0), None), ((1,0), None), ((2.0), None)]
-        self.3Dlog[0,0,3] = numpy.NaN
-        expected = numpy.random.rand(4)
-        self.3Dnorm[1,0,:] = expected+numpy.array([3.5, 4.5, 5.5, 6.5])
-        self.3Dnorm[2,0,:] = expected-numpy.array([3.5, 4.5, 5.5, 6.5])
+        self.mapDict[(1,2)] = [((0,0), None), ((1,0), None), ((2,0), None)]
+        self.threeDlog[0,0,2] = numpy.NaN
+        expected = numpy.random.rand(3)
+        self.threeDnorm[1,0,:] = expected+numpy.array([3.5, 4.5, 5.5])
+        self.threeDnorm[2,0,:] = expected-numpy.array([3.5, 4.5, 5.5])
         resDict = newOutClass(self.mapDict, self.sixElGr, self.outFname)
-        numpy.testing.assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_screen_out_minority_levels_when_greater_2D(self):
         self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
-        self.3Dnorm[0,0,3] = numpy.NaN
-        self.3Dnorm[0,1,3] = numpy.NaN
+        self.threeDnorm[0,0,2] = numpy.NaN
+        self.threeDnorm[0,1,2] = numpy.NaN
         expected = numpy.random.rand()
-        self.2Dnorm[0,0] = expected+1
-        self.2Dnorm[0,1] = expected-1
+        self.twoDnorm[0,0] = expected+1
+        self.twoDnorm[0,1] = expected-1
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
     def test_screen_out_minority_levels_when_greater_3D_same(self):
         self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
-        expected = numpy.random.rand(4)
+        expected = numpy.random.rand(3)
         expected[-1] = numpy.NaN
-        self.3Dnorm[0,0,:] = expected+1
-        self.3Dnorm[0,1,:] = expected-1
+        self.threeDnorm[0,0,:] = expected+1
+        self.threeDnorm[0,1,:] = expected-1
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_screen_out_minority_levels_when_greater_3D_diff(self):
-        self.pDict['colMeasField'] = '3Dlog'
+        self.pDict['colMeasField'] = 'threeDlog'
         newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
         self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
-        self.3Dlog[0,0,3] = numpy.NaN
-        self.3Dlog[0,1,3] = numpy.NaN
-        expected = numpy.random.rand(4)
+        self.threeDlog[0,0,2] = numpy.NaN
+        self.threeDlog[0,1,2] = numpy.NaN
+        expected = numpy.random.rand(3)
         expected[-1] = numpy.NaN
-        self.3Dnorm[0,0,:] = expected+1
-        self.3Dnorm[0,1,:] = expected-1
+        self.threeDnorm[0,0,:] = expected+1
+        self.threeDnorm[0,1,:] = expected-1
         resDict = newOutClass(self.mapDict, self.sixElGr, self.outFname)
-        numpy.testing.assert_array_almost_equal(resdict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_screen_properly_in_tie_2D(self):
         self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
-        self.3Dnorm[0,1,3] = numpy.NaN
-        self.3Dnorm[0,2,2] = numpy.NaN
-        self.3Dnorm[0,2,3] = numpy.NaN
-        expected = self.2Dnorm[0,0]
+        self.threeDnorm[0,1,2] = numpy.NaN
+        self.threeDnorm[0,2,1] = numpy.NaN
+        self.threeDnorm[0,2,2] = numpy.NaN
+        expected = self.twoDnorm[0,0]
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'][0,0], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][0,0], expected)
 
     def test_screen_properly_in_tie_3D_same(self):
-        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None])
-        self.3Dnorm[0,1,3] = numpy.NaN
-        self.3Dnorm[0,2,2] = numpy.NaN
-        self.3Dnorm[0,2,3] = numpy.NaN
-        expected = self.3Dnorm[0,0,:]
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
+        self.threeDnorm[0,1,2] = numpy.NaN
+        self.threeDnorm[0,2,1] = numpy.NaN
+        self.threeDnorm[0,2,2] = numpy.NaN
+        expected = self.threeDnorm[0,0,:]
         resDict = self.defaultOutFunc()
-        numpy.testing_assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
         
     def test_screen_properly_in_tie_3D_diff(self):
-        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None])
-        self.3Dnorm[0,1,3] = numpy.NaN
-        self.3Dnorm[0,2,2] = numpy.NaN
-        self.3Dnorm[0,2,3] = numpy.NaN
-        expected = self.3Dlog[0,0,:]
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
+        self.threeDnorm[0,1,2] = numpy.NaN
+        self.threeDnorm[0,2,1] = numpy.NaN
+        self.threeDnorm[0,2,2] = numpy.NaN
+        expected = self.threeDlog[0,0,:]
         resDict = self.defaultOutFunc()
-        numpy.testing_assert_array_almost_equal(resDict['3Dlog'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
 
     def test_screen_out_UTC_times_earlier_than_start_2D(self):
         self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
         self.time[2,3] = self.toTAI93('12:00:00 01-03-2012')
-        expected = self.2Dnorm[2,2]
+        expected = self.twoDnorm[2,2]
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
     def test_screen_out_UTC_times_earlier_than_start_3D(self):
         self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
         self.time[2,3] = self.toTAI93('12:00:00 01-03-2012')
-        expected = self.3Dnorm[2,2,:]
+        expected = self.threeDnorm[2,2,:]
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_screen_out_UTC_times_later_than_stop_2D(self):
         self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
         self.time[2,3] = self.toTAI93('12:00:00 01-05-2012')
-        expected = self.2Dnorm[2,2]
+        expected = self.twoDnorm[2,2]
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
     def test_screen_out_UTC_times_later_than_stop_3D(self):
         self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
         self.time[2,3] = self.toTAI93('12:00:00 01-05-2012')
-        expected = self.3Dnorm[2,2,:]
+        expected = self.threeDnorm[2,2,:]
         resDict = self.defaultOutFunc()
-        numpy.testing.assert_array_almost_equal(resDict['3Dnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
     def test_UTC_time_does_not_account_for_lon(self):
         self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
@@ -3562,9 +3580,9 @@ class Test_unwighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         self.time[2,3] = self.toTAI93('22:00:00 01-03-2012')
         self.lon[2,3] = -150
         self.lon[2,3] = 150
-        expected = self.2Dnorm[2,2]
+        expected = self.twoDnorm[2,2]
         resDict = self.defaultOutFunc()
-        self.assertAlmostEqual(resDict['2Dnorm'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
     def test_local_time_does_account_for_lon(self):
         self.pDict['timeComparison'] = 'local'
@@ -3574,13 +3592,375 @@ class Test_unwighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         self.time[2,3] = self.toTAI93('22:00:00 01-03-2012')
         self.lon[2,3] = -150
         self.lon[2,3] = 150
-        expected = self.2Dnorm[2,3]
+        expected = self.twoDnorm[2,3]
         resDict = newOutClass(self.mapDict, self.sixElGr, self.outFname)        
-        self.assertAlmostEqual(resDict['2Dnorm'][1,2], expected)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
+    def test_time_and_flag_still_zero_out_pixel_2D(self):
+        self.mapDict[(1,2)] = [((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.SZA[0,1] = 100
+        self.SZA[0,3] = 100
+        self.time[0,2] = self.toTAI93('12:00:00 02-04-2012')
+        self.time[0,3] = self.toTAI93('12:00:00 02-04-2012')
+        expected = self.twoDnorm[0,4]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
-    # TODO: test from zero_weight_if_mult_problems on down and if parameters are operational
+    def test_time_and_flag_still_zero_out_pixel_3D(self):
+        self.mapDict[(1,2)] = [((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.SZA[0,1] = 100
+        self.SZA[0,3] = 100
+        self.time[0,2] = self.toTAI93('12:00:00 02-04-2012')
+        self.time[0,3] = self.toTAI93('12:00:00 02-04-2012')
+        expected = self.threeDnorm[0,4,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
 
+    def test_time_and_filter_still_zero_out_pixel_2D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.sType[0,4] = 1
+        self.time[0,4] = self.toTAI93('12:00:00 01-05-2012')
+        expected = numpy.random.rand()
+        self.twoDnorm[0,0] = expected+5
+        self.twoDnorm[0,1] = expected-2
+        self.twoDnorm[0,2] = expected-2
+        self.twoDnorm[0,3] = expected-1
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_time_and_filter_still_zero_out_pixel_3D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.sType[0,4] = 1
+        self.time[0,4] = self.toTAI93('12:00:00 01-05-2012')
+        expected = numpy.random.rand(3)
+        self.threeDnorm[0,0,:] = expected+5
+        self.threeDnorm[0,1,:] = expected-2
+        self.threeDnorm[0,2,:] = expected-2
+        self.threeDnorm[0,3,:] = expected-1
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_both_filter_still_zero_out_pixel_2D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.sType[0,4] = 1
+        self.threeDnorm[0,4,2] = numpy.NaN
+        expected = numpy.random.rand()
+        self.twoDnorm[0,0] = expected
+        self.twoDnorm[0,1] = expected-3
+        self.twoDnorm[0,2] = expected+1
+        self.twoDnorm[0,3] = expected+2
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_both_filter_still_zero_out_pixel_3D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.sType[0,4] = 1
+        self.threeDnorm[0,4,2] = numpy.NaN
+        expected = numpy.random.rand()
+        self.threeDnorm[0,0,:] = expected
+        self.threeDnorm[0,1,:] = expected-3
+        self.threeDnorm[0,2,:] = expected+2
+        self.threeDnorm[0,3,:] = expected+1
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_all_zero_weight_yields_fillVal_2D(self):
+        self.mapDict[(1,2)] = [((1,0), None), ((1,1), None)]
+        self.SZA[1,0] = 130
+        self.time[1,1] = self.toTAI93('12:00:00 01-05-2012')
+        expected = self.pDict['fillVal']
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'], expected)
+
+    def test_all_zero_weight_yields_fillVal_3D(self):
+        self.mapDict[(1,2)] = [((1,0), None), ((1,1), None)]
+        self.SZA[1,0] = 130
+        self.time[1,1] = self.toTAI93('12:00:00 01-05-2012')
+        expected = numpy.array([self.pDict['fillVal']]*4)
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_all_zero_weight_plus_NaN_in_data_yields_fillVal_2D(self):
+        self.mapDict[(1,2)] = [((1,0), None), ((1,1), None)]
+        self.SZA[1,0] = 130
+        self.time[1,1] = self.toTAI93('12:00:00 01-05-2012')
+        self.twoDnorm[1,0] = numpy.NaN
+        self.twoDnorm[2,0] = numpy.NaN
+        expected = self.pDict['fillVal']
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_all_zero_weight_plus_NaN_in_data_yields_fillVal_3D(self):
+        self.mapDict[(1,2)] = [((1,0), None), ((1,1), None)]
+        self.SZA[1,0] = 130
+        self.time[1,1] = self.toTAI93('12:00:00 01-05-2012')
+        self.threeDnorm[1,0,2] = numpy.NaN
+        self.threeDnorm[1,1,2] = numpy.NaN
+        expected = numpy.array([self.pDict['fillVal']]*3)
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_NaN_in_data_with_zero_weight_does_not_affect_avg_2D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.SZA[2,3] = 100
+        self.twoDnorm[2,3] = numpy.NaN
+        expected = self.twoDnorm[2,2]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_NaN_in_data_with_zero_weight_does_not_affect_avg_3D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.SZA[2,3] = 100
+        self.threeDnorm[2,3,:] = numpy.array([numpy.NaN]*3)
+        expected = self.threeDnorm[2,2,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_no_pixels_in_cell_yields_fillVal_2D(self):
+        expected = self.pDict['fillVal']
+        resDict = self.defaultOutFunc()
+        self.assertEqual(resDict['twoDnorm'][1,2], expected)
+        
+    def test_no_pixels_in_cell_yields_fillVal_3D(self):
+        expected = numpy.array([self.pDict['fillVal']]*3)
+        resdict = self.defaultOutFunc()
+        numpy.testing.assert_array_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_correctly_map_to_multiple_cells_simultaneously_2D(self):
+        self.mapDict[(1,0)] = [((2,0), None), ((2,1), None)]
+        self.mapDict[(1,1)] = [((2,1), None), ((2,2), None)]
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.SZA[2,1] = 100
+        self.time[2,3] = self.toTAI93('12:00:00 01-06-2012')
+        expected = numpy.array([self.twoDnorm[2,0], self.twoDnorm[2,2], self.twoDnorm[2,2]])
+        resDict= self.defaultOutFunc()
+        output = numpy.array([resDict['twoDnorm'][1,0], resDict['twoDnorm'][1,1], resDict['twoDnorm'][1,2]])
+        numpy.testing.assert_array_almost_equal(output, expected)
+
+    def test_correctly_map_to_multiple_cells_simultaneously_3D(self):
+        self.mapDict[(1,0)] = [((2,0), None), ((2,1), None)]
+        self.mapDict[(1,1)] = [((2,1), None), ((2,2), None)]
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.SZA[2,1] = 100
+        self.time[2,3] = self.toTAI93('12:00:00 01-06-2012')
+        expected = numpy.array([self.threeDnorm[2,0,:], self.threeDnorm[2,2,:], self.threeDnorm[2,2,:]])
+        resDict = self.defaultOutFunc()
+        output = numpy.array([resDict['threeDnorm'][1,0,:], resDict['threeDnorm'][1,1,:], resDict['threeDnorm'][1,2,:]])
+        numpy.testing.assert_array_almost_equal(output, expected)
+
+    def test_multidict_one_zero_weight_2D_norm(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        expected = self.twoDnorm[2,2]
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+        
+    def test_multi_dict_one_zero_weight_2D_log(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        expected = self.twoDlog[2,2]
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname)
+        self.assertAlmostEqual(resDict['twoDlog'][1,2], expected)
+
+    def test_multi_dict_one_zero_weight_3D_norm(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        expected = self.threeDnorm[2,2,:]
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_multi_dict_one_zero_weight_3D_log(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        expected = self.threeDlog[2,2,:]
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname)
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
+
+    def test_multidict_two_valid_pix_2D_norm(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.twoDnorm[2,2] = 1.1
+        self.twoDnorm[2,3] = 1.2
+        expected = 1.15
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_multidict_two_valid_pix_2D_log(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.twoDlog[2,2] = 2
+        self.twoDlog[2,3] = 50
+        expected = 10
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname)
+        self.assertAlmostEqual(resDict['twoDlog'][1,2], expected)
+
+    def test_multidict_two_valid_pix_3D_norm(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        expected = numpy.random.rand(3)
+        self.threeDnorm[2,2,:] = expected+2
+        self.threeDnorm[2,3,:] = expected-2
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_multidict_two_valid_pix_3D_log(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        expected = numpy.random.rand(3)
+        self.threeDlog[2,2,:] = expected*2
+        self.threeDlog[2,3,:] = expected/2
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname)
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
+
+    def test_output_file_is_netcdf(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        # passes if no exception is raised during this step
+
+    def test_output_file_contains_start_time(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.File_start_time, self.pDict['timeStart'])
+
+    def test_output_file_contains_stop_time(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.File_stop_time, self.pDict['timeStop'])
+
+    def test_output_file_contains_grid_name(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.Projection, 'latlon')
+        
+    def test_output_file_contains_tComp(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.time_comparison_scheme, self.pDict['timeComparison'])
+
+    def test_output_file_contains_notes(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.time_comparison_scheme, 'All values daytime with cutoff at  85.00')
+
+    def test_output_file_contains_input_file_list(self):
+        mapDict2 = dict(self.mapDict)
+        parser2 = fakeParser('bar.dat')
+        mapDict2['parser'] = parser2
+        dictList = [self.mapDict, mapDict2]
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.Input_files, 'foo.dat bar.dat')
+
+    def test_output_file_contains_gridParms(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        keys = self.six_el_gridParms.keys()
+        expected = dict()
+        for key in keys:
+            expected[key] = getattr(self.fid, key)
+        self.assertDictEqual(self.six_el_gridParms, expected)
+
+    def test_output_file_has_correct_dims_and_dimsizes(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        expectedDims = {'row' : 4, 'col' : 5, 'layer' : 3}
+        self.assertDictEqual(self.fid.dimensions, expectedDims)
+
+    def test_output_file_has_correct_variables(self):
+        expected = ['foo', 'bar', 'baz', 'qux']
+        self.pDict['outFieldNames'] = expected
+        newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
+        unused_result = newOutClass(self.mapDict, self.sixElGr, self.outFname)
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertItemsEqual(self.fid.variables.keys(), expected)
+
+    def test_output_file_has_correctly_documented_units(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        varNames = self.pDict['outFieldNames']
+        expected = self.pDict['outUnits']
+        output = [self.fid.variables[var].Units for var in varNames]
+        self.assertListEqual(output, expected)
+
+    def test_output_file_has_correctly_documented_fillVals(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        varNames = self.pDict['outFieldNames']
+        expected = [self.pDict['fillVal']]*4
+        output = [self.fid.variables[var]._FillValue for var in varNames]
+        self.assertListEqual(output, expected)
+
+    def test_output_file_variables_correct_shape(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        varNames = self.pDict['outFieldNames']
+        expected = [(4,5), (4,5,3), (4,5), (4,5,3)]
+        output = [self.fid.variables[var].shape for var in varNames]
+        self.assertListEqual(output, expected)
+
+    def test_output_correctly_writes_valid_values_2D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        expected = numpy.random.rand()
+        self.twoDnorm[2,2] = expected+1
+        self.twoDnorm[2,3] = expected-1
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertAlmostEqual(self.fid.variables['twoDnorm'][1,2], expected)
+
+    def test_output_correctly_writes_valid_values_3D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        expected = numpy.random.rand(3)
+        self.threeDnorm[2,2,:] = expected+1
+        self.threeDnorm[2,3,:] = expected-1
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:], expected)
+
+    def test_output_correctly_writes_fillVal_2D(self):
+        self.mapDict[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        expected = self.pDict['fillVal']
+        self.assertEqual(self.fid.variables['twoDnorm'][1,2], expected)
+
+    def test_output_correctly_writes_full_fillVal_3D(self):
+        self.mapDict[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        expected = numpy.array([self.pDict['fillVal']]*4)
+        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:], expected)
+
+    def test_output_correctly_writes_partial_fillVal_3D(self):
+        self.mapDict[(1,2)] = [((2,3), None)]
+        self.threeDnorm[2,3,2] = numpy.NaN
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        expected = self.threeDnorm[2,3,:]
+        expected[2] = self.pDict['fillVal']
+        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:], expected)
+        
 def get_full_test_suite():
     thisMod = sys.modules['__main__']
     testClasses = [getattr(thisMod, clsName) for clsName 
@@ -3601,7 +3981,7 @@ if __name__ == "__main__":
     unittest.TextTestRunner(verbosity=2).run(testSuite)
 '''  
 if __name__ == '__main__':
-    foo = '__main__.Test_point_in_cell.test_mult_pix_inside_cells'
+    foo = '__main__.Test_unwighted_filtered_MOPITT_avg_netCDF_out_func.test_2D_log_results_right_shape_empty_map'
     suite = unittest.defaultTestLoader.loadTestsFromName(foo)
     unittest.TextTestRunner(verbosity=2).run(suite)
 '''
