@@ -3588,9 +3588,9 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         self.pDict['timeComparison'] = 'local'
         newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
         self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
-        self.time[2,3] = self.toTAI93('02:00:00 01-04-2012')
+        self.time[2,2] = self.toTAI93('02:00:00 01-04-2012')
         self.time[2,3] = self.toTAI93('22:00:00 01-03-2012')
-        self.lon[2,3] = -150
+        self.lon[2,2] = -150
         self.lon[2,3] = 150
         expected = self.twoDnorm[2,3]
         resDict = newOutClass(self.mapDict, self.sixElGr, self.outFname)        
