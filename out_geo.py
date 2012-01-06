@@ -170,7 +170,7 @@ class OMNO2e_wght_avg_out_func(out_func):
             retDict[key] = geo_io.get_val(dflt, pmpt, limFunc=lim, cast=cast)
         return retDict
     
-    def __call__(self, maps, griddef, outfilename):
+    def __call__(self, maps, griddef, outfilename, verbose=True):
         '''Write out single weighted-avg file'''
         numpy.seterr(over='raise')
         nRows = griddef.indLims()[1] - griddef.indLims()[0] + 1
@@ -181,8 +181,9 @@ class OMNO2e_wght_avg_out_func(out_func):
             maps = [maps] # create list if we didn't get one
         for map in maps:
             with map.pop('parser') as p: # pop out so we can loop
-                print('Processing %s for output at %s.' % 
-                      (p.name, str(datetime.datetime.now())))
+                if verbose:
+                    print('Processing %s for output at %s.' % 
+                          (p.name, str(datetime.datetime.now())))
                 for (k,v) in map.iteritems():
                     sumFlag = numpy.array([p.get_cm(self.parmDict['overallQualFlag'], pxind)
                                             for (pxind, unused_weight) in v])
@@ -542,7 +543,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
 
         return retDict
     
-    def __call__(self, maps, griddef, outfilename):
+    def __call__(self, maps, griddef, outfilename, verbose=False):
         '''Write out a weighted-average file in netcdf format.'''
         dimsizes = self.parmDict['extraDimSize']
         for i in range(len(dimsizes)):
@@ -605,8 +606,9 @@ class OMNO2e_netCDF_avg_out_func(out_func):
         for map in maps:
             # open up context manager
             with map.pop('parser') as p: # remove parser for looping
-                print('Processing %s for output at %s.' %
-                      (p.name, str(datetime.datetime.now())))
+                if verbose:
+                    print('Processing %s for output at %s.' %
+                          (p.name, str(datetime.datetime.now())))
                 # loop over gridboxes in map and calculate weights
                 for (gridCell, pixTup) in map.iteritems():
                     # translate gridCell to account for possible non-zero ll corner
@@ -715,7 +717,8 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 # has extra dim
                 dimName = extraDim[field]
                 dimSize = avgs[field].shape[2]
-                outFid.createDimension(dimName, dimSize)
+                if dimName not in outFid.dimensions.keys():
+                    outFid.createDimension(dimName, dimSize)
                 varDims = ('row', 'col', dimName)
             # create and assign value to variable
             varHandle = outFid.createVariable(outFnames[field], 'd', varDims)
@@ -747,6 +750,14 @@ class wght_avg_netCDF(out_func):
     security problems posed by allowing users to input functions to be 
     evaluated, this output function does not support the I/O interface at this
     time.  It is designed to subclassed.
+
+    This function (and therefore subclasses of this function) at present can
+    only handle a single input map.  It may be extended to properly handle 
+    multiple input maps at some point in the future, but this is difficult
+    because the filter function is expected to apply to all pixels in the cell
+    (which would require looping over all the maps to find all the pixels)
+    but also requires a reference to the parser (which would require those 
+    parsers be held open)
     
     parmDict must contain the following keys:  
         time:
@@ -963,10 +974,22 @@ class wght_avg_netCDF(out_func):
         tConvFunc = self.parmDict['timeConv']
         timeStart = tConvFunc(self.parmDict['timeStart'])
         timeStop = tConvFunc(self.parmDict['timeStop'])
-            
+    
         # loop over maps
         if not isinstance(maps, list):
             maps = [maps] # create list if we didn't get one
+
+        # check to see that we were given exactly one map.  If we aren't
+        # explain that this function only works for one map and exit
+        if len(maps) != 1:
+            msg = "Though in general output functions are designed to handle" \
+                " multiple input files, this function currently can only " \
+                "process individual input files.  Please only provide one " \
+                "input file or use a different output function.  This " \
+                "limitation may be fixed if there is a convincing reason " \
+                "to rewrite the function to accomodate more inputs"
+            raise NotImplementedError(msg)
+            
         for map in maps:
             with map.pop('parser') as p: 
                 if verbose:
@@ -1057,7 +1080,7 @@ class wght_avg_netCDF(out_func):
                       (p.name, str(datetime.datetime.now())))
             
         # done looping over maps
-        
+                
         # set up the parts of the netcdf file that AREN'T field specific
         outFid = netcdf_file(outfilename, 'w')
         outFid.createDimension('row', nRows)
@@ -1075,19 +1098,19 @@ class wght_avg_netCDF(out_func):
         setattr(outFid, 'Notes', self.parmDict['notes'])
         for (k,v) in griddef.parms.iteritems():
             setattr(outFid, k, v)
-            
+
         # loop over fields and write all information for each field
         for field in self.parmDict['inFieldNames']:
-            
+
             # create the dimensions in the file
             extraDimSizes = self.parmDict['dimSizes'][field]
             extraDimLabels = self.parmDict['dimLabels'][field]
             for (size, label) in zip(extraDimSizes, extraDimLabels):
-                outFid.createDimension(label, size)
+                if label not in outFid.dimensions.keys():
+                    outFid.createDimension(label, size)
                 
             # write the variable to file
-            vDims = ['row', 'col']
-            vDims.extend(extraDimLabels)
+            vDims = ['row', 'col'] + extraDimLabels
             outFieldName = self.parmDict['outFieldNames'][field]
             varHand = outFid.createVariable(outFieldName, 'd', vDims)
             varHand[:] = outputArrays[field]
@@ -1095,11 +1118,12 @@ class wght_avg_netCDF(out_func):
             # write variable attributes
             setattr(varHand, 'Units', self.parmDict['outUnits'][field])
             setattr(varHand, '_FillValue', self.parmDict['fillVal'])
-            
-        # flush the output file to disk
+
+        # close the output file
         outFid.close()
-        
+
         # create an output dictionary keyed to output field names
+
         finalOutArrays = dict()
         for (k,v) in outputArrays.iteritems():
             finalOutArrays[self.parmDict['outFieldNames'][k]] = v
@@ -1334,7 +1358,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
             # first filter
             sTypes = [parser.get_cm(surfField, ind) for ind in indStack]
             uniques = set(sTypes)
-            uniqueFracs = [sTypes.count(un)/len(sTypes) for un in uniques]
+            uniqueFracs = [float(sTypes.count(un))/len(sTypes) for un in uniques]
             cellType = None
             for (type,frac) in izip(uniques,uniqueFracs):
                 # at most one value can meet threshold
