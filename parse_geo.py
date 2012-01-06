@@ -726,7 +726,7 @@ class HDFmopittl2_File(HDF4_File):
                    'Signal Chi2' : '/MOP02/Data Fields/Signal Chi2',
                    'Swath Index' : '/MOP02/Data Fields/Swath Index'}
     _indexMap = {'default' : lambda var, ind: var[ind[0], ...],
-                 'Pressure Grid' : lambda var,ind: var[:]}
+                 'Pressure Grid' : lambda var, ind: var[:]}
         
     def get(self, key, indices=None):
         '''Overloaded version of get that applies the correct missing value.'''
@@ -741,8 +741,8 @@ class HDFmopittl2_File(HDF4_File):
         '''Retrieves array of the corners of the pixels'''
         lat = self.get('Latitude').squeeze()
         lon = self.get('Longitude').squeeze()
-        ind = numpy.arange(lat.size)
-        protoDtype = [('lat', lat.dtype), ('lon', lon.dtype), ('ind', ind.dtype)]
+        ind = numpy.arange(lat.size).reshape(lat.size,1)
+        protoDtype = [('lat', lat.dtype), ('lon', lon.dtype), ('ind', ind.dtype, (1,))]
         struct = numpy.zeros(lat.size, dtype = protoDtype)
         (struct['lat'], struct['lon'], struct['ind']) = (lat, lon, ind)
         return struct
