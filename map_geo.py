@@ -115,9 +115,16 @@ def regional_intersect_map_geo(parser, griddef, verbose=True):
                     map[key].append((tuple(pxind), None))
     return map
 
-def point_in_cell_map_geo(parser, griddef, verbose):
+def point_in_cell_map_geo(parser, griddef, verbose=True):
     '''
     For each object, find the single cell to which it should be assigned.
+    
+    Cells are treated as open on upper right and closed on the lower left.  For
+    practical purposes, this means that pixels falling on the boundary between 
+    two cells will be assigned to the cell up and/or to their right.  Pixels 
+    falling on the lower left boundaries of the griddable area will be assigned
+    to a cell and those on the upper right boundaries of the griddable area
+    will be discarded.
     
     This function computes no weights.  It simply assigns objects on the basis
     of a representative lat-lon given by the parser's get_geo_centers function.
@@ -165,7 +172,7 @@ def point_in_cell_map_geo(parser, griddef, verbose):
         for (pxrow, pxcol, pxind) in izip(row, col, ind):
             if minRow <= pxrow <= maxRow and minCol <= pxcol <= maxCol:
                 map[(pxrow, pxcol)].append((tuple(pxind), None))
-    
+    return map
     
     
     
