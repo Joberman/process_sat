@@ -53,7 +53,7 @@ class out_func:
     '''Abstract class to for <>_out_geo classes'''
     def __init__(self, parmDict=None):
         self.parmDict = parmDict
-    def __call__(self, map_geo, griddef, outfilenames):
+    def __call__(self, map_geo, griddef, outfilenames, verbose):
         raise NotImplementedError
     @staticmethod
     def required_parms():
@@ -78,13 +78,11 @@ class OMNO2e_wght_avg_out_func(out_func):
     
     Set up to work specifically for OMI instruments.
     
-    fieldnames dict must contain keys:
+    parameters dict must contain keys:
         toAvg
         overallQualFlag
         cloudFrac
         solarZenithAngle
-        
-    parameters dict must contain keys:
         cloudFractUpperCutoff
         solarZenAngUpperCutoff
         pixIndXtrackAxis
@@ -99,77 +97,24 @@ class OMNO2e_wght_avg_out_func(out_func):
     @staticmethod
     def required_parms():
         return {'toAvg' : ('The name of the field to be averaged',None),
-                'overallQualFlag' : ('The name of the field containing' + \
+                'overallQualFlag' : ('The name of the field containing' \
                                      ' the overall quality flag',None),
-                'cloudFrac' : ('The name of the field containing the ' + \
+                'cloudFrac' : ('The name of the field containing the ' \
                                'cloud fraction',None),
-                'solarZenithAngle' : ('The name of the field containing the '+\
+                'solarZenithAngle' : ('The name of the field containing the ' \
                                       'solar zenith angle',None),
-                'cloudFractUpperCutoff' : ('The maximum cloud fraction to ' + \
+                'cloudFractUpperCutoff' : ('The maximum cloud fraction to ' \
                                            'include (0<=x<=1)','decimal'),
-                'solarZenAngUpperCutoff' : ('The maximum solar zenith angle '+\
+                'solarZenAngUpperCutoff' : ('The maximum solar zenith angle ' \
                                             'to include (in degrees 0<=x<=90)'\
                                             ,'decimal'),
-                'pixIndXtrackAxis' : ('The element of each index tuple ' +\
-                                      'representing the cross-track index ' +\
+                'pixIndXtrackAxis' : ('The element of each index tuple ' \
+                                      'representing the cross-track index ' \
                                       '(...whatever that means)','int'),
-                'fillVal' : ('The value with which to fill cells without ' +\
-                             'valid measurements','int')}
+                'fillVal' : ('The value with which to fill cells without ' \
+                             'valid measurements','decimal')}
+    
 
-    #No longer Necessary
-    def ask_for_fnames(self):
-        '''
-        Get strings for each required fieldname from user.
-        
-        Uses the io module to get fieldnames.  returns
-        them in a dictionary
-        '''
-        keys = ['toAvg',
-                'overallQualFlag',
-                'cloudFrac',
-                'solarZenithAngle']
-        defaults = ['TroposphericVerticalColumn',
-                    'TroposphericColumnFlag',
-                    'CloudFraction',
-                    'SolarZenithAngle']
-        prompts = ['Which field do you want to average?',
-                   'Which field contains the overall quality flag?',
-                   'Which field contains the cloud fraction?',
-                   'Which field contains the solar zenith angle?']
-        retDict = dict()
-        geo_io.get_val_instr()
-        for (key,dflt,pmpt) in izip(keys, defaults, prompts):
-            retDict[key] = geo_io.get_val(dflt, pmpt)
-        return retDict
-    
-    #No longer necessary
-    def ask_for_parms(self):
-        '''
-        Get values for all parameters from user
-        
-        Uses io module to retrieve parameters.  Returns
-        them in a dictionary.
-        '''
-        keys = ['cloudFractUpperCutoff',
-                'solarZenAngUpperCutoff',
-                'pixIndXtrackAxis',
-                'fillVal']
-        prompts = ['What is the maximum cloud fraction you want included?',
-                   'What maximum solar zenith angle (in degrees) do you want included?',
-                   'Which element of each index tuple is cross-track index?',
-                   'What should cells without valid measurements be filled with?']
-        defaults = [.3, 85, 1, -9999]
-        casts = [float, float, int, float]
-        lims = [lambda x: x >= 0 and x <= 1,
-                lambda x: x >= 0 and x <= 90,
-                lambda x: True,
-                lambda x: True]
-        retDict = dict()
-        geo_io.get_val_instr()
-        for (key, dflt, pmpt, cast, lim) in izip(keys, defaults, prompts, casts, lims):
-            retDict[key] = geo_io.get_val(dflt, pmpt, limFunc=lim, cast=cast)
-        return retDict
-    
     def __call__(self, maps, griddef, outfilename, verbose=True):
         '''Write out single weighted-avg file'''
         numpy.seterr(over='raise')
@@ -182,8 +127,8 @@ class OMNO2e_wght_avg_out_func(out_func):
         for map in maps:
             with map.pop('parser') as p: # pop out so we can loop
                 if verbose:
-                    print('Processing %s for output at %s.' % 
-                          (p.name, str(datetime.datetime.now())))
+                    print('Processing {0} for output at {1}.'.format(\
+                            p.name, str(datetime.datetime.now())))
                 for (k,v) in map.iteritems():
                     sumFlag = numpy.array([p.get_cm(self.parmDict['overallQualFlag'], pxind)
                                             for (pxind, unused_weight) in v])
@@ -362,10 +307,8 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                     ' pixel\'s approximate timezone) or '  \
                                     '\'UTC\'(where each pixel is compared '  \
                                     'to time in UTC standard)',None),
-                'timeStart' : ('The first time to be included (hh:mm:dd ' \
-                               'MM-DD-YYYY)','int'),
-                'timeStop' : ('The final time to be included (hh:mm:dd ' \
-                              'MM-DD-YYYY)','int'),
+                'timeStart' : ('The first time to be included','int'),
+                'timeStop' : ('The final time to be included','int'),
                 'cloudFractUpperCutoff' : ('The maximum cloud fraction for ' \
                                            'valid pixels (0<=x<=1)','decimal'),
                 'solarZenAngUpperCutoff' : ('The maximum solar zenith angle '\
@@ -376,175 +319,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                       'number','int'),
                 'fillVal' : ('The fill value for cells that do not contain ' \
                              'valid data','decimal')}
-
-    #No longer necessary
-    def ask_for_fnames(self):
-        '''
-        Get strings for each required fieldname from user.
-        
-        Uses the io module to get fieldnames. Returns
-        a dictionary.
-        '''
-        keys = ['overallQualFlag',
-                'cloudFrac',
-                'solarZenithAngle',
-                'time', 
-                'longitude']
-        defaults = ['TroposphericColumnFlag',
-                    'CloudFraction',
-                    'SolarZenithAngle',
-                    'Time',
-                    'Longitude']
-        prompts = ['Which field contains the overall quality flag?',
-                   'Which field contains the cloud fraction?',
-                   'Which field contains the solar zenith angle?',
-                   'Which field contains timestamps?',
-                   'Which field contains longitudes at cell centers?']
-        retDict = dict()
-        geo_io.get_val_instr()  # print instructions to screen
-        # loop over the desired keys and get values
-        for (key,dflt,pmpt) in izip(keys, defaults, prompts):
-            retDict[key] = geo_io.get_val(dflt, pmpt)
-        return retDict
-
-    def ask_for_parms(self):
-        '''
-        Get values for all parameters from user
-
-        Uses io module to retrieve parameters. Returns
-        them in a dictionary
-        '''
-        keys = ['inFieldNames',
-                'outFieldNames',
-                'outUnits',
-                'extraDimLabel',
-                'extraDimSize',
-                'timeComparison',
-                'timeStart',
-                'timeStop',
-                'cloudFractUpperCutoff',
-                'solarZenAngUpperCutoff',
-                'pixIndXtrackAxis',
-                'fillVal']
-
-        prompts = ['Which fields should be output? ' + 
-                   'Input full field names delimited by whitespace.',
-
-                   'What should output variables be named? ' +
-                   'Must be same length as input fields, and '+
-                   'delimited by whitespace',
-
-                   'What should the units for each of the ' +
-                   'output variables be?.  Must be same ' +
-                   'length as input fields, delimited by whitespace',
-                   
-                   'What should we label the extra dimensions '+
-                   'present in the output variables? Only used '+
-                   'if output var has an extra dim.  Must be '+
-                   'same length as input field, delimited by '+
-                   'whitespace.',
-                   
-                   'What size are the extra dimensions.  Put in 0 for '+
-                   'variables without an extra dimension.  This list '+
-                   'must be the same length as the input field, '+
-                   'delimited by whitespace.',
-                   
-                   'How should time filtering of data be performed? '+
-                   'Options are "local" where the timestamp of each '+
-                   'pixel is compared to the start/stop time for that '+
-                   'pixel\'s approximate timezone or "UTC" where each '+
-                   'pixel is compared to time in UTC standard.'
-
-                   'What is the first time that should be '+
-                   'included (hh:mm:dd MM-DD-YYYY)?',
-
-                   'What is the last time that should be '+
-                   'included (hh:mm:dd MM-DD-YYYY)?',
-
-                   'What is the maximum cloud fraction for '+
-                   'valid pixels (0 to 1)?',
-
-                   'What is the maximum solar zenith angle '+
-                   'for valid pixels (in degrees)?',
-                   
-                   'Which element of each index tuple is '+
-                   'the cross-track index number?',
-
-                   'What should the fill value for boxes '+
-                   'with no valid data be?']
-
-        defaults = [ 'TroposphericVerticalColumn Time TM4SurfacePressure AveragingKernel',
-                     'tropVCD time psurf avkern',
-                     'Molecules_cm^-2 seconds_since_1993-1-1_0:0:0 hPa unitless',
-                     'None None None layer'
-                     '0 0 0 34'
-                     'local',
-                     '00:00:00 01-01-1970',
-                     '23:59:59 01-01-1970',
-                     .3,
-                     85,
-                     1,
-                     -9999.0]
-
-        # create function to cast whitespace delimited strings
-        tokenizer = lambda x: [ el for el in x.split() ]
-        intTokenizer = lambda x: [int(el) for el in x.split()]
-        #create function to cast to TAI93
-        toTAI93 = lambda x: utils.timestr_to_nsecs(x, epoch='00:00:00 01-01-1993')
-        # define casting functions
-        casts = [tokenizer, 
-                 tokenizer,
-                 tokenizer,
-                 tokenizer,
-                 intTokenizer,
-                 str,
-                 toTAI93,
-                 toTAI93,
-                 float, 
-                 float,
-                 int,
-                 float]
-
-        # define limit functions
-        lims = [lambda x: len(x) > 0,
-                lambda x: len(x) > 0,
-                lambda x: len(x) > 0,
-                lambda x: len(x) > 0,
-                lambda x: len(x) > 0,
-                lambda x: x in ['local', 'UTC'],
-                lambda x: True,
-                lambda x: True,
-                lambda x: x >= 0 and x <= 1,
-                lambda x: x >= 0 and x <= 90,
-                lambda x: True,
-                lambda x: True]
-
-        # get set up for io
-        retDict = dict()
-        geo_io.get_val_instr()
-
-        # get user inputs
-        for (key, dflt, pmpt, cast, lim) in izip(keys, defaults, prompts, casts, lims):
-            retDict[key] = geo_io.get_val(dflt, pmpt, limFunc=lim, cast=cast)
-
-        # perform some basic sanity checks on the values.
-        # eventually this should be replaced with proper,
-        # interactive checks, but for now it's too much 
-        # of a pain to get the parameters to interact
-        if retDict['timeStart'] > retDict['timeStop']:
-            msg = 'Input start time must come before stop time.'
-            raise IOError(msg)
-        if (len(retDict['inFieldNames']) != len(retDict['outFieldNames']) or 
-            len(retDict['inFieldNames']) != len(retDict['outUnits']) or
-            len(retDict['inFieldNames']) != len(retDict['extraDimLabel'])):
-            msg = 'All whitespace delimited field/unit inputs ' + \
-                'should have the same number of elements.'
-            raise IOError(msg)
-
-        return retDict
     
-    def __call__(self, maps, griddef, outfilename, verbose=False):
+    def __call__(self, maps, griddef, outfilename, verbose=True):
         '''Write out a weighted-average file in netcdf format.'''
+        #Make sure non-string parameters are in the correct format
         dimsizes = self.parmDict['extraDimSize']
         for i in range(len(dimsizes)):
             try:
@@ -555,25 +333,8 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 dimsizes[i] = 0
                 continue
         self.parmDict['extraDimSize'] = dimsizes
-        try:
-            self.parmDict['timeStart'] = int(self.parmDict['timeStart'])
-        except ValueError:
-            print ("Error: {!r} is not a valid value for timeStart.\n" \
-                   "timeStart should be an integer value.  Call 'python "\
-                   "process.py --AttributeHelp OMNO2e_netCDF_avg' to get a "\
-                   "more thorough description of the required arguments for "\
-                   "the selected projection.").format(self.parmDict['timeStart'])
-            sys.exit(0) 
-        try:
-            self.parmDict['timeStop'] = int(self.parmDict['timeStop'])
-        except ValueError:
-            print ("Error: {!r} is not a valid value for timeStop.\n" \
-                   "timeStop should be an integer value.  Call 'python "\
-                   "process.py --AttributeHelp OMNO2e_netCDF_avg' to get a "\
-                   "more thorough description of the required arguments for "\
-                   "the selected projection.").format(self.parmDict['timeStop'])
-            sys.exit(0) 
 
+        #Perform some basic sanity checks with parameters
         if self.parmDict['timeStart'] > self.parmDict['timeStop']:
             msg = 'Input start time must come before stop time.'
             raise IOError(msg)
@@ -583,9 +344,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             len(self.parmDict['outUnits']) or      
             len(self.parmDict['inFieldNames']) !=  \
             len(self.parmDict['extraDimLabel'])):
-            msg = 'All whitespace delimited field/unit inputs ' + \
+            msg = 'All field/unit inputs ' + \
                 'should have the same number of elements.'
             raise IOError(msg)
+
         # create numpy arrays to hold our data
         (minRow, maxRow, minCol, maxCol) = griddef.indLims()
         nRows = maxRow - minRow + 1
@@ -607,8 +369,8 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             # open up context manager
             with map.pop('parser') as p: # remove parser for looping
                 if verbose:
-                    print('Processing %s for output at %s.' %
-                          (p.name, str(datetime.datetime.now())))
+                    print('Processing {0} for output at {1}.'.format(\
+                            p.name, str(datetime.datetime.now())))
                 # loop over gridboxes in map and calculate weights
                 for (gridCell, pixTup) in map.iteritems():
                     # translate gridCell to account for possible non-zero ll corner
@@ -952,7 +714,7 @@ class wght_avg_netCDF(out_func):
         for key in lists:
             self.parmDict[key] = dict(zip(inFnames, self.parmDict[key]))
         
-    def __call__(self, maps, griddef, outfilename, verbose=True):
+    def __call__(self, maps, griddef, outfilename, verbose):
         '''Write out a weighted-average file in netcdf format.'''
         
         # create a dictionary of numpy arrays that will hold the data for all 
