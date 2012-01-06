@@ -62,10 +62,13 @@ class fakeParser(parse_geo.GeoFile):
         get_geo_centers() is called
         """
         # figure out dims of ind
-        indDim = ind.shape[-1] if len(ind.shape)>1 else 1
-        dtype = [('lat', lat.dtype, (1,)),
-                 ('ind', ind.dtype, (indDim,)),
-                 ('lon', lon.dtype, (1,))]
+        if len(ind.shape)==len(lat.shape)+1:
+            indDtype = ('ind', ind.dtype, (ind.shape[-1],))
+        else:
+            indDtype = ('ind', ind.dtype, tuple())
+        dtype = [('lat', lat.dtype, tuple()),
+                 indDtype,
+                 ('lon', lon.dtype, tuple())]
         self._next_centers = numpy.zeros(lat.shape, dtype=dtype)
         self._next_centers['lat'] = lat
         self._next_centers['lon'] = lon
@@ -1579,6 +1582,15 @@ class TestMapGeo(unittest.TestCase):
         for name in maps:
             if not hasattr(map_geo, name+'_map_geo'):
                 raise AssertionError
+            
+    def assertMapsEqual(self, mapper):
+        '''
+        Function to compare the output of the the mapper function to the test
+        dictionary.  Assumes that the parser and test dictionary have been
+        prepped and are stored in the variables laid out in setUp()
+        '''
+        mapDict = mapper(self.parser, self.grid)
+        self.assertEqual(mapDict, self.testMapDict)
     
 
 class Test_regional_intersect(TestMapGeo):
@@ -1796,6 +1808,117 @@ class Test_regional_intersect(TestMapGeo):
             self.testMapDict[k] = listEntry
         self.assertEqual(mapDict, self.testMapDict)
         
+class Test_point_in_cell(TestMapGeo):
+    
+    
+    def setUp(self):
+        TestMapGeo.setUp(self)
+        self.mapper = getattr(map_geo, 'point_in_cell_map_geo')
+        
+    def test_single_pix_inside_cell(self):
+        lat = numpy.array([1.2])
+        lon = numpy.array([2.1])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(1,2)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_mult_pix_inside_cells(self):
+        lat = numpy.array([1.2, 1.9, 1.5])
+        lon = numpy.array([2.1, 2.9, 7.5])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(1,2)] = [((0,), None), ((1,), None)]
+        self.testMapDict[(1,7)] = [((2,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_pixel_on_cell_col_edge(self):
+        '''As laid out in documentation, should go to right-hand cell'''
+        lat = numpy.array([3.1])
+        lon = numpy.array([6.0])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(3,6)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_pixel_on_cell_row_edge(self):
+        '''As laid out in documentation, should go to upper cell'''
+        lat = numpy.array([2.0])
+        lon = numpy.array([4.4])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(2, 4)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_accepts_pixel_on_lower_edge(self):
+        lat = numpy.array([0.0])
+        lon = numpy.array([2.4])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(0,2)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_accepts_pixel_on_left_edge(self):
+        lat = numpy.array([1.2])
+        lon = numpy.array([0.0])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(1,0)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_rejects_pixel_on_upper_edge(self):
+        lat = numpy.array([5])
+        lon = numpy.array([8.3])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.assertMapsEqual(self.mapper)
+        
+    def test_rejects_pixel_on_right_edge(self):
+        lat = numpy.array([4.2])
+        lon = numpy.array([10])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.assertMapsEqual(self.mapper)
+        
+    def test_rejects_exterior_pixels_sides(self):
+        '''Test that pixels "straight out" from the sides are properly rejected'''
+        lat = numpy.array([2.5, 10, 2.5, -10])
+        lon = numpy.array([-15, 5, 15, 5])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.assertMapsEqual(self.mapper)
+        
+    def test_rejects_exterior_pixels_corners(self):
+        '''
+        Test that pixels beyond corners (out of bounds in 2 categories)
+        are properly rejected.
+        '''
+        lat = numpy.array([10, 10, -10, -10])
+        lon = numpy.array([-15, 15, 15, -15])
+        ind = numpy.arange(lat.shape[0])
+        self.parser.prime_centers(lat, lon, ind)
+        self.assertMapsEqual(self.mapper)
+        
+    def test_arbitrary_index(self):
+        lat = numpy.array([2.3])
+        lon = numpy.array([3.1])
+        ind = numpy.array([[1010, 2020]])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(2,3)] = [((1010,2020), None)]
+        self.assertMapsEqual(self.mapper)
+        
+    def test_2D_array_of_points(self):
+        lat = numpy.array([[0.5, 1.5, 2.5], [3.5, 4.5, 5.5]])
+        lon = numpy.array([[10.5, 8.5, 6.5], [4.5, 2.5, 0.5]])
+        ind = numpy.array([[[0,0], [0,1], [0,2]], [[1,0], [1,1], [1,2]]])
+        self.parser.prime_centers(lat, lon, ind)
+        self.testMapDict[(1,8)] = [((0,1), None)]
+        self.testMapDict[(2,6)] = [((0,2), None)]
+        self.testMapDict[(3,4)] = [((1,0), None)]
+        self.testMapDict[(4,2)] = [((1,1), None)]
+        self.assertMapsEqual(self.mapper)
+        
+        
 class TestUtils(unittest.TestCase):
     
     
@@ -1920,6 +2043,11 @@ class TestOutGeo(unittest.TestCase):
             if not hasattr(out_geo, func+'_out_func'):
                 raise AssertionError("Function %s_out_func not in module" % func)
 
+    def toTAI93(self, timeStr):
+        epoch = '00:00:00 01-01-1993'
+        return utils.timestr_to_nsecs(timeStr, epoch=epoch)
+
+
 class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
 
 
@@ -1962,7 +2090,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.solZenAng[(1,30)] = 30
         self.toAvg[(1,30)] = 1337
         self.mapDict[(0,0)] = [((1,30),None)]
-        self.outfunc(self.mapDict, self.one_el_grid, self.outFname)
+        self.outfunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertIs(self.mapDict['parser'], self.parser)
 
     def test_works_for_single_value(self):
@@ -1971,7 +2099,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.solZenAng[(1,30)] = 30
         self.toAvg[(1,30)] = 1337
         self.mapDict[(0,0)] = [((1,30),None)]
-        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname)
+        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(avg[(0,0)], 1337)
 
     def test_gives_accurate_weight(self):
@@ -1981,7 +2109,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.solZenAng[0,29:31] = [20, 25]
         self.toAvg[0,29:31] = [1, 2]
         self.mapDict[(0,0)] = [((0,29),None), ((0,30),None)]
-        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname)
+        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(avg[(0,0)], 1.5490637021)
 
     def test_zero_weight_if_sum_flag_is_set(self):
@@ -1990,7 +2118,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.solZenAng[0,29:31] = [30, 30]
         self.toAvg[0,29:31] = [34, 42]
         self.mapDict[(0,0)] = [((0,29),None), ((0,30),None)]
-        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname)
+        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertEqual(avg[(0,0)], 42)
 
     def test_zero_weight_if_cfrac_gt_threshold(self):
@@ -1999,7 +2127,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.solZenAng[0,29:31] = [30, 24]
         self.toAvg[0,29:31] = [1, 421]
         self.mapDict[(0,0)] = [((0,29),None), ((0,30),None)]
-        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname)
+        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertEqual(avg[(0,0)], 421)
 
     def test_zero_weight_if_SZA_gt_threshold(self):
@@ -2008,7 +2136,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.solZenAng[0,29:31] = [81.2, 79]
         self.toAvg[0,29:31] = [1, 421]
         self.mapDict[(0,0)] = [((0,29),None), ((0,30),None)]
-        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname)
+        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertEqual(avg[(0,0)], 421)
 
     def test_zero_weight_if_mult_problems(self):
@@ -2019,7 +2147,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,28),None), ((0,29),None), 
                                ((0,30),None), ((0,31),None),
                                ((0,32),None)]
-        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname)
+        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertEqual(avg[(0,0)], 24601)
 
     def test_all_zero_weight_yields_fillVal(self):
@@ -2028,7 +2156,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.solZenAng[0,29:31] = [40, 40]
         self.toAvg[0,29:31] = [1, 2]
         self.mapDict[(0,0)] = [((0,29),None), ((0,30),None)]
-        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname)
+        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertEqual(avg[(0,0)], -99999)
 
     def test_NaN_in_toAvg_yields_fillVal(self):
@@ -2037,7 +2165,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.solZenAng[0,29:31] = [40, 40]
         self.toAvg[0,29:31] = [numpy.nan, numpy.nan]
         self.mapDict[(0,0)] = [((0,29),None), ((0,30),None)]
-        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname)
+        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertEqual(avg[(0,0)], -99999)
 
     def test_NaN_in_toAvg_ignored_when_weight_is_0(self):
@@ -2046,12 +2174,12 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.solZenAng[0,29:31] = [40, 40]
         self.toAvg[0,29:31] = [713, numpy.nan]
         self.mapDict[(0,0)] = [((0,29),None), ((0,30),None)]
-        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname)
+        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertEqual(avg[(0,0)], 713)
 
     def test_no_pixels_in_cell_yields_fillVal(self):
         self.mapDict[(0,0)] = []
-        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname)
+        avg = self.outfunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertEqual(avg[(0,0)], -99999)
 
     def test_multi_element_pix_array(self):
@@ -2070,7 +2198,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         for (i,j) in product(range(2), range(3)):
             oneDind = i*3+j
             self.mapDict[(i,j)] = [((0,28+oneDind),None), ((1,28+oneDind),None)]
-        avg = self.outfunc(self.mapDict, six_el_grid, self.outFname)
+        avg = self.outfunc(self.mapDict, six_el_grid, self.outFname, verbose=False)
         expectedOut = [[100, 200, 300], [400, 500, 600]]
         numpy.testing.assert_array_equal(avg, expectedOut)
 
@@ -2083,7 +2211,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,29),None)]
         secondMapDict[(0,0)] = [((0,30),None)]
         dictList = [self.mapDict, secondMapDict]
-        avg = self.outfunc(dictList, self.one_el_grid, self.outFname)
+        avg = self.outfunc(dictList, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(avg[(0,0)], 117)
 
     def test_multidict_both_with_nonzero_weight(self):
@@ -2096,7 +2224,7 @@ class Test_OMNO2e_wght_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,0),None)]
         secondMapDict[(0,0)] = [((0,1),None)]
         dictList = [self.mapDict, secondMapDict]
-        avg = self.outfunc(dictList, self.one_el_grid, self.outFname)
+        avg = self.outfunc(dictList, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(27394.49255639, avg[(0,0)])
         
 class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
@@ -2117,7 +2245,6 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
                   'solarZenithAngle' : 'solZenAng',
                   'time' : 'time',
                   'longitude' : 'lon'}
-        self.toTAI93 = lambda tStr: utils.timestr_to_nsecs(tStr, epoch='00:00:00 01-01-1993')
         self.startTimeStr = '00:00:00 08-30-2011'
         self.stopTimeStr = '23:59:59 08-30-2011'
         self.defParms = {'inFieldNames' : ['test2D', 'test3D'],
@@ -2135,7 +2262,8 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.defParms.update(self.fnames)
         self.fnames.update(self.defParms)
         self.defOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(self.defParms)
-        self.outFname = (tempfile.mkstemp())[1]
+        (outFid, self.outFname) = (tempfile.mkstemp())
+        os.close(outFid)
         # create empty arrays to hold data
         self.cfrac = numpy.zeros((20,60))
         self.qualFlag = numpy.zeros((20,60))
@@ -2160,36 +2288,36 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
             pass
         os.remove(self.outFname)
         
-    def test_parser_still_in_empyt_map_at_end(self):
+    def test_parser_still_in_empty_map_at_end(self):
         self.mapDict[(0,0)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertIs(self.mapDict['parser'], self.parser)
     
     def test_parser_still_in_nonempty_map_at_end(self):
         self.mapDict[(0,0)] = [((0,31), None)]
-        unused_result = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertIs(self.mapDict['parser'], self.parser)
     
     def test_result_right_shape_emptyMap_2D(self):
         self.mapDict[(0,0)] = []
-        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.assertEqual(resDict['outTest2D'].shape, (2,3))
         
-    def test_result_right_shape_empytMap_3D(self):
+    def test_result_right_shape_emptyMap_3D(self):
         self.mapDict[(0,0)] = []
-        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.assertEqual(resDict['outTest3D'].shape, (2,3,4))
         
     def test_result_right_shape_nonempty_map_2D(self):
         self.mapDict[(0,0)] = [((0,0), None), ((10,34), None)]
         self.mapDict[(1,1)] = [((3,0), None), ((19, 5), None), ((0,1), None)] 
-        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.assertEqual(resDict['outTest2D'].shape, (2,3))
         
     def test_result_right_shape_nonempty_map_3D(self):
         self.mapDict[(0,0)] = [((0,0), None), ((10,34), None)]
         self.mapDict[(1,1)] = [((3,0), None), ((19, 5), None), ((0,1), None)] 
-        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.assertEqual(resDict['outTest3D'].shape, (2,3,4))
     
     def test_single_valid_pixel_2D(self):
@@ -2200,8 +2328,8 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.lon[0,30] = 13
         data = numpy.random.rand()
         self.test2D[0,30] = data
-        self.mapDict[0,0] = [((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        self.mapDict[(0,0)] = [((0,30), None)]
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data)
         
     def test_single_valid_pixel_3D(self):
@@ -2213,7 +2341,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(4)
         self.test3D[0,30,:] = data
         self.mapDict[(0,0)] = [((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[:])
         
     def test_2_valid_pix_accurate_weight_2D(self):
@@ -2227,7 +2355,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2)
         self.test2D[0,29:31] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         weight = .8212822960 # weight for first element of data
         expected = (data[0]*weight+data[1])/(weight+1)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], expected, delta=10**-7)
@@ -2243,7 +2371,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2,4)
         self.test3D[0,29:31,:] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         weight = .8212822960
         expected = (data[0,:]*weight+data[1,:])/(weight+1)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0], expected, decimal=7)
@@ -2258,7 +2386,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2)
         self.test2D[0,29:31] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])
         
     def test_zero_weight_if_sum_flag_is_set_3D(self):
@@ -2271,7 +2399,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2,4)
         self.test3D[0,29:31,:] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0], data[1,:])
         
     def test_zero_weight_if_cfrac_gt_threshold_2D(self):
@@ -2284,7 +2412,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2)
         self.test2D[0,29:31] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])
         
     def test_zero_weight_if_cfrac_gt_threshold_3D(self):
@@ -2297,7 +2425,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2,4)
         self.test3D[0,29:31,:] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[1,:])
         
     def test_zero_weight_if_SZA_gt_threshold_2D(self):
@@ -2310,7 +2438,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2)
         self.test2D[0,29:31] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])
 
     def test_zero_weight_if_SZA_gt_threshold_3D(self):
@@ -2323,7 +2451,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2,4)
         self.test3D[0,29:31,:] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[1,:])
         
     def test_zero_weight_UTC_time_wrong_day_2D(self):
@@ -2336,7 +2464,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2)
         self.test2D[0,29:31] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])
         
     def test_zero_weight_UTC_time_wrong_day_3D(self):
@@ -2349,7 +2477,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2,4)
         self.test3D[0,29:31,:] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[1,:])
         
     def test_zero_weight_local_time_wrong_day_2D(self):
@@ -2365,7 +2493,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
         newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)
-        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])
         
     def test_zero_weight_local_time_wrong_day_3D(self):
@@ -2381,7 +2509,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
         newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)
-        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)                
+        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)                
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[1,:])
         
     def test_zero_weight_UTC_time_wrong_year_2D(self):
@@ -2394,7 +2522,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2)
         self.test2D[0,29:31] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])
         
     def test_zero_weight_UTC_time_wrong_year_3D(self):
@@ -2407,7 +2535,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2,4)
         self.test3D[0,29:31,:] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]        
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[1,:])
         
     def test_zero_weight_local_time_wrong_year_2D(self):
@@ -2423,7 +2551,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
         newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)        
-        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])
 
     def test_zero_weight_local_time_wrong_year_3D(self):
@@ -2439,7 +2567,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
         newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)        
-        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[1,:])
         
     def test_UTC_time_does_not_incorporate_lon(self):
@@ -2452,7 +2580,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2)
         self.test2D[0,29:31] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[0])
         
     def test_local_time_does_incorporate_lon(self):
@@ -2468,7 +2596,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
         newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)
-        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])        
         
     def test_UTC_time_does_not_incorporate_lon_360(self):
@@ -2481,7 +2609,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2)
         self.test2D[0,29:31] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[0])
                 
     def test_local_time_does_incorporate_lon_360(self):
@@ -2497,7 +2625,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         newParms = self.defParms
         newParms['timeComparison'] = 'local'
         newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(newParms)
-        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = newOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[1])
                         
     def test_zero_weight_if_mult_problems_2D(self):
@@ -2521,7 +2649,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
                                ((0,32), None), ((0,33), None),
                                ((0,34), None), ((0,35), None),
                                ((0,36), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[8])
         
     def test_zero_weight_if_mult_problems_3D(self):
@@ -2545,7 +2673,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
                                ((0,32), None), ((0,33), None),
                                ((0,34), None), ((0,35), None),
                                ((0,36), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[8,:])
         
     def test_all_zero_weight_yields_fillVal_2D(self):
@@ -2558,7 +2686,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2)
         self.test2D[0,29:31] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         expected = self.defParms['fillVal']
         self.assertAlmostEqual(resDict['outTest2D'][0,0], expected)
         
@@ -2572,7 +2700,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(2,4)
         self.test3D[0,29:31,:] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         expected = numpy.array(4*[self.defParms['fillVal']])
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], expected)
         
@@ -2585,7 +2713,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.lon[0,29:31] = [0, 0.3]
         self.test2D[0,29:31] = numpy.NaN
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         expected = self.defParms['fillVal']
         self.assertAlmostEqual(resDict['outTest2D'][0,0], expected)
         
@@ -2598,7 +2726,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.lon[0,29:31] = [0, 0.3]
         self.test3D[0,29:31,:] = numpy.NaN
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         expected = numpy.array(4*[self.defParms['fillVal']])
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], expected)
         
@@ -2613,7 +2741,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand()
         self.test2D[0,30] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data)
         
     def test_NAN_in_data_with_zero_weight_does_not_affect_avg_3D(self):
@@ -2627,17 +2755,17 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         data = numpy.random.rand(4)
         self.test3D[0,30,:] = data
         self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data)
         
     def test_no_pixels_in_cell_yields_fillVal_2D(self):
         self.mapDict[(0,0)] = []
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         self.assertEqual(resDict['outTest2D'][0,0], self.defParms['fillVal'])
         
     def test_no_pixels_in_cell_yields_fillVal_3D(self):
         self.mapDict[(0,0)] = []
-        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.one_el_grid, self.outFname, verbose=False)
         expected = numpy.array(4*[self.defParms['fillVal']])
         numpy.testing.assert_array_equal(resDict['outTest3D'][0,0,:], expected)
         
@@ -2661,7 +2789,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for (i,j) in product(range(2), range(3)):
             oneDind = i*3+j
             self.mapDict[(i,j)] = [((0,28+oneDind), None), ((1,28+oneDind), None)]
-        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         expected = data[0,:].reshape((2,3))
         numpy.testing.assert_array_almost_equal(resDict['outTest2D'][:], expected)
         
@@ -2685,7 +2813,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for (i,j) in product(range(2), range(3)):
             oneDind = i*3+j
             self.mapDict[(i,j)] = [((0,28+oneDind), None), ((1,28+oneDind), None)]        
-        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         expected = data[0,:,:].reshape((2,3,4))
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][:], expected)
         
@@ -2702,7 +2830,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,29), None)]
         secondMapDict[(0,0)] = [((0,30), None)]
         dictList = [self.mapDict, secondMapDict]
-        resDict = self.defOutFunc(dictList, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(dictList, self.one_el_grid, self.outFname, verbose=False)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], data[0])
         
     def test_multidict_one_zero_weight_3D(self):
@@ -2718,7 +2846,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,29), None)]
         secondMapDict[(0,0)] = [((0,30), None)]
         dictList = [self.mapDict, secondMapDict]
-        resDict = self.defOutFunc(dictList, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(dictList, self.one_el_grid, self.outFname, verbose=False)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[0,:])
         
     def test_multidict_both_with_nonzero_weight_2D(self):
@@ -2735,7 +2863,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,0), None)]
         secondMapDict[(0,0)] = [((0,1), None)]
         dictList = [self.mapDict, secondMapDict]
-        resDict = self.defOutFunc(dictList, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(dictList, self.one_el_grid, self.outFname, verbose=False)
         weight = 1.088125096 # calculated by hand
         expected = (data[0]*weight+data[1])/(weight+1)
         self.assertAlmostEqual(resDict['outTest2D'][0,0], expected)
@@ -2754,7 +2882,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,0), None)]
         secondMapDict[(0,0)] = [((0,1), None)]
         dictList = [self.mapDict, secondMapDict]
-        resDict = self.defOutFunc(dictList, self.one_el_grid, self.outFname)
+        resDict = self.defOutFunc(dictList, self.one_el_grid, self.outFname, verbose=False)
         weight = 1.088125096 # calculated by hand
         expected = (data[0,:]*weight+data[1,:])/(weight+1)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], expected[:])
@@ -2771,7 +2899,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.test2D[0, 29:32] = data
         self.mapDict[(1,1)] = [((0,29), None), ((0,30), None)]
         self.mapDict[(1,2)] = [((0,30), None), ((0,31), None)]
-        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         fv = self.defParms['fillVal']
         expected = numpy.array([[fv, fv, fv],[fv, data[0], data[2]]])
         numpy.testing.assert_array_almost_equal(resDict['outTest2D'][:], expected)
@@ -2788,7 +2916,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.test3D[0,29:32,:] = data
         self.mapDict[(1,1)] = [((0,29), None), ((0,30), None)]
         self.mapDict[(1,2)] = [((0,30), None), ((0,31), None)]
-        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         expected = numpy.empty((2,3,4))
         expected[:] = self.defParms['fillVal']
         expected[1,1,:] = data[0,:]
@@ -2807,7 +2935,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.test2D[0, 29:32] = data
         self.mapDict[(1,1)] = [((0,29), None), ((0,30), None)]
         self.mapDict[(1,2)] = [((0,30), None), ((0,31), None)]
-        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         fv = self.defParms['fillVal']
         expected = numpy.array([[fv, fv, fv], [fv, data[1], data[1]]])
         numpy.testing.assert_array_almost_equal(resDict['outTest2D'][:], expected)
@@ -2824,7 +2952,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.test3D[0, 29:32, :] = data
         self.mapDict[(1,1)] = [((0,29), None), ((0,30), None)]
         self.mapDict[(1,2)] = [((0,30), None), ((0,31), None)]
-        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        resDict = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         expected = numpy.empty((2,3,4))
         expected[:] = self.defParms['fillVal']
         expected[1,1,:] = data[1,:]
@@ -2834,49 +2962,65 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
     def test_output_file_is_netcdf(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         # passes if no exception is raised in the above 2 lines
+
+    def test_output_file_opens_if_variables_share_extra_dim(self):
+        self.defParms['inFieldNames'].append('test3Dagain')
+        self.defParms['outFieldNames'].append('outTest3Dagain')
+        self.defParms['outUnits'].append('fortnights')
+        self.defParms['extraDimLabel'].append('layer')
+        self.defParms['extraDimSize'].append(4)
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(self.defParms)
+        test3Dagain = numpy.zeros((20,60,4))
+        self.parser.prime_get('test3Dagain', test3Dagain)
+        for i,j in product(range(2), range(3)):
+            self.mapDict[(i,j)] = []
+        unused_result = newOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        # passes if no exception is raised in the above 2 lines
+
         
     def test_output_file_contains_start_time(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         self.assertEqual(self.fid.File_start_time, self.startTimeStr)
         
     def test_output_file_contains_stop_time(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         self.assertEqual(self.fid.File_end_time, self.stopTimeStr)   
         
     def test_output_file_contains_grid_name(self):    
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         self.assertEqual(self.fid.Projection, 'latlon')
         
     def test_output_file_contains_cfrac_cutoff(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         self.assertEqual(self.fid.Max_valid_cloud_fraction, self.defParms['cloudFractUpperCutoff'])        
         
     def test_output_file_contains_sza_cutoff(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         self.assertEqual(self.fid.Max_valid_solar_zenith_angle, self.defParms['solarZenAngUpperCutoff'])        
         
     def test_output_file_contains_tComp(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         self.assertEqual(self.fid.Time_comparison_scheme, self.defParms['timeComparison'])        
         
@@ -2893,14 +3037,14 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         secondParser.prime_get('test2D', self.test2D)
         secondParser.prime_get('test3D', self.test3D)
         dictList = [firstDict, secondDict]
-        unused_result = self.defOutFunc(dictList, self.one_el_grid, self.outFname)
+        unused_result = self.defOutFunc(dictList, self.one_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         self.assertEqual(self.fid.Input_files, 'foo.dat bar.dat')
         
     def test_output_file_contains_gridParms(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         outDict = {'xOrig' : self.fid.xOrig, 'yOrig' : self.fid.yOrig,
                    'xCell' : self.fid.xCell, 'yCell' : self.fid.yCell,
@@ -2910,7 +3054,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
     def test_output_file_dims_right_sizes(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         expectedDims = {'row' : 2, 'col' : 3, 'layer' : 4}       
         self.assertDictEqual(expectedDims, self.fid.dimensions)
@@ -2918,7 +3062,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
     def test_output_file_right_variables(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         outVars = self.fid.variables.keys()
         self.assertItemsEqual(self.defParms['outFieldNames'], outVars)
@@ -2926,7 +3070,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
     def test_output_file_correct_fillVals(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         fillVals = [self.fid.variables['outTest2D']._FillValue,
                     self.fid.variables['outTest3D']._FillValue]
@@ -2936,7 +3080,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
     def test_output_file_correct_units(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         units = [self.fid.variables['outTest2D'].Units,
                  self.fid.variables['outTest3D'].Units]
@@ -2945,7 +3089,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
     def test_output_file_variables_correct_shape(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         shapes = [self.fid.variables['outTest2D'].shape,
                   self.fid.variables['outTest3D'].shape]
@@ -2966,7 +3110,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,0), None)]
         secondMapDict[(0,0)] = [((0,1), None)]
         dictList = [self.mapDict, secondMapDict]
-        unused_result = self.defOutFunc(dictList, self.one_el_grid, self.outFname)
+        unused_result = self.defOutFunc(dictList, self.one_el_grid, self.outFname, verbose=False)
         weight = 1.088125096 # calculated by hand
         expected = (data[0,:]*weight+data[1,:])/(weight+1)
         self.fid = sio.netcdf_file(self.outFname, 'r')
@@ -2987,7 +3131,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.mapDict[(0,0)] = [((0,0), None)]
         secondMapDict[(0,0)] = [((0,1), None)]
         dictList = [self.mapDict, secondMapDict]
-        unused_result = self.defOutFunc(dictList, self.one_el_grid, self.outFname)
+        unused_result = self.defOutFunc(dictList, self.one_el_grid, self.outFname, verbose=False)
         weight = 1.088125096 # calculated by hand
         expected = (data[0]*weight+data[1])/(weight+1)
         self.fid = sio.netcdf_file(self.outFname, 'r')
@@ -3014,7 +3158,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for (i,j) in product(range(2), range(3)):
             oneDind = i*3+j
             self.mapDict[(i,j)] = [((0,28+oneDind), None), ((1,28+oneDind), None)]        
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         expected = data[0,:,:].reshape((2,3,4))
         self.fid = sio.netcdf_file(self.outFname, 'r')       
         out = self.fid.variables['outTest3D'][:]
@@ -3040,38 +3184,834 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for (i,j) in product(range(2), range(3)):
             oneDind = i*3+j
             self.mapDict[(i,j)] = [((0,28+oneDind), None), ((1,28+oneDind), None)]
-        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname)
+        unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         expected = data[0,:].reshape((2,3))
         self.fid = sio.netcdf_file(self.outFname, 'r')
         out = self.fid.variables['outTest2D'][:]
         numpy.testing.assert_array_almost_equal(expected, out)
 
-def get_full_test_suite():
-    thisMod = sys.modules['__main__']
-    testClasses = [getattr(thisMod, clsName) for clsName 
-                   in dir(thisMod) if clsName.startswith('Test')]
-    shortNames = []
-    longNames = []
-    for cls in testClasses:
-        for name in dir(cls):
-            if name.startswith('test') and name not in shortNames:
-                longNames.append('__main__.%s.%s' % (cls.__name__, name))
-                shortNames.append(name)
-    return unittest.defaultTestLoader.loadTestsFromNames(longNames)
+class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
+    
+    def setUp(self):
+        TestOutGeo.setUp(self)
+        self.six_el_gridParms = {'xOrig' : 0, 'yOrig' : 0, 'xCell' : 1,
+                            'yCell' : 1, 'nRows' : 2, 'nCols' : 3}
+        self.sixElGr = grid_geo.latlon_GridDef(self.six_el_gridParms)
+        # initialize the dictionaries empty for all cells.  Only have to change
+        # to add actual reference
+        self.mapDict = {'parser' : self.parser, (0,0) : [], (1,0) : [],
+                        (0,1) : [], (1,1) : [], (0,2) : [], (1,2) : []}
+        self.pDict = { 'time' : 'time',
+                       'longitude' : 'lon',
+                       'inFieldNames' : ['twoDnorm', 'threeDnorm', 'twoDlog', 'threeDlog'],
+                       'outFieldNames' : ['twoDnorm', 'threeDnorm', 'twoDlog', 'threeDlog'],
+                       'outUnits' : ['foo', 'bar', 'baz', 'qux'],
+                       'logNormal' : ['False', 'False', 'True', 'True'],
+                       'dimLabels' : ['()', '(layer)', '()', '(layer)'],
+                       'dimSizes' : ['()', '(3)', '()', '(3)'],
+                       'timeStart' : '00:00:00 01-04-2012',
+                       'timeStop' : '23:59:59 01-04-2012',
+                       'timeComparison' : 'UTC',
+                       'fillVal' : -9999.0,
+                       'solZenAngCutoff' : 85,
+                       'solZenAng' : 'SZA',
+                       'dayTime' : 'True',
+                       'surfTypeField': 'sType',
+                       'colMeasField' : 'threeDnorm' }
+        self.defaultOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
+        # define a default output function, as we'll be using the same grid, map and outfile 
+        # many times.
+        (outFid, self.outFname) = (tempfile.mkstemp())
+        os.close(outFid)
+        self.defaultOutFunc = lambda: self.defaultOutClass(self.mapDict, self.sixElGr, 
+                                                           self.outFname, verbose=False)
+        # create default arrays.  These arrays are defined such that 
+        # the values to be averaged are random, and the values that determine
+        # the validity of the data show it all to be valid.  Thus, test
+        # methods need only make changes to INVALIDATE selected chunks of
+        # the data
+        self.time = numpy.array([self.toTAI93('12:00:00 01-04-2012')]*20).reshape(4,5)
+        self.lon = numpy.zeros_like(self.time)
+        self.SZA = numpy.zeros_like(self.time)
+        self.sType = numpy.zeros_like(self.time)
+        self.twoDnorm = numpy.random.rand(4,5)
+        self.twoDlog = numpy.random.rand(4,5)
+        self.threeDnorm = numpy.random.rand(4,5,3)
+        self.threeDlog = numpy.random.rand(4,5,3)
+        # bind the default arrays into the parser.  they can still be 
+        # modified, and these changes will be reflected in what comes
+        # back out of the parser.
+        fNames = ['time', 'lon', 'SZA', 'sType', 'twoDnorm', 'twoDlog', 'threeDnorm', 'threeDlog']
+        for fn in fNames:
+            self.parser.prime_get(fn, getattr(self, fn))
+            
+    def tearDown(self):
+        try:
+            self.fid.close()
+        except AttributeError:
+            pass
+        os.remove(self.outFname)
 
+    def test_parser_still_in_empty_map(self):
+        unused_result = self.defaultOutFunc()
+        self.assertIs(self.mapDict['parser'], self.parser)
 
-if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
-    testSuite = get_full_test_suite()
-    unittest.TextTestRunner(verbosity=2).run(testSuite)
-'''  
+    def test_parser_still_in_nonempty_map(self):
+        self.mapDict[(0,0)] = [((2,3), None)]
+        unused_result = self.defaultOutFunc()
+        self.assertIs(self.mapDict['parser'], self.parser)
+
+    def test_2D_norm_results_right_shape_empty_map(self):
+        resDict = self.defaultOutFunc()
+        self.assertEqual(resDict['twoDnorm'].shape, (2,3))
+
+    def test_2D_log_results_right_shape_empty_map(self):
+        resDict = self.defaultOutFunc()
+        self.assertEqual(resDict['twoDlog'].shape, (2,3))
+
+    def test_3D_norm_results_right_shape_empty_map(self):
+        resDict = self.defaultOutFunc()
+        self.assertEqual(resDict['threeDnorm'].shape, (2,3,3))
+
+    def test_3D_log_results_right_shape_empty_map(self):
+        resDict = self.defaultOutFunc()
+        self.assertEqual(resDict['threeDlog'].shape, (2,3,3))
+
+    def test_2D_norm_results_right_shape_non_empty_map(self):
+        self.mapDict[(0,0)] = [((2,3), None)]
+        self.mapDict[(1,2)] = [((3,4), None), ((0,0), None)]
+        resDict = self.defaultOutFunc()
+        self.assertEqual(resDict['twoDnorm'].shape, (2,3))
+
+    def test_2D_log_results_right_shape_non_empty_map(self):
+        self.mapDict[(0,0)] = [((2,3), None)]
+        self.mapDict[(1,2)] = [((3,4), None), ((0,0), None)]
+        resDict = self.defaultOutFunc()
+        self.assertEqual(resDict['twoDlog'].shape, (2,3))
+
+    def test_3D_norm_results_right_shape_non_empty_map(self):
+        self.mapDict[(0,0)] = [((2,3), None)]
+        self.mapDict[(1,2)] = [((3,4), None), ((0,0), None)]
+        resDict = self.defaultOutFunc()
+        self.assertEqual(resDict['threeDnorm'].shape, (2,3,3))
+
+    def test_3D_log_results_right_shape_non_empty_map(self):
+        self.mapDict[(0,0)] = [((2,3), None)]
+        self.mapDict[(1,2)] = [((3,4), None), ((0,0), None)]
+        resDict = self.defaultOutFunc()
+        self.assertEqual(resDict['threeDlog'].shape, (2,3,3))
+
+    def test_single_valid_pixel_2D_norm(self):
+        self.mapDict[(1,2)] = [((2,3), None)]
+        expected = self.twoDnorm[2,3]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_single_valid_pixel_2D_log(self):
+        self.mapDict[(1,2)] = [((2,3), None)]
+        expected = self.twoDlog[2,3]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDlog'][1,2], expected)
+
+    def test_single_valid_pixel_3D_norm(self):
+        self.mapDict[(1,2)] = [((2,3), None)]
+        expected = self.threeDnorm[2,3,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+        
+    def test_single_valid_pixel_3D_log(self):
+        self.mapDict[(1,2)] = [((2,3), None)]
+        expected = self.threeDlog[2,3,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
+
+    def test_two_valid_pixel_2D_norm(self):
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.twoDnorm[2,3] = 4.2
+        self.twoDnorm[2,4] = 4.9
+        expected = 4.55
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_two_valid_pixel_2D_log(self):
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.twoDlog[2,3] = 4.2
+        self.twoDlog[2,4] = 4.9
+        expected = 4.53651848888
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDlog'][1,2], expected)
+
+    def test_two_valid_pixel_3D_norm(self):
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.threeDnorm[2,3,:] = numpy.array([1.9, 2.7, 3.1])
+        self.threeDnorm[2,4,:] = numpy.array([1.7, 2.4, 5.1])
+        expected = [1.8, 2.55, 4.1]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_two_valid_pixel_3D_log(self):
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.threeDlog[2,3,:] = numpy.array([1.9, 2.7, 3.1])
+        self.threeDlog[2,4,:] = numpy.array([1.7, 2.4, 5.1])
+        expected = [1.7972200755611, 2.545584412271, 
+                    3.9761790704142]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
+
+    def test_zero_weight_if_SZA_gt_thresh_2D_norm(self):
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.SZA[2,4] = 100
+        expected = self.twoDnorm[2,3]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+        
+    def test_zero_weight_if_SZA_gt_thresh_2D_log(self):
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.SZA[2,4] = 100
+        expected = self.twoDlog[2,3]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDlog'][1,2], expected)
+
+    def test_zero_weight_if_SZA_gt_thresh_3D_norm(self):
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.SZA[2,4] = 100
+        expected = self.threeDnorm[2,3,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_zero_weight_if_SZA_gt_thresh_3D_log(self):
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.SZA[2,4] = 100
+        expected = self.threeDlog[2,3,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
+
+    def test_properly_flips_SZA_when_night_specified_2D(self):
+        self.pDict['dayTime'] = 'False'
+        newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.SZA[2,4] = 100
+        expected = self.twoDnorm[2,4]
+        resDict = newOutClass(self.mapDict, self.sixElGr, self.outFname, verbose=False)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_properly_flips_SZA_when_night_specified_3D(self):
+        self.pDict['dayTime'] = 'False'
+        newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
+        self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
+        self.SZA[2,4] = 100
+        expected = self.threeDnorm[2,4,:]
+        resDict = newOutClass(self.mapDict, self.sixElGr, self.outFname, verbose=False)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_screen_out_bad_sTypes_2D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), 
+                               ((1,0), None), ((1,1), None), ((1,2), None),
+                               ((2,0), None), ((2,1), None), ((2,2), None)]
+        self.sType[0,0] = 1
+        self.sType[0,1] = 2
+        expected = numpy.random.rand()
+        self.twoDnorm[0,2] = expected
+        for i in [0,1,2]:
+            self.twoDnorm[1,i] = expected-i
+            self.twoDnorm[2,i] = expected+i
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_screen_out_bad_sTypes_3D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), 
+                               ((1,0), None), ((1,1), None), ((1,2), None),
+                               ((2,0), None), ((2,1), None), ((2,2), None)]
+        self.sType[0,0] = 1
+        self.sType[0,1] = 2
+        expected = numpy.random.rand(3)
+        self.threeDnorm[0,2,:] = expected
+        for i in [0,1,2]:
+            self.threeDnorm[1,i,:] = expected-i
+            self.threeDnorm[2,i,:] = expected+i
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_use_all_sTypes_if_no_threshold_met_2D(self):
+        self.mapDict[(1,2)] = [((3,1), None), ((3,2), None), ((3,3), None), ((3,4), None)]
+        self.sType[3,1] = 10
+        self.sType[3,2] = 100
+        expected = numpy.random.rand()
+        self.twoDnorm[3,1] = expected+1
+        self.twoDnorm[3,2] = expected+1
+        self.twoDnorm[3,3] = expected+1
+        self.twoDnorm[3,4] = expected-3
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+        
+    def test_use_all_sTypes_if_no_threshold_met_3D(self):
+        self.mapDict[(1,2)] = [((3,1), None), ((3,2), None), ((3,3), None), ((3,4), None)]
+        self.sType[3,1] = 10
+        self.sType[3,2] = 100
+        expected = numpy.random.rand(3)
+        self.threeDnorm[3,1,:] = expected+1
+        self.threeDnorm[3,2,:] = expected+1
+        self.threeDnorm[3,3,:] = expected+1
+        self.threeDnorm[3,4,:] = expected-3
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_screen_properly_on_exactly_threshold_2D(self):
+        self.mapDict[(1,2)] = [((3,0), None), ((3,1), None), ((3,2), None), ((3,4), None)]
+        self.sType[3,4] = -1
+        expected = numpy.random.rand()
+        self.twoDnorm[3,0] = expected*1.5
+        self.twoDnorm[3,1] = expected*.5
+        self.twoDnorm[3,2] = expected
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_screen_properly_on_exactly_threshold_3D(self):
+        self.mapDict[(1,2)] = [((3,0), None), ((3,1), None), ((3,2), None), ((3,4), None)]
+        self.sType[3,4] = -1
+        expected = numpy.random.rand(3)
+        self.threeDnorm[3,0,:] = expected*1.5
+        self.threeDnorm[3,1,:] = expected*0.5
+        self.threeDnorm[3,2,:] = expected
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_screen_out_minority_levels_when_fewer_2D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((1,0), None), ((2,0), None)]
+        self.threeDnorm[0,0,2] = numpy.NaN
+        expected = numpy.random.rand()
+        self.twoDnorm[1,0] = expected+3.5
+        self.twoDnorm[2,0] = expected-3.5
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_screen_out_minority_levels_when_fewer_3D_same(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((1,0), None), ((2,0), None)]
+        self.threeDnorm[0,0,2] = numpy.NaN
+        expected = numpy.random.rand(3)
+        self.threeDnorm[1,0,:] = expected+numpy.array([3.5, 4.5, 5.5])
+        self.threeDnorm[2,0,:] = expected-numpy.array([3.5, 4.5, 5.5])
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_screen_out_minority_levels_when_fewer_3D_diff(self):
+        self.pDict['colMeasField'] = 'threeDlog'
+        newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
+        self.mapDict[(1,2)] = [((0,0), None), ((1,0), None), ((2,0), None)]
+        self.threeDlog[0,0,2] = numpy.NaN
+        expected = numpy.random.rand(3)
+        self.threeDnorm[1,0,:] = expected+numpy.array([3.5, 4.5, 5.5])
+        self.threeDnorm[2,0,:] = expected-numpy.array([3.5, 4.5, 5.5])
+        resDict = newOutClass(self.mapDict, self.sixElGr, self.outFname, verbose=False)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_screen_out_minority_levels_when_greater_2D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
+        self.threeDnorm[0,0,2] = numpy.NaN
+        self.threeDnorm[0,1,2] = numpy.NaN
+        expected = numpy.random.rand()
+        self.twoDnorm[0,0] = expected+1
+        self.twoDnorm[0,1] = expected-1
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_screen_out_minority_levels_when_greater_3D_same(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
+        expected = numpy.random.rand(3)
+        expected[-1] = numpy.NaN
+        self.threeDnorm[0,0,:] = expected+1
+        self.threeDnorm[0,1,:] = expected-1
+        resDict = self.defaultOutFunc()
+        expected[-1] = self.pDict['fillVal']
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_screen_out_minority_levels_when_greater_3D_diff(self):
+        self.pDict['colMeasField'] = 'threeDlog'
+        newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
+        self.threeDlog[0,0,2] = numpy.NaN
+        self.threeDlog[0,1,2] = numpy.NaN
+        expected = numpy.random.rand(3)
+        expected[-1] = numpy.NaN
+        self.threeDnorm[0,0,:] = expected+1
+        self.threeDnorm[0,1,:] = expected-1
+        resDict = newOutClass(self.mapDict, self.sixElGr, self.outFname, verbose=False)
+        expected[-1] = self.pDict['fillVal']
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_screen_properly_in_tie_2D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
+        self.threeDnorm[0,1,2] = numpy.NaN
+        self.threeDnorm[0,2,1] = numpy.NaN
+        self.threeDnorm[0,2,2] = numpy.NaN
+        expected = self.twoDnorm[0,0]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_screen_properly_in_tie_3D_same(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
+        self.threeDnorm[0,1,2] = numpy.NaN
+        self.threeDnorm[0,2,1] = numpy.NaN
+        self.threeDnorm[0,2,2] = numpy.NaN
+        expected = self.threeDnorm[0,0,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+        
+    def test_screen_properly_in_tie_3D_diff(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None)]
+        self.threeDnorm[0,1,2] = numpy.NaN
+        self.threeDnorm[0,2,1] = numpy.NaN
+        self.threeDnorm[0,2,2] = numpy.NaN
+        expected = self.threeDlog[0,0,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
+
+    def test_screen_out_UTC_times_earlier_than_start_2D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.time[2,3] = self.toTAI93('12:00:00 01-03-2012')
+        expected = self.twoDnorm[2,2]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_screen_out_UTC_times_earlier_than_start_3D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.time[2,3] = self.toTAI93('12:00:00 01-03-2012')
+        expected = self.threeDnorm[2,2,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_screen_out_UTC_times_later_than_stop_2D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.time[2,3] = self.toTAI93('12:00:00 01-05-2012')
+        expected = self.twoDnorm[2,2]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_screen_out_UTC_times_later_than_stop_3D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.time[2,3] = self.toTAI93('12:00:00 01-05-2012')
+        expected = self.threeDnorm[2,2,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_UTC_time_does_not_account_for_lon(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.time[2,3] = self.toTAI93('02:00:00 01-04-2012')
+        self.time[2,3] = self.toTAI93('22:00:00 01-03-2012')
+        self.lon[2,3] = -150
+        self.lon[2,3] = 150
+        expected = self.twoDnorm[2,2]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_local_time_does_account_for_lon(self):
+        self.pDict['timeComparison'] = 'local'
+        newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.time[2,2] = self.toTAI93('02:00:00 01-04-2012')
+        self.time[2,3] = self.toTAI93('22:00:00 01-03-2012')
+        self.lon[2,2] = -150
+        self.lon[2,3] = 150
+        expected = self.twoDnorm[2,3]
+        resDict = newOutClass(self.mapDict, self.sixElGr, self.outFname, verbose=False)        
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_time_and_flag_still_zero_out_pixel_2D(self):
+        self.mapDict[(1,2)] = [((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.SZA[0,1] = 100
+        self.SZA[0,3] = 100
+        self.time[0,2] = self.toTAI93('12:00:00 02-04-2012')
+        self.time[0,3] = self.toTAI93('12:00:00 02-04-2012')
+        expected = self.twoDnorm[0,4]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_time_and_flag_still_zero_out_pixel_3D(self):
+        self.mapDict[(1,2)] = [((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.SZA[0,1] = 100
+        self.SZA[0,3] = 100
+        self.time[0,2] = self.toTAI93('12:00:00 02-04-2012')
+        self.time[0,3] = self.toTAI93('12:00:00 02-04-2012')
+        expected = self.threeDnorm[0,4,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_time_and_filter_still_zero_out_pixel_2D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.sType[0,4] = 1
+        self.time[0,4] = self.toTAI93('12:00:00 01-05-2012')
+        expected = numpy.random.rand()
+        self.twoDnorm[0,0] = expected+5
+        self.twoDnorm[0,1] = expected-2
+        self.twoDnorm[0,2] = expected-2
+        self.twoDnorm[0,3] = expected-1
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_time_and_filter_still_zero_out_pixel_3D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.sType[0,4] = 1
+        self.time[0,4] = self.toTAI93('12:00:00 01-05-2012')
+        expected = numpy.random.rand(3)
+        self.threeDnorm[0,0,:] = expected+5
+        self.threeDnorm[0,1,:] = expected-2
+        self.threeDnorm[0,2,:] = expected-2
+        self.threeDnorm[0,3,:] = expected-1
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_both_filter_still_zero_out_pixel_2D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.sType[0,4] = 1
+        self.threeDnorm[0,4,2] = numpy.NaN
+        expected = numpy.random.rand()
+        self.twoDnorm[0,0] = expected
+        self.twoDnorm[0,1] = expected-3
+        self.twoDnorm[0,2] = expected+1
+        self.twoDnorm[0,3] = expected+2
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_both_filter_still_zero_out_pixel_3D(self):
+        self.mapDict[(1,2)] = [((0,0), None), ((0,1), None), ((0,2), None), ((0,3), None), ((0,4), None)]
+        self.sType[0,4] = 1
+        self.threeDnorm[0,4,2] = numpy.NaN
+        expected = numpy.random.rand()
+        self.threeDnorm[0,0,:] = expected
+        self.threeDnorm[0,1,:] = expected-3
+        self.threeDnorm[0,2,:] = expected+2
+        self.threeDnorm[0,3,:] = expected+1
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_all_zero_weight_yields_fillVal_2D(self):
+        self.mapDict[(1,2)] = [((1,0), None), ((1,1), None)]
+        self.SZA[1,0] = 130
+        self.time[1,1] = self.toTAI93('12:00:00 01-05-2012')
+        expected = self.pDict['fillVal']
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_all_zero_weight_yields_fillVal_3D(self):
+        self.mapDict[(1,2)] = [((1,0), None), ((1,1), None)]
+        self.SZA[1,0] = 130
+        self.time[1,1] = self.toTAI93('12:00:00 01-05-2012')
+        expected = numpy.array([self.pDict['fillVal']]*3)
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_all_zero_weight_plus_NaN_in_data_yields_fillVal_2D(self):
+        self.mapDict[(1,2)] = [((1,0), None), ((1,1), None)]
+        self.SZA[1,0] = 130
+        self.time[1,1] = self.toTAI93('12:00:00 01-05-2012')
+        self.twoDnorm[1,0] = numpy.NaN
+        self.twoDnorm[2,0] = numpy.NaN
+        expected = self.pDict['fillVal']
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_all_zero_weight_plus_NaN_in_data_yields_fillVal_3D(self):
+        self.mapDict[(1,2)] = [((1,0), None), ((1,1), None)]
+        self.SZA[1,0] = 130
+        self.time[1,1] = self.toTAI93('12:00:00 01-05-2012')
+        self.threeDnorm[1,0,2] = numpy.NaN
+        self.threeDnorm[1,1,2] = numpy.NaN
+        expected = numpy.array([self.pDict['fillVal']]*3)
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_NaN_in_data_with_zero_weight_does_not_affect_avg_2D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.SZA[2,3] = 100
+        self.twoDnorm[2,3] = numpy.NaN
+        expected = self.twoDnorm[2,2]
+        resDict = self.defaultOutFunc()
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+
+    def test_NaN_in_data_with_zero_weight_does_not_affect_avg_3D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.SZA[2,3] = 100
+        self.threeDnorm[2,3,:] = numpy.array([numpy.NaN]*3)
+        expected = self.threeDnorm[2,2,:]
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_no_pixels_in_cell_yields_fillVal_2D(self):
+        expected = self.pDict['fillVal']
+        resDict = self.defaultOutFunc()
+        self.assertEqual(resDict['twoDnorm'][1,2], expected)
+        
+    def test_no_pixels_in_cell_yields_fillVal_3D(self):
+        expected = numpy.array([self.pDict['fillVal']]*3)
+        resDict = self.defaultOutFunc()
+        numpy.testing.assert_array_equal(resDict['threeDnorm'][1,2,:], expected)
+
+    def test_correctly_map_to_multiple_cells_simultaneously_2D(self):
+        self.mapDict[(1,0)] = [((2,0), None), ((2,1), None)]
+        self.mapDict[(1,1)] = [((2,1), None), ((2,2), None)]
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.SZA[2,1] = 100
+        self.time[2,3] = self.toTAI93('12:00:00 01-06-2012')
+        expected = numpy.array([self.twoDnorm[2,0], self.twoDnorm[2,2], self.twoDnorm[2,2]])
+        resDict= self.defaultOutFunc()
+        output = numpy.array([resDict['twoDnorm'][1,0], resDict['twoDnorm'][1,1], resDict['twoDnorm'][1,2]])
+        numpy.testing.assert_array_almost_equal(output, expected)
+
+    def test_correctly_map_to_multiple_cells_simultaneously_3D(self):
+        self.mapDict[(1,0)] = [((2,0), None), ((2,1), None)]
+        self.mapDict[(1,1)] = [((2,1), None), ((2,2), None)]
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        self.SZA[2,1] = 100
+        self.time[2,3] = self.toTAI93('12:00:00 01-06-2012')
+        expected = numpy.array([self.threeDnorm[2,0,:], self.threeDnorm[2,2,:], self.threeDnorm[2,2,:]])
+        resDict = self.defaultOutFunc()
+        output = numpy.array([resDict['threeDnorm'][1,0,:], resDict['threeDnorm'][1,1,:], resDict['threeDnorm'][1,2,:]])
+        numpy.testing.assert_array_almost_equal(output, expected)
+        
+    @unittest.skip("Skipped until function can be rewritten to accomodate multiple inputs")
+    def test_multidict_raises_appropriate_exception(self):
+        # This function is currently busted and doesn't work with more
+        # than one dictionary.  It raises an error if >1 dictionary is 
+        # provided.  This test is in place until there is a convincing
+        # reason to rewrite it to accept more than one dictionary.
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.assertRaises(NotImplementedError, self.defaultOutClass,
+                          dictList, self.sixElGr, self.outFname, verbose=False)
+
+    @unittest.skip("Skipped until function can be rewritten to accomodate multiple inputs")
+    def test_multidict_one_zero_weight_2D_norm(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        expected = self.twoDnorm[2,2]
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname, verbose=False)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+        
+    @unittest.skip("Skipped until function can be rewritten to accomodate multiple inputs")
+    def test_multi_dict_one_zero_weight_2D_log(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        expected = self.twoDlog[2,2]
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname, verbose=False)
+        self.assertAlmostEqual(resDict['twoDlog'][1,2], expected)
+        
+    @unittest.skip("Skipped until function can be rewritten to accomodate multiple inputs")
+    def test_multi_dict_one_zero_weight_3D_norm(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        expected = self.threeDnorm[2,2,:]
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname, verbose=False)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+        
+    @unittest.skip("Skipped until function can be rewritten to accomodate multiple inputs")
+    def test_multi_dict_one_zero_weight_3D_log(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        expected = self.threeDlog[2,2,:]
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname, verbose=False)
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
+        
+    @unittest.skip("Skipped until function can be rewritten to accomodate multiple inputs")
+    def test_multidict_two_valid_pix_2D_norm(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.twoDnorm[2,2] = 1.1
+        self.twoDnorm[2,3] = 1.2
+        expected = 1.15
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname, verbose=False)
+        self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
+        
+    @unittest.skip("Skipped until function can be rewritten to accomodate multiple inputs")
+    def test_multidict_two_valid_pix_2D_log(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        self.twoDlog[2,2] = 2
+        self.twoDlog[2,3] = 50
+        expected = 10
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname, verbose=False)
+        self.assertAlmostEqual(resDict['twoDlog'][1,2], expected)
+        
+    @unittest.skip("Skipped until function can be rewritten to accomodate multiple inputs")
+    def test_multidict_two_valid_pix_3D_norm(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        expected = numpy.random.rand(3)
+        self.threeDnorm[2,2,:] = expected+2
+        self.threeDnorm[2,3,:] = expected-2
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname, verbose=False)
+        numpy.testing.assert_array_almost_equal(resDict['threeDnorm'][1,2,:], expected)
+        
+    @unittest.skip("Skipped until function can be rewritten to accomodate multiple inputs")
+    def test_multidict_two_valid_pix_3D_log(self):
+        mapDict2 = dict(self.mapDict)
+        dictList = [self.mapDict, mapDict2]
+        self.mapDict[(1,2)] = [((2,2), None)]
+        mapDict2[(1,2)] = [((2,3), None)]
+        expected = numpy.random.rand(3)
+        self.threeDlog[2,2,:] = expected*2
+        self.threeDlog[2,3,:] = expected/2
+        resDict = self.defaultOutClass(dictList, self.sixElGr, self.outFname, verbose=False)
+        numpy.testing.assert_array_almost_equal(resDict['threeDlog'][1,2,:], expected)
+
+    def test_output_file_is_netcdf(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        # passes if no exception is raised during this step
+
+    def test_output_file_contains_start_time(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.File_start_time, self.pDict['timeStart'])
+
+    def test_output_file_contains_stop_time(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.File_stop_time, self.pDict['timeStop'])
+
+    def test_output_file_contains_grid_name(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.Projection, 'latlon')
+        
+    def test_output_file_contains_tComp(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.Time_comparison_scheme, self.pDict['timeComparison'])
+
+    def test_output_file_contains_notes(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.Notes, 'All values daytime with cutoff at  85.00')
+
+    def test_output_file_containts_input_file_list_singledict(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.Input_files, 'foo.dat')
+
+    @unittest.skip("Skipped until function can be rewritten to accomodate multiple inputs")
+    def test_output_file_contains_input_file_list_multidict(self):
+        mapDict2 = dict(self.mapDict)
+        parser2 = fakeParser('bar.dat')
+        mapDict2['parser'] = parser2
+        dictList = [self.mapDict, mapDict2]
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertEqual(self.fid.Input_files, 'foo.dat bar.dat')
+
+    def test_output_file_contains_gridParms(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        keys = self.six_el_gridParms.keys()
+        expected = dict()
+        for key in keys:
+            expected[key] = getattr(self.fid, key)
+        self.assertDictEqual(self.six_el_gridParms, expected)
+
+    def test_output_file_has_correct_dims_and_dimsizes(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        expectedDims = {'row' : 2, 'col' : 3, 'layer' : 3}
+        self.assertDictEqual(self.fid.dimensions, expectedDims)
+
+    def test_output_file_has_correct_variables(self):
+        expected = ['foo', 'bar', 'baz', 'qux']
+        self.pDict['outFieldNames'] = expected
+        newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
+        unused_result = newOutClass(self.mapDict, self.sixElGr, self.outFname, verbose=False)
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertItemsEqual(self.fid.variables.keys(), expected)
+
+    def test_output_file_has_correctly_documented_units(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        varNames = self.pDict['outFieldNames']
+        expected = self.pDict['outUnits']
+        output = [self.fid.variables[var].Units for var in varNames]
+        self.assertListEqual(output, expected)
+
+    def test_output_file_has_correctly_documented_fillVals(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        varNames = self.pDict['outFieldNames']
+        expected = [self.pDict['fillVal']]*4
+        output = [self.fid.variables[var]._FillValue for var in varNames]
+        self.assertListEqual(output, expected)
+
+    def test_output_file_variables_correct_shape(self):
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        varNames = self.pDict['outFieldNames']
+        expected = [(2,3), (2,3,3), (2,3), (2,3,3)]
+        output = [self.fid.variables[var].shape for var in varNames]
+        self.assertListEqual(output, expected)
+
+    def test_output_correctly_writes_valid_values_2D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        expected = numpy.random.rand()
+        self.twoDnorm[2,2] = expected+1
+        self.twoDnorm[2,3] = expected-1
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.assertAlmostEqual(self.fid.variables['twoDnorm'][1,2], expected)
+
+    def test_output_correctly_writes_valid_values_3D(self):
+        self.mapDict[(1,2)] = [((2,2), None), ((2,3), None)]
+        expected = numpy.random.rand(3)
+        self.threeDnorm[2,2,:] = expected+1
+        self.threeDnorm[2,3,:] = expected-1
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:], expected)
+
+    def test_output_correctly_writes_fillVal_2D(self):
+        self.mapDict[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        expected = self.pDict['fillVal']
+        self.assertEqual(self.fid.variables['twoDnorm'][1,2], expected)
+
+    def test_output_correctly_writes_full_fillVal_3D(self):
+        self.mapDict[(1,2)] = [((2,3), None)]
+        self.SZA[2,3] = 100
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        expected = numpy.array([self.pDict['fillVal']]*3)
+        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:], expected)
+
+    def test_output_correctly_writes_partial_fillVal_3D(self):
+        self.mapDict[(1,2)] = [((2,3), None)]
+        self.threeDnorm[2,3,2] = numpy.NaN
+        unused_result = self.defaultOutFunc()
+        self.fid = sio.netcdf_file(self.outFname, 'r')
+        expected = self.threeDnorm[2,3,:]
+        expected[2] = self.pDict['fillVal']
+        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:], expected)
+
+'''
 if __name__ == '__main__':
-    foo = '__main__.TestMOPPITl2Parser.test_get_cm_retrieves_all_vars'
+    foo = '__main__.Test_OMNO2e_netCDF_avg_out_func.test_output_file_opens_if_variables_share_extra_dim'
     suite = unittest.defaultTestLoader.loadTestsFromName(foo)
     unittest.TextTestRunner(verbosity=2).run(suite)
 '''
-'''
 if __name__ == '__main__':
-    unittest.main()
-'''
+    unittest.main(verbosity=2)
 
