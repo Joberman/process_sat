@@ -114,7 +114,6 @@ class OMNO2e_wght_avg_out_func(out_func):
                 'fillVal' : ('The value with which to fill cells without ' \
                              'valid measurements','decimal')}
     
-
     def __call__(self, maps, griddef, outfilename, verbose=True):
         '''Write out single weighted-avg file'''
         numpy.seterr(over='raise')

@@ -3198,6 +3198,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         out = self.fid.variables['outTest2D'][:]
         numpy.testing.assert_array_almost_equal(expected, out)
 
+
 class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
     
     def setUp(self):
