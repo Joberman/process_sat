@@ -767,11 +767,11 @@ class wght_avg_netCDF(out_func):
                     
                     # create the time array we'll be using to filter
                     tArray = numpy.array([p.get_cm(self.parmDict['time'], ind)
-                                          for (ind, wgt) in pixTups])
+                                          for (ind, wgt) in pixTups]).squeeze()
                     if self.parmDict['timeComparison'] == 'local':
                         offsets = numpy.array([utils.UTCoffset_from_lon(
                                                p.get_cm(self.parmDict['longitude'], ind)) 
-                                               for (ind, wgt) in pixTups])
+                                               for (ind, wgt) in pixTups]).squeeze()
                         tArray += offsets
                     tFlag = numpy.logical_or(tArray < timeStart, tArray > timeStop)
                     
@@ -793,7 +793,7 @@ class wght_avg_netCDF(out_func):
                         
                         # create the array of weighted values    
                         vals = numpy.array([p.get_cm(field, ind)
-                                            for (ind, wgt) in pixTups])
+                                            for (ind, wgt) in pixTups]).squeeze()
                         if self.parmDict['logNormal'][field]:
                             vals = numpy.log(vals) # work with logarithm of data
 
@@ -1043,11 +1043,15 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                              ' nighttime.', None),
                 'surfTypeField' : ('The name of the field containing the ' \
                                    'surface type index.', None),
-                'colMeasField' : ('the name of the field containing the ' \
+                'colMeasField' : ('The name of the field containing the ' \
                                   'column measurement that will be used to ' \
                                   'determine which levels are valid in a ' \
                                   'cell.  Canonically the retrieved CO mixing' \
-                                  ' ratio profile field.', None)}
+                                  ' ratio profile field.  It is assumed that ' \
+                                  'the field will have a layer dimension first' \
+                                  ' and a 2-element second dimension (for ' \
+                                  'values and std devs) of which we want the ' \
+                                  'first slice.', None)}
     def __init__(self, pDict):
         '''Convert input to format of parent input'''
         # make a shallow copy to the parameter dict, as we'll be making changes
@@ -1117,9 +1121,9 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                 return numpy.array([])
 
             # first filter
-            sTypes = [parser.get_cm(surfField, ind) for ind in indStack]
-            uniques = set(sTypes)
-            uniqueFracs = [float(sTypes.count(un))/len(sTypes) for un in uniques]
+            sTypes = numpy.array([parser.get_cm(surfField, ind) for ind in indStack]).squeeze()
+            uniques = numpy.unique(sTypes)
+            uniqueFracs = [float((sTypes == un).sum())/sTypes.size for un in uniques]
             cellType = None
             for (type,frac) in izip(uniques,uniqueFracs):
                 # at most one value can meet threshold
@@ -1130,10 +1134,10 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                 sFlag = numpy.array([False]*len(sTypes))
             else:
                 # one met threshold
-                sFlag = numpy.array([sType != cellType for sType in sTypes])
+                sFlag = sTypes != cellType
             
             # second filter
-            columns = [parser.get_cm(colMeasField, ind) for ind in indStack]
+            columns = [parser.get_cm(colMeasField, ind)[:,0] for ind in indStack]
             nValidInCol = numpy.array([col.size - numpy.isnan(col).sum() for col in columns])
             uniqueNvals = set(nValidInCol)
             uniqueCounts = numpy.array([(nValidInCol == val).sum() for val in uniqueNvals])
