@@ -123,7 +123,7 @@ class GeoFile():
     def get_cm(self, key, indices=None):
         raise NotImplementedError
 
-class HDF4_File(GeoFile):
+class HDF4File(GeoFile):
     """Provide generic interface for HDF 4 files"""
     def __init__(self, filename, subtype='', extension=None):
         GeoFile.__init__(self, filename, subtype=subtype, extension=extension)
@@ -339,7 +339,7 @@ class HDF4_File(GeoFile):
             # just fetch everything
             return self._open_vars[key]
             
-class HDF_File(GeoFile):
+class HDFFile(GeoFile):
     """Provide generic interface for HDF 5 files"""
     def __init__(self, filename, subtype='', extension=None):
         GeoFile.__init__(self, filename, subtype=subtype, extension=extension)
@@ -461,7 +461,7 @@ class HDF_File(GeoFile):
         del self._fid
         return False
 
-class HDFknmiomil2_File(HDF_File):
+class HDFknmiomil2_File(HDFFile):
     """Provide interface to KNMI OMI L2 NRT product"""
     _nameExpMap = {"AirMassFactor"                          : "/HDFEOS/SWATHS/DominoNO2/Data Fields/AirMassFactor",
                   "AirMassFactorGeometric"                  : "/HDFEOS/SWATHS/DominoNO2/Data Fields/AirMassFactorGeometric",
@@ -534,7 +534,7 @@ class HDFknmiomil2_File(HDF_File):
         return struct
 
         
-class HDFnasaomil2_File(HDF_File):
+class HDFnasaomil2_File(HDFFile):
     """
     Provide interface to NASA OMI L2 product, with pixel corners
     
@@ -551,7 +551,7 @@ class HDFnasaomil2_File(HDF_File):
     the "SlantColumnAmountH20Std" variable due to a case typo.
     """
     def __init__(self, filename, subtype='', extension=None, pixCornerFname=None):
-        HDF_File.__init__(self, filename, subtype, extension)
+        HDFFile.__init__(self, filename, subtype, extension)
         self.pixCorners = pixCornerFname
         
     __dataPath = '/HDFEOS/SWATHS/ColumnAmountNO2/Data Fields/'
@@ -686,7 +686,7 @@ class HDFnasaomil2_File(HDF_File):
         (struct['lat'], struct['lon'], struct['ind']) = (lat, lon, ind)
         return struct
         
-class HDFmopittl2_File(HDF4_File):
+class HDFmopittl2_File(HDF4File):
     """
     Provide interface to MOPITT level 2 V5 product
 
@@ -730,11 +730,11 @@ class HDFmopittl2_File(HDF4_File):
         
     def get(self, key, indices=None):
         '''Overloaded version of get that applies the correct missing value.'''
-        return HDF4_File.get(self, key, indices, missingValue=-9999.0)
+        return HDF4File.get(self, key, indices, missingValue=-9999.0)
 
     def get_cm(self, key, indices=None):
         '''Overloaded version of get_cm that applied the correct missing value.'''
-        return HDF4_File.get_cm(self, key, indices, missingValue=-9999.0)
+        return HDF4File.get_cm(self, key, indices, missingValue=-9999.0)
 
 
     def get_geo_centers(self):

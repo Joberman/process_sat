@@ -1,3 +1,4 @@
+#!/Library/Frameworks/Python.framework/Versions/Current/bin/python
 '''
 New command-line io for oberman's process scripts
 
@@ -9,7 +10,6 @@ If set to False, the program will run silently
 @version 11/21/2011
 @author: maki, oberman
 '''
-
 import os
 import sys
 import datetime
