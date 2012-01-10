@@ -61,6 +61,7 @@ def regional_intersect_map_geo(parser, griddef, verbose=True):
         - polar discontinuities aren't of concern
         - we AREN'T dealing with a global projection
         - grid is rectilinear
+        - pixels are convex polygons
     '''
     
     if verbose:
@@ -118,7 +119,9 @@ def regional_intersect_map_geo(parser, griddef, verbose=True):
 
 def point_in_cell_map_geo(parser, griddef, verbose=True):
     '''
-    For each object, find the single cell to which it should be assigned.
+    For each object, find the single cell to which it should be assigned.  This 
+    cell is determined as the cell into which the representative lat/lon of the 
+    pixel would fit in projected space.
     
     Cells are treated as open on upper right and closed on the lower left.  For
     practical purposes, this means that pixels falling on the boundary between 
