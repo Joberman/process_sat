@@ -2255,14 +2255,16 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
                   'longitude' : 'lon'}
         self.startTimeStr = '00:00:00 08-30-2011'
         self.stopTimeStr = '23:59:59 08-30-2011'
+        startTimeParm = self.startTimeStr.replace(' ','_')
+        stopTimeParm = self.stopTimeStr.replace(' ', '_')
         self.defParms = {'inFieldNames' : ['test2D', 'test3D'],
                     'outFieldNames' : ['outTest2D', 'outTest3D'],
                     'outUnits' : ['Jigawatts', 'fathoms'],
                     'extraDimLabel' : ['Irrelevant', 'layer'],
                     'extraDimSize' : [0, 4],
                     'timeComparison' : 'UTC',
-                    'timeStart' : self.toTAI93(self.startTimeStr),
-                    'timeStop' : self.toTAI93(self.stopTimeStr),
+                    'timeStart' : startTimeParm,
+                    'timeStop' : stopTimeParm,
                     'cloudFractUpperCutoff' : .25,
                     'solarZenAngUpperCutoff' : 80,
                     'pixIndXtrackAxis' : 1,
@@ -3024,6 +3026,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = sio.netcdf_file(self.outFname, 'r')
         self.assertEqual(self.fid.Max_valid_solar_zenith_angle, self.defParms['solarZenAngUpperCutoff'])        
+
         
     def test_output_file_contains_tComp(self):
         for i,j in product(range(2), range(3)):
@@ -3218,8 +3221,8 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
                        'logNormal' : ['False', 'False', 'True', 'True', 'False'],
                        'dimLabels' : ['()', '(layer)', '()', '(layer)', '(layer.value)'],
                        'dimSizes' : ['()', '(3)', '()', '(3)', '(3.2)'],
-                       'timeStart' : '00:00:00 01-04-2012',
-                       'timeStop' : '23:59:59 01-04-2012',
+                       'timeStart' : '00:00:00_01-04-2012',
+                       'timeStop' : '23:59:59_01-04-2012',
                        'timeComparison' : 'UTC',
                        'fillVal' : -9999.0,
                        'solZenAngCutoff' : 85,
@@ -4001,12 +4004,14 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
     def test_output_file_contains_start_time(self):
         unused_result = self.defaultOutFunc()
         self.fid = sio.netcdf_file(self.outFname, 'r')
-        self.assertEqual(self.fid.File_start_time, self.pDict['timeStart'])
+        expected = self.pDict['timeStart'].replace('_', ' ')
+        self.assertEqual(self.fid.File_start_time, expected)
 
     def test_output_file_contains_stop_time(self):
         unused_result = self.defaultOutFunc()
         self.fid = sio.netcdf_file(self.outFname, 'r')
-        self.assertEqual(self.fid.File_stop_time, self.pDict['timeStop'])
+        expected = self.pDict['timeStop'].replace('_', ' ')
+        self.assertEqual(self.fid.File_stop_time, expected)
 
     def test_output_file_contains_grid_name(self):
         unused_result = self.defaultOutFunc()

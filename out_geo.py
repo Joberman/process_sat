@@ -243,10 +243,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             arguments to see if the pixel is valid.
         timeStart:
             Initial time we want included in file.  Must
-            be in format hh:mm:ss MM-DD-YYYY
+            be in format hh:mm:ss_MM-DD-YYYY
         timeStop:
             Final Time we want in included in file.  Must
-            be in format hh:mm:ss MM-DD-YYYY
+            be in format hh:mm:ss_MM-DD-YYYY
         cloudFractUpperCutoff:
             Pixels with a higher cloud fraction than this 
             value will be ignored.
@@ -279,8 +279,9 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                'cloud fraction',None),
                 'solarZenithAngle' : ('The name of the field containing the '\
                                       'solar zenith angle',None),
-                'time' : ('The name of the field containing the timestamps', \
-                          None),
+                'time' : ('The name of the field containing the timestamps. '\
+                          ' Timestamps are assumed to be the in TAI-93 ' \
+                          'format', None),
                 'longitude' : ('The name of the field containing longitudes '\
                                'at cell centers',None),
                 'inFieldNames' : ('The fields to be output.  Input full ' \
@@ -306,8 +307,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                     ' pixel\'s approximate timezone) or '  \
                                     '\'UTC\'(where each pixel is compared '  \
                                     'to time in UTC standard)',None),
-                'timeStart' : ('The first time to be included','int'),
-                'timeStop' : ('The final time to be included','int'),
+                'timeStart' : ('The first time to be included.  Must be in ' \
+                               'format hh:mm:ss_MM-DD-YYYY',None),
+                'timeStop' : ('The final time to be included.  Must be in ' \
+                               'format hh:mm:ss_MM-DD-YYYY',None),
                 'cloudFractUpperCutoff' : ('The maximum cloud fraction for ' \
                                            'valid pixels (0<=x<=1)','decimal'),
                 'solarZenAngUpperCutoff' : ('The maximum solar zenith angle '\
@@ -332,6 +335,12 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 dimsizes[i] = 0
                 continue
         self.parmDict['extraDimSize'] = dimsizes
+
+        # convert start and stop time to TAI93 standard
+        epoch = '00:00:00_01-01-1993'
+        format = '%H:%M:%S_%m-%d-%Y'
+        self.parmDict['timeStart'] = utils.timestr_to_nsecs(self.parmDict['timeStart'], epoch, format)
+        self.parmDict['timeStop'] = utils.timestr_to_nsecs(self.parmDict['timeStop'], epoch, format)
 
         #Perform some basic sanity checks with parameters
         if self.parmDict['timeStart'] > self.parmDict['timeStop']:
@@ -592,17 +601,17 @@ class wght_avg_netCDF(out_func):
             Initial time we want included in the output file.  All measurements
             taken before this time will be discarded, even if they are included
             in the files passed to output function.  Must be a string of the 
-            the format hh:mm:ss MM-DD-YYYY.
+            the format hh:mm:ss_MM-DD-YYYY.
         timeStop:
             Final time to be included in the output file.  All measurements
             taken after this time will be discarded.  Must be a string of the
-            format hh:mm:ss MM-DD-YYYY.
+            format hh:mm:ss_MM-DD-YYYY.
         timeConv:
             Function that converts timeStart and timeStop (both of which are 
-            strings of the format hh:mm:ss MM-DD-YYYY) into the format used to
+            strings of the format hh:mm:ss_MM-DD-YYYY) into the format used to
             store time within the parser.  IE if the parser returns time in 
             TAI93, then this function should convert a string
-            hh:mm:ss MM-DD-YYYY to TAI93.
+            hh:mm:ss_MM-DD-YYYY to TAI93.
         fillVal:
             The value with which we want to denote missing data in the output
             file.  This value must be castable to the type of all output 
@@ -847,8 +856,8 @@ class wght_avg_netCDF(out_func):
         outFid.createDimension('row', nRows)
         outFid.createDimension('col', nCols)
         # set global attributes
-        setattr(outFid, 'File_start_time', self.parmDict['timeStart'])
-        setattr(outFid, 'File_stop_time', self.parmDict['timeStop'])
+        setattr(outFid, 'File_start_time', self.parmDict['timeStart'].replace('_', ' '))
+        setattr(outFid, 'File_stop_time', self.parmDict['timeStop'].replace('_', ' '))
         setattr(outFid, 'Time_comparison_scheme', self.parmDict['timeComparison'])
         flistStr = ' '.join([map['parser'].name for map in maps])
         setattr(outFid, 'Input_files', flistStr)
@@ -933,7 +942,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
     way.  Will have the appropriate dimensions for those input fields being
     processed, as well as the fundamental rows/cols determined by grid_geo
 
-    This class subclasses the generic __wght_avg_netCDF.  It handles all 
+    This class subclasses the generic wght_avg_netCDF.  It handles all 
     changes in interface in it's __init__ method and lets any actual calls
     filter up to the parent.
 
@@ -1015,9 +1024,9 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                               'empty parentheses for fields with no extra ' \
                               'dimensions.  A correct entry should look ' \
                               'like this: (),(4),(),(4.5)', 'list'),
-                'timeStart' : ('The first time to be included (hh:mm:ss ' \
+                'timeStart' : ('The first time to be included (hh:mm:ss_' \
                                'MM-DD-YYYY).', None),
-                'timeStop' : ('The final time to be included (hh:mm:ss ' \
+                'timeStop' : ('The final time to be included (hh:mm:ss_' \
                               'MM-DD-YYYY).', None),
                 'timeComparison' : ('Selection of how we want to filter ' \
                                     'times.  Valid options are "local" or ' \
@@ -1061,8 +1070,8 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
         # add time converter (based on standards we selected and dictated by data)
         def tConvFunc(timeStr):
             # function to conver to TAI93
-            epoch = '00:00:00 01-01-1993'
-            format = '%H:%M:%S %m-%d-%Y'
+            epoch = '00:00:00_01-01-1993'
+            format = '%H:%M:%S_%m-%d-%Y'
             return utils.timestr_to_nsecs(timeStr, epoch, format)
         parmDict['timeConv'] = tConvFunc
         
