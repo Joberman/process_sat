@@ -585,10 +585,13 @@ function you want to use.
   	  The required parameters for each projection are listed
 	  above.
 	- If one of the "value" elements contains whitespace, enclose
-	  the entire name:value pair in parentheses.  For example:
+	  the entire name:value pair in double quotes.  For example:
 	      the:full_monty  	     <- okay
 	      "the:full monty" 	     <- okay
 	      the:full monty	     <- not okay
+	- If one of the "value" elements contains parentheses (as is
+	  the case for a number of lists of lists) then the entire
+	  name:value pair must be enclosed in double quotes.
 	- In many cases, a comma delimited list is requested.  Make
 	  sure that elements of the list are not separated by spaces.
 	  For example:
