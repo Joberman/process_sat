@@ -96,6 +96,36 @@ multple lines you must use line-continuation characters.
      --outFileName MOPITT_v5_20050106_daytime_CONUS36km_test.nc \
      --verbose True \
      --interactive True
+
+2. Process OMI level 2 DOMINO NO2 data, (Version 5) 
+     - processes a single file
+     - Uses a 36km lambert conic conformal grid centered over North
+     America
+     - Writes out a 2D, and 3D parameter from the file
+
+
+     process.py \
+     --directory /Users/strom/satellite/omi_no2_he5_20060701/ \
+     --fileList OMI-Aura_L2-OMDOMINO_2006m0701t0023-o10423_v003-2010m1008t224420.he5 \
+     --filetype HDFknmiomil2 \
+     --gridProj lcc2par \
+     --projAttrs xOrig:-2916000 yCell:36000 refLon:-97 refLat:40 \
+       nCols:162 nRows:126 stdPar2:45 stdPar1:33 xCell:36000 \
+       earthRadius:6370000 yOrig:-2268000 \
+     --mapFunc point_in_cell \
+     --outFunc OMNO2e_netCDF_avg \
+     --outFuncAttrs overallQualFlag:TropColumnFlag "cloudFrac:Cloud Fraction" \
+       solarZenithAngle:SolarZenithAngle time:Time longitude:Longitude \
+       "inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn" \
+       outFieldNames:time,AveragingKernel,TroposphericVerticalColumn \
+       outUnits:TAI93,noUnits0.001,molec/cm^2x1^15 "extraDimLabel:none,none,Layers" \
+       "extraDimSize:0,0,34" "timeStart:00:00:00_07-01-2006" "timeStop:23:59:59_07-01-2006" \
+       timeComparison:UTC fillVal:-9999 cloudFractUpperCutoff:0.3 \
+       solarZenAngUpperCutoff:85 pixIndXtrackAxis:1 \
+     --outDirectory /Users/strom/satellite \
+     --outFileName OMI_DOMINO_20060701_test.nc \
+     --verbose True \
+     --interactive True
      
 
 -----------------------
