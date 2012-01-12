@@ -2,7 +2,7 @@ PROJECT TITLE: Process_sat
 PURPOSE OF PROJECT: Provide a well-documented, easy-to-use general-purpose
                     processing module for processing satellite data
 VERSION: 0.2.72 (12/16/2011)
-AUTHORS: oberman, maki
+AUTHORS: oberman, maki, strom
 CONTACT: oberman@wisc.edu
 
 
@@ -18,7 +18,8 @@ in the file INSTALL.txt
 
 2. Download whatever data you plan to process.  Currently, the program
 is designed to process OMI NO2 DOMINO level 2 data, OMI NO2 NASA level
-2 data and MOPITT CO data.
+2 data and MOPITT CO data.  See the detailed documentation for the 
+--filelist argument for locations of data.
 
 
 3. Navigate to the folder where process.py is located (or add it to
@@ -84,9 +85,10 @@ multple lines you must use line-continuation characters.
      "inFieldNames:Time,Retrieved CO Mixing Ratio Profile,Retrieved CO Surface Mixing Ratio" \
      outFieldNames:time,COprof,COsurf outUnits:TAI93,ppbv,ppbv \
      logNormal:False,True,True "dimLabels:(),(layer.valOrStdDev),(valOrStdDev)" \
-     "dimSizes:(),(9.2),(2)" "timeStart:00:00:00 01-06-2005" \
-     "timeStop:23:59:59 01-06-2005" timeComparison:UTC \
-     fillVal:-9999.0 \solZenAngCutoff:85 \
+     "dimSizes:(),(9.2),(2)" "timeStart:00:00:00_01-06-2005" \
+     "timeStop:23:59:59_01-06-2005" timeComparison:UTC \
+     fillVal:-9999.0 \
+     solZenAngCutoff:85 \
      "solZenAng:Solar Zenith Angle" dayTime:True \
      "surfTypeField:Surface Index" \
      "colMeasField:Retrieved CO Mixing Ratio Profile" \
@@ -133,6 +135,10 @@ function you want to use.
 	  wrong date, saves computational power.  It is advisable to
 	  use this parameter to include only those files which may
           contain the desired information wherever possible.
+	- Locations of data (current as of 01/12/12
+		MOPITT - <http://eosweb.larc.nasa.gov/HPDOCS/datapool/>
+		NASA OMI - <http://mirador.gsfc.nasa.gov/cgi-bin/mirador/collectionlist.pl?keyword=omno2>
+		KNMI OMI - <http://www.temis.nl/airpollution/no2col/data/omi/data_v2/>
 
   --filetype {HDFknmiomil2, HDFmopittl2, HDFnasaomil2}
   	REQUIRED: YES
@@ -285,7 +291,14 @@ function you want to use.
           is the case, it is noted below.
 	- In all cases where a fieldname must be given for a
    	  parameter it is the short name (the name used to access the
-  	  field through the parser) that must be given.
+  	  field through the parser) that must be given.  The 
+	  fieldnames must correspond to the official field names 
+          in the data file.  These can usually be found in the data
+	  documentation.  Documentation for a few commonly processed
+	  formats can be found at:
+		OMI (KNMI) - <http://www.temis.nl/docs/OMI_NO2_HE5_1.0.2.pdf>
+		OMI (NASA) - <http://toms.gsfc.nasa.gov/omi/no2/OMNO2_data_product_specification.pdf>
+		MOPITT - <http://www.acd.ucar.edu/mopitt/v5_users_guide_beta.pdf>
 
 	     	 OMNO2e_netCDF_avg - Averaging algorithm based on the
 		 	NASA OMI level 2 to level 3 processing
@@ -305,24 +318,117 @@ function you want to use.
 			  - Invalid pixels are marked with an overall
 		 	  quality flag.
 			  - Timestamps are in the TAI93 format.
+			
+			
+		 OMNO2e_wght_avg - Weighted averaging algorithm based
+		 	on the NASA algorithm used to process OMI from
+		 	level 2 to level 3.  Designed for the OMI
+		 	level 2 filetypes (currently HDFnasaomil2 and
+		 	HDFknmiomil2).  Use with other filetypes is of
+		 	questionable utility.
 
-			REQUIRED PARAMETERS:
+			Outputs results to a CSV file.  Does
+			not filter based on time as OMNO2e_netcdf_avg
+			does.
+
+			CSV file is designed such that if it is put
+			into an array from top left to bottom right,
+			the indices of the values will be correct.
+
+			Further details available in the official NASA
+			documentation located at
+			<http://disc.sci.gsfc.nasa.gov/Aura/data-holdings/OMI/omno2e_v003.shtml>
+			
+			Assumptions:
+			- Data is 2 dimensional
+			- Invalid pixels are marked with an overall
+			quality flag
+			- Timestamps within the file should be in the
+			TAI-93 standard
+			
+
+		 unweighted_filtered_MOPITT_avg_netCDF - Averaging
+		 	algorithm based on the NASA algorithm for
+		 	processing level 2 MOPITT CO data to level 3
+		 	MOPITT CO data.  Designed for the MOPITT level
+		 	2 filetypes (HDFmopittl2 only at present).
+		 	Use with other filetypes is discouraged.
+			
+			Outputs resuts to a netCDF file.
+
+			IMPORTANT: Only 1 input file may be used with
+			this function.  Conveniently, NASA currently
+			provides data in 1-day granules.
+
+			Further details available in the official NASA
+			documentation:
+			
+			Deeter, Merritt N (2009). MOPITT (Measurements
+			    of Pollution in the Troposphere) Validated
+			    Version 4 Product Users Guide.  Available from
+			    <http://www.acd.ucar.edu/mopitt/products.shtml>
+
+			Assumptions/caveats:
+			  - All fields are filtered based on the
+			  number of valid layers present in the
+			  specified column field.  Including 2D
+			  fields.
+			  - Timestamps are in the TAI93 format.
+
+
+  --outFuncAttrs name1:value1 name2:value2
+  	REQUIRED: YES
+	DEFAULT: N/A
+	- The attributes required for the chosen output function.
+	  Must have all required attributes for that output function.
+  	  The required parameters for each projection are listed
+	  above.
+	- If one of the "value" elements contains whitespace, enclose
+	  the entire name:value pair in parentheses.  For example:
+	      the:full_monty  	     <- okay
+	      "the:full monty" 	     <- okay
+	      the:full monty	     <- not okay
+	- In many cases, a comma delimited list is requested.  Make
+	  sure that elements of the list are not separated by spaces.
+	  For example:
+	      pythons:EricIdle,JohnCleese	<- okay
+	      "pythons:Eric Idle,John Cleese"	<- okay
+	      "pythons:Eric Idle, John Cleese"	<- not okay
+	- Case-sensitive.  Attribute names must EXACTLY match those
+	  laid out above.
+	- Below are the required parameters for each existing output
+	  function.  { } contain usable/recommended parameters for 
+	  applicable filetypes.  These are based on the current 
+	  versions of the data at the time of writing and should be
+	  double-checked:
+
+		OMNO2e_netCDF_avg -
 			overallQualFlag - The name of the field
 				containing the overall quality flag
 				for the pixels.  This flag should be
 				true (1) for invalid pixels and false
 				(0) for valid pixels.
+				{ OMI KNMI - TroposphericColumnFlag
+				  OMI NASA - vcdQualityFlags }
 			cloudFrac - The name of the field containing
 				the cloud fractions.
+				{ OMI KNMI - CloudFraction
+				  OMI NASA - CloudFraction }
 			solarZenithAngle - The name of the field
 				containing the solar zenith angles in
 				degrees.
+				{ OMI KNMI - SolarZenithAngle
+				  OMI NASA - SolarZenithAngle }
 			time - The name of the field containing the
 				timestamps.  Timestamps are assumed to
 				be in the TAI-93 format.
+				{ OMI KNMI - Time
+				  OMI NASA - Time }
 			longitude - The name of the field containing
 				the longitudes at cell centers.
 				Longitudes should be in degrees east.
+				{ OMI KNMI - Longitude
+				  OMI NASA - Longitude }
 			inFieldNames - The names of the fields desired
 				to be output.  Input as comma
 				delimited list.
@@ -361,11 +467,15 @@ function you want to use.
 				start/stop time directly.
 			timeStart - The earliest time for which data
 				should be recorded into the output
-				file.  Must be in the format:
+				file.  All times in input files before
+				this time will be filtered out. Must 
+				be in the format:
 				    hh:mm:ss_MM-DD-YYYY
 			timeStop - The latest time for which data
 				should be recorded into the output
-				files.  Must be in the format:
+				files.  All times in input files 
+				after this time will be filtered out.  
+				Must be in the format:
 				    hh:mm:ss_MM-DD-YYYY
 			cloudFractUpperCutoff - The maximum cloud
 				fraction to allow before excluding
@@ -378,50 +488,32 @@ function you want to use.
 			pixIndXtrackAxis - The dimension order (0
 				based) of the "cross-track" dimension
 				(whichever dimension has size 60).
-				For all currently known cases should
-				be 1 (may change in future versions of
-				OMI products).
+				For all currently known cases set 
+				equal to 1 (depends on the 
+				construction of the parser function.  
+				If you rewrite the parser, check 
+				this).
 			fillVal - The value to use as a fill value in
 				the output netCDF file.  Used as a
 				fill value for all fields.
-			
-			
-		 OMNO2e_wght_avg - Weighted averaging algorithm based
-		 	on the NASA algorithm used to process OMI from
-		 	level 2 to level 3.  Designed for the OMI
-		 	level 2 filetypes (currently HDFnasaomil2 and
-		 	HDFknmiomil2).  Use with other filetypes is of
-		 	questionable utility.
 
-			Outputs results to a CSV file.  Does
-			not filter based on time as OMNO2e_netcdf_avg
-			does.
-
-			CSV file is designed such that if it is put
-			into an array from top left to bottom right,
-			the indices of the values will be correct.
-
-			Further details available in the official NASA
-			documentation located at
-			<http://disc.sci.gsfc.nasa.gov/Aura/data-holdings/OMI/omno2e_v003.shtml>
-			
-			Assumptions:
-			- Data is 2 dimensional
-			- Invalid pixels are marked with an overall
-			quality flag
-			- Timestamps are in the TAI-93 standard
-			
-			REQUIRED PARAMETERS:
+		OMNO2e_wght_avg -
 			toAvg - The name of the field to be averaged
 			overallQualFlag - The name of the field
 				containing the overall quality flag
 				for the pixels.  Flag should be true (1)
 				for invalid pixels and false (0) for
 				valid pixels.
+				{ OMI KNMI - TroposphericColumnFlag
+				  OMI NASA - vcdQualityFlags }
 			cloudFrac - The name of the field containing
 				the cloud fraction.
+				{ OMI KNMI - CloudFraction
+				  OMI NASA - CloudFraction }
 			solarZenithAngle - The name of the field
 				containing the solar zenith angles.
+				{ OMI KNMI - SolarZenithAngle
+				  OMI NASA - SolarZenithAngle }
 			cloudFractUpperCutoff - The maximum cloud
 				fraction to allow before excluding
 				pixel from average.  Suggested value
@@ -440,41 +532,15 @@ function you want to use.
 				the output netCDF file.  Used as a
 				fill value for all fields.
 
-		 unweighted_filtered_MOPITT_avg_netCDF - Averaging
-		 	algorithm based on the NASA algorithm for
-		 	processing level 2 MOPITT CO data to level 3
-		 	MOPITT CO data.  Designed for the MOPITT level
-		 	2 filetypes (HDFmopittl2 only at present).
-		 	Use with other filetypes is discouraged.
-			
-			Outputs resuts to a netCDF file.
-
-			IMPORTANT: Only 1 input file may be used with
-			this function.  Conveniently, NASA currently
-			provides data in 1-day granules.
-
-			Further details available in the official NASA
-			documentation:
-			
-			Deeter, Merritt N (2009). MOPITT (Measurements
-			    of Pollution in the Troposphere) Validated
-			    Version 4 Product Users Guide.  Available from
-			    <http://www.acd.ucar.edu/mopitt/products.shtml>
-
-			Assumptions/caveats:
-			  - All fields are filtered based on the
-			  number of valid layers present in the
-			  specified column field.  Including 2D
-			  fields.
-			  - Timestamps are in the TAI93 format.
-
-			REQUIRED PARAMETERS:
+		unweighted_filtered_MOPITT_avg_netCDF -
 			time - The name of the field containing
 				timestamps.  Timestamps are assumed to
 				be in the TAI-93 format.
+				{ MOPITT - Time }
 			longitude - The name of the field containing
 				the longitudes at cell centers.
 				Longitudes should be in degrees east.
+				{ MOPITT - Longitude }
 			inFieldNames - The names of the fields desired
 				to be output.  Input as comma
 				delimited list.
@@ -528,11 +594,15 @@ function you want to use.
 				sublist in dimLabels.
 			timeStart - The earliest time for which data
 				should be recorded into the output
-				file.  Must be in the format:
+				file.  All times before this time in
+				the input file(s) will be filtered 
+				out.  Must be in the format:
 				    hh:mm:ss_MM-DD-YYYY
 			timeStop - The latest time for which data
 				should be recorded into the output
-				files.  Must be in the format:
+				files.  All times after this time in
+				the input file(s) will be filtered
+				out.  Must be in the format:
 				    hh:mm:ss_MM-DD-YYYY
 			timeComparison - Must be set to either "local"
 				or "UTC".  Determines how the file
@@ -558,6 +628,7 @@ function you want to use.
 				85. In degrees.
 			solZenAng - The name of the field containing
 				the solar zenith angle (in degrees).
+				{ MOPITT - Solar Zenith Angle }
 			dayTime - Boolean variable that determines
 				whether the output file contains
 				values from day or night.  If set to
@@ -567,6 +638,7 @@ function you want to use.
 				values.
 			surfTypeField - The name of the field
 				containing the surface type index.
+				{ MOPITT - Surface Index }
 			colMeasField - The name of the field
 				containing the column measurement that
 				will be used to determine how many
@@ -576,30 +648,7 @@ function you want to use.
 				level and the first element of the
 				second extra dimension containing
 				NaN's at the appropriate levels.
-
-  --outFuncAttrs name1:value1 name2:value2
-  	REQUIRED: YES
-	DEFAULT: N/A
-	- The attributes required for the chosen output function.
-	  Must have all required attributes for that output function.
-  	  The required parameters for each projection are listed
-	  above.
-	- If one of the "value" elements contains whitespace, enclose
-	  the entire name:value pair in double quotes.  For example:
-	      the:full_monty  	     <- okay
-	      "the:full monty" 	     <- okay
-	      the:full monty	     <- not okay
-	- If one of the "value" elements contains parentheses (as is
-	  the case for a number of lists of lists) then the entire
-	  name:value pair must be enclosed in double quotes.
-	- In many cases, a comma delimited list is requested.  Make
-	  sure that elements of the list are not separated by spaces.
-	  For example:
-	      pythons:EricIdle,JohnCleese	<- okay
-	      "pythons:Eric Idle,John Cleese"	<- okay
-	      "pythons:Eric Idle, John Cleese"	<- not okay
-	- Case-sensitive.  Attribute names must EXACTLY match those
-	  laid out above.
+				{ MOPITT - Retrieved CO Mixing Ratio Profile }
 
   --outDirectory /path/to/output/directory
   	REQUIRED: YES
