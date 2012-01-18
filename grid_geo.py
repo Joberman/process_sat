@@ -144,6 +144,16 @@ class lcc2par_GridDef(GridDef):
                 "earthRadius":('[earthRadius description]','decimal')}
     def __init__(self, parms):
         GridDef.__init__(self, parms)
+
+        # cast everything even though type is ensured (even though IO
+        # interface does this) in case someone wants to use the class directly
+        castDict = {"stdPar1" : float, "stdPar2" : float,
+                    "refLat" : float, "refLon" : float,
+                    "xOrig" : float, "yOrig" : float,
+                    "xCell" : float, "yCell" : float,
+                    "nRows" : int, "nCols" : int}
+        for (k,func) in castDict.items():
+            parms[k] = func(parms[k])
         self.parms = parms
 
         # remap parms into a dictionary readable by pyproj
