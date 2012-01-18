@@ -243,10 +243,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             arguments to see if the pixel is valid.
         timeStart:
             Initial time we want included in file.  Must
-            be in format hh:mm:ss MM-DD-YYYY
+            be in format hh:mm:ss_MM-DD-YYYY
         timeStop:
             Final Time we want in included in file.  Must
-            be in format hh:mm:ss MM-DD-YYYY
+            be in format hh:mm:ss_MM-DD-YYYY
         cloudFractUpperCutoff:
             Pixels with a higher cloud fraction than this 
             value will be ignored.
@@ -279,8 +279,9 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                'cloud fraction',None),
                 'solarZenithAngle' : ('The name of the field containing the '\
                                       'solar zenith angle',None),
-                'time' : ('The name of the field containing the timestamps', \
-                          None),
+                'time' : ('The name of the field containing the timestamps. '\
+                          ' Timestamps are assumed to be the in TAI-93 ' \
+                          'format', None),
                 'longitude' : ('The name of the field containing longitudes '\
                                'at cell centers',None),
                 'inFieldNames' : ('The fields to be output.  Input full ' \
@@ -306,8 +307,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                     ' pixel\'s approximate timezone) or '  \
                                     '\'UTC\'(where each pixel is compared '  \
                                     'to time in UTC standard)',None),
-                'timeStart' : ('The first time to be included','int'),
-                'timeStop' : ('The final time to be included','int'),
+                'timeStart' : ('The first time to be included.  Must be in ' \
+                               'format hh:mm:ss_MM-DD-YYYY',None),
+                'timeStop' : ('The final time to be included.  Must be in ' \
+                               'format hh:mm:ss_MM-DD-YYYY',None),
                 'cloudFractUpperCutoff' : ('The maximum cloud fraction for ' \
                                            'valid pixels (0<=x<=1)','decimal'),
                 'solarZenAngUpperCutoff' : ('The maximum solar zenith angle '\
@@ -318,21 +321,26 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                       'number','int'),
                 'fillVal' : ('The fill value for cells that do not contain ' \
                              'valid data','decimal')}
-    
+
     def __call__(self, maps, griddef, outfilename, verbose):
         '''Write out a weighted-average file in netcdf format.'''
-
         #Make sure non-string parameters are in the correct format
         dimsizes = self.parmDict['extraDimSize']
         for i in range(len(dimsizes)):
             try:
-                dimsizes[i-1] = int(dimsizes[i-1])
+                dimsizes[i] = int(dimsizes[i])
             except ValueError:
                 print ("Warning: {0} is not a valid extraDimSize value.  " \
-                      "Using 0 instead").format(dimsizes[i-1])
-                dimsizes[i-1] = 0
+                      "Using 0 instead").format(dimsizes[i])
+                dimsizes[i] = 0
                 continue
         self.parmDict['extraDimSize'] = dimsizes
+
+        # convert start and stop time to TAI93 standard
+        epoch = '00:00:00_01-01-1993'
+        format = '%H:%M:%S_%m-%d-%Y'
+        self.parmDict['timeStart'] = utils.timestr_to_nsecs(self.parmDict['timeStart'], epoch, format)
+        self.parmDict['timeStop'] = utils.timestr_to_nsecs(self.parmDict['timeStop'], epoch, format)
 
         #Perform some basic sanity checks with parameters
         if self.parmDict['timeStart'] > self.parmDict['timeStop']:
@@ -479,7 +487,8 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 # has extra dim
                 dimName = extraDim[field]
                 dimSize = avgs[field].shape[2]
-                outFid.createDimension(dimName, dimSize)
+                if dimName not in outFid.dimensions.keys():
+                    outFid.createDimension(dimName, dimSize)
                 varDims = ('row', 'col', dimName)
             # create and assign value to variable
             varHandle = outFid.createVariable(outFnames[field], 'd', varDims)
@@ -494,7 +503,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             outAvg[outFnames[k]] = v
         return outAvg
     
-class wght_avg_vals_netCDF_out_func(out_func):
+class wght_avg_netCDF(out_func):
     '''
     Generalized weighted average algorithm
     
@@ -510,9 +519,17 @@ class wght_avg_vals_netCDF_out_func(out_func):
     Owing to the complexity of the inputs required for this function and the 
     security problems posed by allowing users to input functions to be 
     evaluated, this output function does not support the I/O interface at this
-    time.  It must be run in a script, with the parameters provided in scripts.
+    time.  It is designed to subclassed.
+
+    This function (and therefore subclasses of this function) at present can
+    only handle a single input map.  It may be extended to properly handle 
+    multiple input maps at some point in the future, but this is difficult
+    because the filter function is expected to apply to all pixels in the cell
+    (which would require looping over all the maps to find all the pixels)
+    but also requires a reference to the parser (which would require those 
+    parsers be held open)
     
-    fieldnames dict must contain the following keys:  
+    parmDict must contain the following keys:  
         time:
             The field associated with the timestamps.  Timestamps may be in any
             format so long as a function is provided to convert them to Unix 
@@ -521,8 +538,6 @@ class wght_avg_vals_netCDF_out_func(out_func):
             Field with the longitudes at cell centers.  Used to estimate
             timezones of the pixels if local is selected for timeComparison.  
             Not used when timeComparison is 'UTC'
-        
-    parameters dict must contain keys:
         inFieldNames:
             List of strings corresponding to fields for which output is 
             desired.  These must be valid keys for the parser.  Each is output
@@ -536,21 +551,38 @@ class wght_avg_vals_netCDF_out_func(out_func):
             output variable.  These will be attached as the "units" attribute
             for each variable in the output netCDF file.  Must be of the same 
             length and co-indexed to the lists above.
+        logNormal:
+            Vector indicating whether or not we want to take the
+            lognormal mean (as opposed to the simple, arithmetic mean).  If 
+            this parameter is set to "True", the mean will be taken as follows:
+                logData = log(data)
+                logAvg = sum(logData*wghts)/sum(wghts)
+                avg = 10^logAvg
+            whereas if this parameter is set to "False" the mean will be simply:
+                avg = sum(data*wghts)/sum(wghts)
+            To allow finer-grained control of the output, logNormal must be 
+            set individually for each output field (as it may be appropriate
+            to use the log normal distribution only for select fields).  Thus,
+            logNormal must be of the same length and co-indexed to the lists
+            above.  Note that this vector must be set as strings "True" and 
+            "False", not as actual boolean values.  
         dimLabels:
-            List of tuples, each of which contains as many strings as there are
+            List of tuple-like strings(delimited by periods with no whitespace),
+            each of which contains as many strings as there are
             extra dimensions in the corresponding field.  IE, if a field has 
             dimensions (xtrack, time, layer, quant) and we allocate along
-            xtrack and time, then the tuple for that field should be 
-            ('layer', 'quant') so that the dimensions are named properly in the
+            xtrack and time, then the tuple-like string for that field should be 
+            "(layer.quant)" so that the dimensions are named properly in the
             otuput netCDF file.  The list (not the individual tuples) must be
             of the same length and co-indexed to the lists above.  Note that 
             the dimensions looped over and allocated to cells in the map_geo
             function DO NOT need to be represented here.
         dimSizes:
-            List of tuples, each of which contains as many integers as there
+            List of tuple-like strings (delimited by periods with no whitespace),
+            each of which contains as many strings (castable to ints) as there
             are extra dimensions in the corresponding field.  IE if the field
             described in dimLabels had dimensions (60, 1300, 9, 4) then the 
-            tuple for that field should be (9, 4).  The list (not the 
+            tuple-like string for that field should be "(9.4)".  The list (not the 
             individual tuples) must be of the same length and co-indexed to the
             lists above.  If the field has no extra dimensions, then an empty 
             tuple should be used as a placeholder.Note that the dimensions 
@@ -569,31 +601,26 @@ class wght_avg_vals_netCDF_out_func(out_func):
             Initial time we want included in the output file.  All measurements
             taken before this time will be discarded, even if they are included
             in the files passed to output function.  Must be a string of the 
-            the format hh:mm:ss MM-DD-YYYY.
+            the format hh:mm:ss_MM-DD-YYYY.
         timeStop:
             Final time to be included in the output file.  All measurements
             taken after this time will be discarded.  Must be a string of the
-            format hh:mm:ss MM-DD-YYYY.
+            format hh:mm:ss_MM-DD-YYYY.
         timeConv:
             Function that converts timeStart and timeStop (both of which are 
-            strings of the format hh:mm:ss MM-DD-YYYY) into the format used to
+            strings of the format hh:mm:ss_MM-DD-YYYY) into the format used to
             store time within the parser.  IE if the parser returns time in 
             TAI93, then this function should convert a string
-            hh:mm:ss MM-DD-YYYY to TAI93.
+            hh:mm:ss_MM-DD-YYYY to TAI93.
         fillVal:
             The value with which we want to denote missing data in the output
             file.  This value must be castable to the type of all output 
             variables.  Each variable will document the fill value in its
             attributes.
-        logNormal:
-            Boolean parameter indicating whether or not we want to take the
-            lognormal mean (as opposed to the simple, arithmetic mean).  If 
-            this parameter is set to True, the mean will be taken as follows:
-                logData = log(data)
-                logAvg = sum(logData*wghts)/sum(wghts)
-                avg = 10^logAvg
-            whereas if this parameter is set to false the mean will be simply:
-                avg = sum(data*wghts)/sum(wghts)
+        notes:
+            String to be included in the output attributes of the final file.  
+            Use this to hold any extra if you you'd like to be packaged with
+            the data.
         weightFunction:
             Function that computes the weight of a value.  This can be as 
             simple as assigning a weight of 1 to that value (creating an 
@@ -610,15 +637,90 @@ class wght_avg_vals_netCDF_out_func(out_func):
             for this function will be included as a global attribute in the 
             output file, so the docstring should be sufficient to describe the
             function in it's entirety.
+        filterFunction:
+            Function that looks at the entire stack of pixels for a cell and 
+            selects any pixels that need to be filtered out.  Note that for 
+            efficiency reasons this should not be used to catch filter
+            conditions unique to each pixel.  Those sort of filters should
+            be applied in the weightFunction.  This function is strictly
+            intended for operations that can only be performed once the entire
+            stack for a particular cell is available (IE if a value is checked
+            for each pixel in the cell and those pixels not matching the 
+            majority value are rejected).  The function must be of the form
+                flagVec = filterFunction(parser, indStack)
+            where indStack is an iterable of index tuples and parser is the 
+            parser for the file under consideration.  flagVec (the return
+            vector) should be boolean and true for those values that should
+            NOT be included in the final average.  It should be the same length
+            as indStack.  To reiterate: flagVec should true for those values
+            that should be REMOVED, and false for those values to be kept.
+            The docstring of this function will be included as a global 
+            attribute in the final output file, so the docstring should be
+            sufficient to describe the function in it's entirety.  Note that it
+            is safe to use both get and get_cm functions within this function -
+            it is guaranteed to be called within a context manager.
     '''
-    def __init__(self, fieldnames, parms):
-        out_func.__init__(self, fieldnames, parms)
+    def __init__(self, parmDict=None):
+        # call ancestor method
+        out_func.__init__(self, parmDict)
+
+        # check that all the lists are teh same length
+        lists = ['outFieldNames', 'outUnits', 'dimLabels', 'dimSizes', 'logNormal']
+        canonicalLength = len(self.parmDict['inFieldNames'])
+        isCorrectLength = [len(self.parmDict[list]) == canonicalLength for list in lists]
+        if not all(isCorrectLength):
+            wrongLength = [name for (name, corr) in izip(lists,isCorrectLength) if not corr]
+            msg = "All lists must be the same length.  The following list lengths do " \
+                "not match the length of inFieldNames: " + ' '.join(wrongLength)
+            raise ValueError(msg)
+
+        # process lists of tuple-like objects into lists of appropriately-typed tuples
+        labelTupLike = self.parmDict['dimLabels']
+        sizeTupLike = self.parmDict['dimSizes']
+        labelTups = [tup.strip('()').split('.') for tup in labelTupLike]
+        sizeStrTups = [tup.strip('()').split('.') for tup in sizeTupLike]
+        # confirm that each tuple is the same size
+        tupsMatch = [len(l) == len(s) for (l,s) in izip(labelTups, sizeStrTups)]
+        if not all(tupsMatch):
+            misMatch = [l+' does not match '+s for (l,s,m) in izip(labelTupLike,sizeTupLike,tupsMatch) if not m]
+            msg = "All tuple-like strings must correspond to tuples of corresponding size. " \
+                "The following sets do not correspond: "+' '.join(misMatch)
+            raise ValueError(msg)
+        # remove empty strings in labels
+        labelTups = [[l for l in labelTup if l !=''] for labelTup in labelTups]
+        # convert sizes to integers
+        try:
+            sizeIntTups = [[int(s) for s in strTup if s != ''] for strTup in sizeStrTups]
+        except ValueError as err:
+            messageWords = err.message.split()
+            uncastable = messageWords[-1].strip("'")
+            msg = "The value %s in the dimSizes argument was not castable to " \
+                "an integer." % uncastable
+            raise ValueError(msg)
+        # put back into parameter dictionary
+        self.parmDict['dimLabels'] = labelTups
+        self.parmDict['dimSizes'] = sizeIntTups
+
+        # process logNormal
+        def boolCaster(boolStr):
+            if boolStr == 'True':
+                return True
+            elif boolStr == 'False':
+                return False
+            else:
+                msg = 'Attempt to cast invalid string %s to boolean' % boolStr
+                raise ValueError(msg)
+        try:
+            self.parmDict['logNormal'] = [boolCaster(el) for el in self.parmDict['logNormal']]
+        except ValueError:
+            print('Bad string in logNormal.  Must be either "True" or "False". Exiting.')
+            raise
+
         # convert all the parameters co-indexed to inFieldNames to dictionaries
         # keyed off of inFieldNames
-        toConvert = ['outFieldNames', 'outUnits', 'dimLabels', 'dimSizes']
-        inFnames = self.parms['inFieldNames']  
-        for key in toConvert:
-            self.parms[key] = dict(zip(inFnames, self.parms[key]))
+        inFnames = self.parmDict['inFieldNames']  
+        for key in lists:
+            self.parmDict[key] = dict(zip(inFnames, self.parmDict[key]))
         
     def __call__(self, maps, griddef, outfilename, verbose):
         '''Write out a weighted-average file in netcdf format.'''
@@ -629,23 +731,35 @@ class wght_avg_vals_netCDF_out_func(out_func):
         nRows = maxRow - minRow + 1
         nCols = maxCol - minCol + 1
         outputArrays = dict()
-        for field in self.parms['inFieldNames']:
-            dims = [nRows, nCols]
-            dims.extend(self.parms['dimSizes'][field])
+        for field in self.parmDict['inFieldNames']:
+            dims = [nRows, nCols] + self.parmDict['dimSizes'][field]
             outputArrays[field] = numpy.zeros(dims)
             
         # prep for computing weights
         wghtDict = dict()  # we only want to compute each weight once
-        wghtFunc = self.parms['weightFunction']
+        wghtFunc = self.parmDict['weightFunction']
+        filtFunc = self.parmDict['filterFunction']
         
         # convert the times to the proper format
-        tConvFunc = self.parms['timeConv']
-        timeStart = tConvFunc(self.parms['timeStart'])
-        timeStop = tConvFunc(self.parms['timeStop'])
-            
+        tConvFunc = self.parmDict['timeConv']
+        timeStart = tConvFunc(self.parmDict['timeStart'])
+        timeStop = tConvFunc(self.parmDict['timeStop'])
+    
         # loop over maps
         if not isinstance(maps, list):
             maps = [maps] # create list if we didn't get one
+
+        # check to see that we were given exactly one map.  If we aren't
+        # explain that this function only works for one map and exit
+        if len(maps) != 1:
+            msg = "Though in general output functions are designed to handle" \
+                " multiple input files, this function currently can only " \
+                "process individual input files.  Please only provide one " \
+                "input file or use a different output function.  This " \
+                "limitation may be fixed if there is a convincing reason " \
+                "to rewrite the function to accomodate more inputs"
+            raise NotImplementedError(msg)
+            
         for map in maps:
             with map.pop('parser') as p: 
                 if verbose:
@@ -655,34 +769,56 @@ class wght_avg_vals_netCDF_out_func(out_func):
                 # loop over the cells in the map, processing each
                 for (cellInd, pixTups) in map.iteritems():
                     
-                    # compute the weight only if we haven't already
+                    # compute the weight only if we haven't already.  In either
+                    # case, put the weightss in array.
                     wghts = [wghtDict.setdefault(ind, wghtFunc(p, ind, wgt))
                             for (ind, wgt) in pixTups]
                     
                     # create the time array we'll be using to filter
-                    tArray = numpy.array([p.get_cm(self.fnames['time'], ind)
-                                          for (ind, wgt) in pixTups])
-                    if self.parms['timeComparison'] == 'local':
+                    tArray = numpy.array([p.get_cm(self.parmDict['time'], ind)
+                                          for (ind, wgt) in pixTups]).squeeze()
+                    if self.parmDict['timeComparison'] == 'local':
                         offsets = numpy.array([utils.UTCoffset_from_lon(
-                                               p.get_cm(self.fnames['longitude'], ind)) 
-                                               for (ind, wgt) in pixTups])
+                                               p.get_cm(self.parmDict['longitude'], ind)) 
+                                               for (ind, wgt) in pixTups]).squeeze()
                         tArray += offsets
                     tFlag = numpy.logical_or(tArray < timeStart, tArray > timeStop)
                     
+                    # use the filter function on the stack to apply user-defined
+                    # filter conditions
+                    pixIndStack = [pInd for (pInd, unused_weight) in pixTups]
+                    uFlag = numpy.array(filtFunc(p, pixIndStack))
+
+                    # combine time filter and user filter into a single, global flag 
+                    gFlag = numpy.logical_or(uFlag, tFlag)
+
+                    # filter the weights so that values that will be rejected don't
+                    # have their weights included in the denominator of the final
+                    # average.
+                    wghts = numpy.where(gFlag, numpy.NaN, wghts)
+                    
                     # loop over fields.  For each, compute avg and save
-                    for field in self.parms['inFieldNames']:
+                    for field in self.parmDict['inFieldNames']:
                         
                         # create the array of weighted values    
                         vals = numpy.array([p.get_cm(field, ind)
-                                            for (ind, wgt) in pixTups])
-                        if self.parms['logNormal']:
+                                            for (ind, wgt) in pixTups]).squeeze()
+                        if self.parmDict['logNormal'][field]:
                             vals = numpy.log(vals) # work with logarithm of data
-                        wghtSlice = [Ellipsis]
-                        nExtraDims = len(self.parms['dimSizes'][field])
+
                         # create a slice object that will allow us to broadcast
                         # weights against the values
-                        wghtSlice.extend([numpy.newaxis]*nExtraDims)
-                        wghtVals = numpy.where(tFlag, numpy.NaN, vals*wghts[wghtSlice])
+                        extraDims = self.parmDict['dimSizes'][field]
+                        nExtraDims = len(extraDims)
+                        wghtSlice = [Ellipsis]+[numpy.newaxis]*nExtraDims
+
+                        # handle special case where there were no pixels in
+                        # cell
+                        if vals.size == 0:
+                            vals = vals.reshape([0]+extraDims)
+
+                        # compute weighted values
+                        wghtVals = vals*wghts[wghtSlice]
                         
                         # average the weighted Values
                         wghtValSum = numpy.nansum(wghtVals, axis=0)
@@ -694,11 +830,12 @@ class wght_avg_vals_netCDF_out_func(out_func):
                             wghtValAvg = numpy.NaN
                         
                         # re-exponentiate if we took log average
-                        wghtValAvg = numpy.exp(wghtValAvg)
+                        if self.parmDict['logNormal'][field]:
+                            wghtValAvg = numpy.exp(wghtValAvg)
                         
                         # mask nan's with fillVal, then slot into output array
                         wghtValAvg = numpy.where(numpy.isnan(wghtValAvg),
-                                                 self.parms['fillVal'], 
+                                                 self.parmDict['fillVal'], 
                                                  wghtValAvg)
                         outputArrays[field][cellInd] = wghtValAvg
         
@@ -713,49 +850,316 @@ class wght_avg_vals_netCDF_out_func(out_func):
                       (p.name, str(datetime.datetime.now())))
             
         # done looping over maps
-        
+                
         # set up the parts of the netcdf file that AREN'T field specific
         outFid = netcdf_file(outfilename, 'w')
         outFid.createDimension('row', nRows)
         outFid.createDimension('col', nCols)
         # set global attributes
-        setattr(outFid, 'File_start_time', self.parms['timeStart'])
-        setattr(outFid, 'File_stop_time', self.parms['timeStop'])
-        setattr(outFid, 'Time_comparison_scheme', self.parms['timeComparison'])
+        setattr(outFid, 'File_start_time', self.parmDict['timeStart'].replace('_', ' '))
+        setattr(outFid, 'File_stop_time', self.parmDict['timeStop'].replace('_', ' '))
+        setattr(outFid, 'Time_comparison_scheme', self.parmDict['timeComparison'])
         flistStr = ' '.join([map['parser'].name for map in maps])
         setattr(outFid, 'Input_files', flistStr)
-        setattr(outFid, 'Avg_func_description', wghtFunc.__doc__)
+        setattr(outFid, 'Weighting_function_description', wghtFunc.__doc__)
+        setattr(outFid, 'Filter_function_description', filtFunc.__doc__)
         # add in attributes for the projection
-        setattr(outFid, 'Projection', griddef.__class__.__name[:-8])
+        setattr(outFid, 'Projection', griddef.__class__.__name__[:-8])
+        setattr(outFid, 'Notes', self.parmDict['notes'])
         for (k,v) in griddef.parms.iteritems():
             setattr(outFid, k, v)
-            
+
         # loop over fields and write all information for each field
-        for field in self.parms['inFieldNames']:
-            
+        for field in self.parmDict['inFieldNames']:
+
             # create the dimensions in the file
-            extraDimSizes = self.parms['dimSizes'][field]
-            extraDimLabels = self.parms['dimLabels'][field]
+            extraDimSizes = self.parmDict['dimSizes'][field]
+            extraDimLabels = self.parmDict['dimLabels'][field]
             for (size, label) in zip(extraDimSizes, extraDimLabels):
-                outFid.createDimension(label, size)
+                if label not in outFid.dimensions.keys():
+                    outFid.createDimension(label, size)
                 
             # write the variable to file
-            vDims = ['row', 'col']
-            vDims.extend(extraDimLabels)
-            outFieldName = self.parms['outFieldNames'][field]
+            vDims = ['row', 'col'] + extraDimLabels
+            outFieldName = self.parmDict['outFieldNames'][field]
             varHand = outFid.createVariable(outFieldName, 'd', vDims)
             varHand[:] = outputArrays[field]
             
             # write variable attributes
-            setattr(varHand, 'Units', self.parms['outUnits'][field])
-            setattr(varHand, '_FillValue', self.parms['fillVal'])
-            
-        # flush the output file to disk
+            setattr(varHand, 'Units', self.parmDict['outUnits'][field])
+            setattr(varHand, '_FillValue', self.parmDict['fillVal'])
+
+        # close the output file
         outFid.close()
-        
+
         # create an output dictionary keyed to output field names
+
         finalOutArrays = dict()
         for (k,v) in outputArrays.iteritems():
-            finalOutArrays[self.parms['outFieldNames'][k]] = v
+            finalOutArrays[self.parmDict['outFieldNames'][k]] = v
         return finalOutArrays 
             
+class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
+    '''
+    Output averager designed to work with MOPITT Level 2 data.  Emulates the 
+    NASA developed averaging algorithm for level 3 (mostly) faithfully.  
+
+    Following the NASA precedent, data are separated into either daytime or 
+    nighttime values according to solar zenith angle.  Unfortunately, since 
+    none of the NASA documentation actually specifies what cutoff value was
+    used for solar zenith angle, the value is left up to the user with a 
+    default of 85.  Also, in contrast to the NASA product, only one time (day
+    or night) is actually included.  Which one is left to the user and noted
+    in the attributes of the output file.
+
+    Also following NASA precedent, data are filtered based on surface type.
+    For cells where one surface type makes up more than 75% of the pixels,
+    that surface type is used exclusively.  For cells where no surface type
+    reaches the 75% threshold, all pixels are included.
+
+    Again following the NASA algorithm, if pixels containing differing numbers
+    of valid levels are present in a single grid cell, only the pixels 
+    comprising the majority are retained.  This is tested using the retrieved
+    CO mixing ratio profile field.  Note that this applies to BOTH 3D AND 
+    NON-3D FIELDS.  That is, a surface measurement will still be filtered
+    if the corresponding column measurement does not have the majority number
+    of layers present, EVEN IF NO COLUMN MEASUREMENTS ARE REQUESTED.  Furthermore,
+    all columns are filtered based on the chosen column measurement, even
+    if they have information present in an 'invalid' layer
+
+    The user is given the option of averaging each field assuming either a
+    normal or log-normal distribution.  This is left to the user's discretion
+    so make sure you know which fields it is appropriate to average and which
+    should be log-averaged.
+
+    For further details (don't get your hopes up) on the NASA algorithm, refer
+    to 
+        Deeter, Merritt N (2009). MOPITT (Measurements of Pollution in the 
+          Troposphere) Validated Version 4 Product Users Guide.  Available
+          from <http://www.acd.ucar.edu/mopitt/products.shtml>
+
+    The output will be a netCDF file with the name determined in the standard
+    way.  Will have the appropriate dimensions for those input fields being
+    processed, as well as the fundamental rows/cols determined by grid_geo
+
+    This class subclasses the generic wght_avg_netCDF.  It handles all 
+    changes in interface in it's __init__ method and lets any actual calls
+    filter up to the parent.
+
+    The parameters dictionary must contain the following keys:
+        time:           SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+                            NOTE: must be in TAI93 format
+        longitude:      SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        inFieldNames:   SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        outFieldNames:  SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        outUnits:       SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        logNormal:      SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        dimLabels:      SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        dimSizes:       SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        timeStart:      SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        timeStop:       SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        timeComparison: SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        fillVal:        SEE DOCUMENTATION FOR wght_avg_vals_netCDF_out_func
+        solZenAng: The string for the field associated with the solar zenith
+            angle.  Must be in degrees
+        solZenAngCutoff: The cutoff solar zenith angle value dividing night
+            from day.  Pixels with SZA > solZenAngCutoff will be considered
+            nighttime pixels.  90 is mathematically correct, values between 
+            are typeically used in practice.  In degrees.  If SZA is exactly
+            equal to the cutoff, it is included regardless of whether day
+            or night was selected.
+        dayTime: Boolean variable setting whether the desired output file 
+            will be for the daytime or nighttime.  If set to "True", the output
+            file will feature daylight retrievals only.  If set to "False", the
+            output will feature night retrievals only.  Note that by most 
+            estimates, daylight retrievals are higher quality.
+        surfTypeField: The string for the field associated with the surface
+            type.  This field is assumed to have integers corresponding to 
+            different surface types.  No effort is made to distinguish 
+            between surface types (only to ensure they are consistent) so 
+            the mapping of integers to physical surface types is irrelevant.
+        colMeasField: The string for the field associated with a column 
+            measurement.  This can be any field with exactly one extra 
+            dimension, provided it has NaN's at the same levels as other
+            fields where appropriate.  The canonical field to use here is
+            the retrieved CO mixing ratio profile.
+    '''
+    @staticmethod
+    def required_parms():
+        return {'time' : ('The name of the field containing timestamps', None),
+                'longitude' : ('The name of the field containing longitudes ' \
+                               'at cell centers.', None),
+                'inFieldNames' : ('The fieldnames that should be included in' \
+                                  ' the output file.  Input full field names' \
+                                  ' delimited by commas.', 'list'),
+                'outFieldNames': ('The names of the output variables.  Must ' \
+                                  'be the same length as input fields. Input' \
+                                  ' strings for output variables delimited ' \
+                                  'by commas.', 'list'),
+                'outUnits' : ('The units to be listed for each of the output' \
+                              ' variables.  Listed in parameters of output ' \
+                              'file.  Must be same length as input fields.  ' \
+                              'Input strings for units delimited by commas.',
+                              'list'),
+                'logNormal' : ('Boolean determining whether or not we wish ' \
+                               'to perform the averaging operation in log-' \
+                               'space.  Input list of strings "True" or ' \
+                               '"False" for each field.  Must be same length' \
+                               ' as input fields.  Delimited by commas.', 
+                               'list'),                
+                'dimLabels' : ('The names of the extra dimensions in the ' \
+                               'output file.  Only used if output variable ' \
+                               'has extra dimensions.  Must be a comma-' \
+                               'delimited list of parenthesis-enclosed ' \
+                               'period-delimited strings.  Use empty ' \
+                               'parentheses for fields with no extra ' \
+                               'dimensions.  A correct entry should look ' \
+                               'like this: (),(foo),(),(foo.bar)', 'list'),
+                'dimSizes' : ('The sizes of the extra dimensions.  Only ' \
+                              'used if the output variable has extra ' \
+                              'dimensions.  Must be a comma-delimited list ' \
+                              'of parenthesis-enclosed, period-delimited ' \
+                              'integers.  Overall list (comma-delimited) ' \
+                              'must be same length as input fields.  Use ' \
+                              'empty parentheses for fields with no extra ' \
+                              'dimensions.  A correct entry should look ' \
+                              'like this: (),(4),(),(4.5)', 'list'),
+                'timeStart' : ('The first time to be included (hh:mm:ss_' \
+                               'MM-DD-YYYY).', None),
+                'timeStop' : ('The final time to be included (hh:mm:ss_' \
+                              'MM-DD-YYYY).', None),
+                'timeComparison' : ('Selection of how we want to filter ' \
+                                    'times.  Valid options are "local" or ' \
+                                    '"UTC".  If "local" is selected start ' \
+                                    'and stop times are compared against ' \
+                                    'the approximate local time for each pixel.' \
+                                    '  If "UTC" is selected start and stop ' \
+                                    'are directly compared to the UTC ' \
+                                    'timestamp of the pixel.', None),
+                'fillVal' : ('The fill value for cells that do not contain ' \
+                             'valid data.', 'decimal'),
+                'solZenAngCutoff' : ('The solar zenith angle that defines ' \
+                               'day to night transition.  Astronomically ' \
+                               'canonical value is 90.  Typically chosen ' \
+                               'between 80 and 85 in practice.', 'decimal'),
+                'solZenAng' : ('The name of the field containing the solar' \
+                               ' zenith angle in degrees.', None),
+                'dayTime' : ('Boolean variable to determine what time of ' \
+                             'day output file will represent.  Must be ' \
+                             'either "True" or "False".  If set to "True" ' \
+                             'output file will represent the daytime.  If ' \
+                             'set to "False" output file will represent the' \
+                             ' nighttime.', None),
+                'surfTypeField' : ('The name of the field containing the ' \
+                                   'surface type index.', None),
+                'colMeasField' : ('The name of the field containing the ' \
+                                  'column measurement that will be used to ' \
+                                  'determine which levels are valid in a ' \
+                                  'cell.  Canonically the retrieved CO mixing' \
+                                  ' ratio profile field.  It is assumed that ' \
+                                  'the field will have a layer dimension first' \
+                                  ' and a 2-element second dimension (for ' \
+                                  'values and std devs) of which we want the ' \
+                                  'first slice.', None)}
+    def __init__(self, pDict):
+        '''Convert input to format of parent input'''
+        # make a shallow copy to the parameter dict, as we'll be making changes
+        # and we don't want to mutate the argument
+        parmDict = dict(pDict)
+
+        # add time converter (based on standards we selected and dictated by data)
+        def tConvFunc(timeStr):
+            # function to conver to TAI93
+            epoch = '00:00:00_01-01-1993'
+            format = '%H:%M:%S_%m-%d-%Y'
+            return utils.timestr_to_nsecs(timeStr, epoch, format)
+        parmDict['timeConv'] = tConvFunc
+        
+        # remove extraneous entries in parmDict.  They will be incorporated in
+        # weighting and filtering functions
+        SZAcut = parmDict.pop('solZenAngCutoff')
+        SZAfield = parmDict.pop('solZenAng')
+        dayTime = parmDict.pop('dayTime')
+        surfField = parmDict.pop('surfTypeField')
+        colMeasField = parmDict.pop('colMeasField')
+
+        # Determine if user wanted day or night and mark file appropriately
+        if dayTime == 'True':
+            dayBool = True
+        elif dayTime == 'False':
+            dayBool = False
+        else:
+            print('Invalid value %s for dayTime.  Must be either "True" or ' \
+                      '"False".  Exiting.' % dayTime)
+            sys.exit(0)
+        # note which was chosen
+        parmDict['notes'] = 'All values %s with cutoff at %6.2f' % \
+            ('daytime' if dayBool else 'nighttime', SZAcut)
+        
+        # create weighting function
+        def wghtFunc(parser, index, prevWght):
+            '''
+            Values not explicitly weighted.  Values not in desired part of 
+            diurnal cycle (as determined by solar zenith angle) are given weight
+            of 0 and therefore not included in final average
+            '''
+            SZA = parser.get_cm(SZAfield, index)
+            if dayBool and SZA <= SZAcut:
+                # we want day and it's day
+                return 1
+            elif not dayBool and SZA >= SZAcut:
+                # we want night and it's night
+                return 1
+            else:
+                return 0
+        parmDict['weightFunction'] = wghtFunc
+
+        # create filtering function
+        def filterFunc(parser, indStack):
+            '''
+            Filter is twofold.  First filter checks if any surface type makes
+            up 75% of the pixels in the cell.  If it does, all other surface 
+            types are rejected.  Second filter checks if column retrievals have
+            different numbers of valid retrievals.  If they do, then the pixels
+            in the minority are rejected.  In the case of a tie the pixels with
+            more levels present are retained.
+            '''
+            # short-circuit an empty indstack because it's a common case that's
+            # difficult to efficiently code for
+            if len(indStack) == 0:
+                return numpy.array([])
+
+            # first filter
+            sTypes = numpy.array([parser.get_cm(surfField, ind) for ind in indStack]).squeeze()
+            uniques = numpy.unique(sTypes)
+            uniqueFracs = [float((sTypes == un).sum())/sTypes.size for un in uniques]
+            cellType = None
+            for (type,frac) in izip(uniques,uniqueFracs):
+                # at most one value can meet threshold
+                if frac >= .75:
+                    cellType = type
+            if cellType is None:
+                # none met threshold, all are used
+                sFlag = numpy.array([False]*len(sTypes))
+            else:
+                # one met threshold
+                sFlag = sTypes != cellType
+            
+            # second filter
+            columns = [parser.get_cm(colMeasField, ind)[:,0] for ind in indStack]
+            nValidInCol = numpy.array([col.size - numpy.isnan(col).sum() for col in columns])
+            uniqueNvals = set(nValidInCol)
+            uniqueCounts = numpy.array([(nValidInCol == val).sum() for val in uniqueNvals])
+            maxCount = uniqueCounts.max()
+            maxNVals = [nv for (nv,c) in izip(uniqueNvals,uniqueCounts) if c == maxCount]
+            # if there are multiples with same count, we want the highest number of valid
+            # values, so we take the largest
+            maxNVal = max(maxNVals)
+            cFlag = numpy.array([nValid != maxNVal for nValid in nValidInCol])
+
+            # combine the filters and return
+            return numpy.logical_or(cFlag, sFlag)
+        parmDict['filterFunction'] = filterFunc
+
+        # invoke parent's constructor
+        wght_avg_netCDF.__init__(self, parmDict)
