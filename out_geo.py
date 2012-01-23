@@ -64,6 +64,9 @@ def _OMNO2e_formula(cloudFrac, fieldOfView, totalFlag):
     capE = pow(10,-16)*(18.5+2.8*pow(10,-4)*pow(abs(fieldOfView-29.7), 3.5))
     return (numpy.logical_not(totalFlag)*pow((eps*capE), -2))
     
+tai93conv = lambda(timestring):utils.timestr_to_nsecs(timestring, 
+                               '00:00:00_01-01-1993', '%H:%M:%S_%m-%d-%Y')
+
 class OMNO2e_wght_avg_out_func(out_func):
     '''
     Weighted avg based on OMNO2e algorithm
@@ -115,6 +118,18 @@ class OMNO2e_wght_avg_out_func(out_func):
                              'valid measurements','decimal')}
     
     def __call__(self, maps, griddef, outfilename, verbose):
+
+        # even though IO interface handles casting already
+        # a catchblock has been added here for safety
+        # in case someone wants to use this class directly
+        castDict = {'toAvg':str, 'overallQualFlag':str,
+                    'cloudFrac':str, 'solarZenithAngle':str,
+                    'cloudFractUpperCutoff':float, 
+                    'solarZenAngUpperCutoff':float,
+                    'pixIndXtrackAxis':int, 'fillVal':float}
+        for (k,func) in castDict.items():
+            self.parmDict[k] = func(self.parmDict[k])
+
         '''Write out single weighted-avg file'''
         numpy.seterr(over='raise')
         nRows = griddef.indLims()[1] - griddef.indLims()[0] + 1
@@ -242,11 +257,13 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             timestamp and the timeStart and timeStop 
             arguments to see if the pixel is valid.
         timeStart:
-            Initial time we want included in file.  Must
-            be in format hh:mm:ss_MM-DD-YYYY
+            Initial time we want included in file.  
+            Times must be in TAI93 standard format.
+            *format hh:mm:ss_MM-DD-YYYY will also be converted automatically.
         timeStop:
-            Final Time we want in included in file.  Must
-            be in format hh:mm:ss_MM-DD-YYYY
+            Final Time we want in included in file.
+            Times must be in TAI93 standard format.
+            *format hh:mm:ss_MM-DD-YYYY will also be converted automatically.
         cloudFractUpperCutoff:
             Pixels with a higher cloud fraction than this 
             value will be ignored.
@@ -308,9 +325,9 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                     '\'UTC\'(where each pixel is compared '  \
                                     'to time in UTC standard)',None),
                 'timeStart' : ('The first time to be included.  Must be in ' \
-                               'format hh:mm:ss_MM-DD-YYYY',None),
+                               'format hh:mm:ss_MM-DD-YYYY','time'),
                 'timeStop' : ('The final time to be included.  Must be in ' \
-                               'format hh:mm:ss_MM-DD-YYYY',None),
+                               'format hh:mm:ss_MM-DD-YYYY','time'),
                 'cloudFractUpperCutoff' : ('The maximum cloud fraction for ' \
                                            'valid pixels (0<=x<=1)','decimal'),
                 'solarZenAngUpperCutoff' : ('The maximum solar zenith angle '\
@@ -336,11 +353,20 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 continue
         self.parmDict['extraDimSize'] = dimsizes
 
-        # convert start and stop time to TAI93 standard
-        epoch = '00:00:00_01-01-1993'
-        format = '%H:%M:%S_%m-%d-%Y'
-        self.parmDict['timeStart'] = utils.timestr_to_nsecs(self.parmDict['timeStart'], epoch, format)
-        self.parmDict['timeStop'] = utils.timestr_to_nsecs(self.parmDict['timeStop'], epoch, format)
+        # even though IO interface handles casting already,
+        # a catchblock has been added here for safety
+        # in case someone wants to use this class directly
+        castDict = {'overallQualFlag':str, 'cloudFrac':str,
+                    'solarZenightAngle':str, 'time':str,
+                    'longitude':str, 'inFieldNames':list,
+                    'outFieldNames':list, 'outUnits':list,
+                    'extraDimLabel':list, 'extraDimSize':list,
+                    'timeComparison':str, 'timeStart':tai93conv,
+                    'timeStop':tai93conv, 'cloudFractUpperCutoff':float,
+                    'solarZenAngUpperCutoff':int, 'pixIndXtrackAxis':int,
+                    'fillVal':float}
+        for (k,func) in castDict.items():
+            self.parmDict[k] = func(parmDict[k])
 
         #Perform some basic sanity checks with parameters
         if self.parmDict['timeStart'] > self.parmDict['timeStop']:
@@ -564,8 +590,7 @@ class wght_avg_netCDF(out_func):
             set individually for each output field (as it may be appropriate
             to use the log normal distribution only for select fields).  Thus,
             logNormal must be of the same length and co-indexed to the lists
-            above.  Note that this vector must be set as strings "True" and 
-            "False", not as actual boolean values.  
+            above.
         dimLabels:
             List of tuple-like strings(delimited by periods with no whitespace),
             each of which contains as many strings as there are
@@ -770,7 +795,7 @@ class wght_avg_netCDF(out_func):
                 for (cellInd, pixTups) in map.iteritems():
                     
                     # compute the weight only if we haven't already.  In either
-                    # case, put the weightss in array.
+                    # case, put the weights in array.
                     wghts = [wghtDict.setdefault(ind, wghtFunc(p, ind, wgt))
                             for (ind, wgt) in pixTups]
                     
@@ -1025,9 +1050,9 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                               'dimensions.  A correct entry should look ' \
                               'like this: (),(4),(),(4.5)', 'list'),
                 'timeStart' : ('The first time to be included (hh:mm:ss_' \
-                               'MM-DD-YYYY).', None),
+                               'MM-DD-YYYY).', 'time'),
                 'timeStop' : ('The final time to be included (hh:mm:ss_' \
-                              'MM-DD-YYYY).', None),
+                              'MM-DD-YYYY).', 'time'),
                 'timeComparison' : ('Selection of how we want to filter ' \
                                     'times.  Valid options are "local" or ' \
                                     '"UTC".  If "local" is selected start ' \
@@ -1049,7 +1074,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                              'either "True" or "False".  If set to "True" ' \
                              'output file will represent the daytime.  If ' \
                              'set to "False" output file will represent the' \
-                             ' nighttime.', None),
+                             ' nighttime.', 'bool'),
                 'surfTypeField' : ('The name of the field containing the ' \
                                    'surface type index.', None),
                 'colMeasField' : ('The name of the field containing the ' \
@@ -1063,17 +1088,29 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                                   'first slice.', None)}
     def __init__(self, pDict):
         '''Convert input to format of parent input'''
+
         # make a shallow copy to the parameter dict, as we'll be making changes
         # and we don't want to mutate the argument
         parmDict = dict(pDict)
 
-        # add time converter (based on standards we selected and dictated by data)
-        def tConvFunc(timeStr):
-            # function to conver to TAI93
-            epoch = '00:00:00_01-01-1993'
-            format = '%H:%M:%S_%m-%d-%Y'
-            return utils.timestr_to_nsecs(timeStr, epoch, format)
-        parmDict['timeConv'] = tConvFunc
+        # even though IO interface handles casting already,
+        # a catchblock has been added here for safety
+        # in case someone wants to use this class directly
+        castDict = {'time':str, 'longitude':str,
+                    'inFieldNames':list, 'outFieldNames':list,
+                    'outUnits':list, 'logNormal':list,
+                    'dimLabels':list, 'dimSizes':list,
+                    'timeStart':tai93conv, 'timeStop':tai93conv,
+                    'timeComparison':str, 'fillVal':float,
+                    'solZenAngCutoff':float, 'solZenAng':str,
+                    'dayTime':bool, 'surfTypeField':str,
+                    'colMeasField':str}
+        for (k,func) in castDict.items():
+            self.parmDict[k] = func(parmDict[k])
+
+        # by this point times are already converted to TAI93 standard
+        # no need to convert here
+        parmDict['timeConv'] = lambda(x):x
         
         # remove extraneous entries in parmDict.  They will be incorporated in
         # weighting and filtering functions
@@ -1083,15 +1120,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
         surfField = parmDict.pop('surfTypeField')
         colMeasField = parmDict.pop('colMeasField')
 
-        # Determine if user wanted day or night and mark file appropriately
-        if dayTime == 'True':
-            dayBool = True
-        elif dayTime == 'False':
-            dayBool = False
-        else:
-            print('Invalid value %s for dayTime.  Must be either "True" or ' \
-                      '"False".  Exiting.' % dayTime)
-            sys.exit(0)
+        dayBool = dayTime
         # note which was chosen
         parmDict['notes'] = 'All values %s with cutoff at %6.2f' % \
             ('daytime' if dayBool else 'nighttime', SZAcut)

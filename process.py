@@ -15,6 +15,7 @@ import sys
 import datetime
 from itertools import izip
 import textwrap
+import utils
 import pdb
 
 import parse_geo
@@ -236,7 +237,7 @@ def formerrmsg(attr, type):
     return textwrap.TextWrapper(initial_indent = "Argument Error: ", \
                                 subsequent_indent = "                ", \
                                 width = 80).wrap('Invalid input for argument '\
-                                                 '{0}.  Argument should be a '\
+                                                 '{0}.  Argument should be '\
                                                  '{1}.  Please include a valid'\
                                                  ' value for {0}.\n'\
                                                  .format(attr,type))
@@ -252,12 +253,29 @@ for attr in parms:
             try:
                 gridDict[attr] = int(getattr(gnomespice, attr))
             except ValueError:
-                unitParms = unitParms + formerrmsg(attr, "\bn integer")
+                unitParms = unitParms + formerrmsg(attr, "an integer")
         elif parms[attr][1] == 'decimal':
             try:
                 gridDict[attr] = float(getattr(gnomespice, attr))
             except ValueError:
-                unitParms = unitParms + formerrmsg(attr, "decimal")
+                unitParms = unitParms + formerrmsg(attr, "a decimal")
+        elif parms[attr][1] == 'bool':
+            if float(getattr(gnomespice, attr)) == 'True':
+                gridDict[attr] = True
+            elif float(getattr(gnomespice,attr)) == 'False':
+                gridDict[attr] = False
+            else:
+                unitParms = unitParms + formerrmsg(attr, 
+                                                  "either 'True' or 'False'")
+        elif parms[attr][1] == 'time':
+            epoch = '00:00:00_01-01-1993'
+            format = '%H:%M:%S_%m-%d-%Y'
+            try:
+                gridDict[attr] = utils.timestr_to_nsecs(getattr
+                                       (gnomespice, attr), epoch, format)
+            except:
+                unitParms = unitParms + formerrmsg(attr, 
+                                                   "in the format " + format)
         else:
             gridDict[attr] = getattr(gnomespice, attr)
     except AttributeError:
