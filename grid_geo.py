@@ -104,6 +104,15 @@ class latlon_GridDef(GridDef):
                 "nCols":('[nCols description]', 'int')}
     def __init__(self, parmDict):
         GridDef.__init__(self, parmDict)
+        
+        # even though IO interface handles casting already,
+        # a catchblock has been added here for safety
+        # in case someone wants to use this class directly
+        castDict = {"xOrig":float, "yOrig":float,
+                    "xCell":float, "yCell":float,
+                    "nRows":int, "nCols":int}
+        for (k,func) in castDict.items():
+            parmDict[k] = func(parmDict[k])
         self.parms = parmDict
     def indLims(self):
         return (0, self.parms['nRows']-1, 0, self.parms['nCols']-1)
