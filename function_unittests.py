@@ -3227,7 +3227,7 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
                        'fillVal' : -9999.0,
                        'solZenAngCutoff' : 85,
                        'solZenAng' : 'SZA',
-                       'dayTime' : 'True',
+                       'dayTime' : True,
                        'surfTypeField': 'sType',
                        'colMeasField' : 'fourDcol' }
         self.defaultOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
@@ -3437,7 +3437,7 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         numpy.testing.assert_array_almost_equal(resDict['fourDcol'][1,2,...], expected)
 
     def test_properly_flips_SZA_when_night_specified_2D(self):
-        self.pDict['dayTime'] = 'False'
+        self.pDict['dayTime'] = False
         newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
         self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
         self.SZA[2,4] = 100
@@ -3446,7 +3446,7 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         self.assertAlmostEqual(resDict['twoDnorm'][1,2], expected)
 
     def test_properly_flips_SZA_when_night_specified_3D(self):
-        self.pDict['dayTime'] = 'False'
+        self.pDict['dayTime'] = False
         newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
         self.mapDict[(1,2)] = [((2,3), None), ((2,4), None)]
         self.SZA[2,4] = 100
