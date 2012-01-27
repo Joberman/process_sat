@@ -934,12 +934,12 @@ class wght_avg_netCDF(out_func):
         # set global attributes
         setattr(outFid, 'File_start_time', 
                 utils.nsecs_to_timestr(self.parmDict['timeStart'], 
-                                       epoch='00:00:00_01-01-1993', 
-                                       format='%H:%M:%S_%m-%d-%Y'))
+                                       epoch='00:00:00 01-01-1993', 
+                                       format='%H:%M:%S %m-%d-%Y'))
         setattr(outFid, 'File_stop_time', 
                 utils.nsecs_to_timestr(self.parmDict['timeStop'], 
-                                       epoch='00:00:00_01-01-1993', 
-                                       format='%H:%M:%S_%m-%d-%Y'))
+                                       epoch='00:00:00 01-01-1993', 
+                                       format='%H:%M:%S %m-%d-%Y'))
         setattr(outFid, 'Time_comparison_scheme', self.parmDict['timeComparison'])
         flistStr = ' '.join([map['parser'].name for map in maps])
         setattr(outFid, 'Input_files', flistStr)
