@@ -203,7 +203,7 @@ function you want to use.
 			  	 corner of the domain
 			  yOrig	 - The latitude of the lower-left
 			    	 corner of the domain
-			  nRows	 - The number or rows in the grid.
+			  nRows	 - The number of rows in the grid.
 			  nCols	 - The number of columns in the grid.
 
 		lcc2par	 - The Lambert Conic Conformal projection (2
@@ -226,8 +226,8 @@ function you want to use.
 		 	 stdPar2 - The second standard parallel used
 			 	   to define the Lambert Conic
 				   Conformal projection.  Set this
-			 	   equal to stdPar1 if the
-				   single-parallel form of the
+			 	   equal to the same value as stdPar1 
+				   if the single-parallel form of the
 				   projection is being used. Must be a
 				   valid latitude in degrees.
 			 refLat	 - The reference latitude upon which
@@ -268,7 +268,7 @@ function you want to use.
 	- The attributes required for the chosen projection.  Must
 	  have all the required attributes for that projection.  The
 	  required parameters for each projection are listed under
-          that projections name above.
+          that projection's name above.
 	- Case-sensitive.  Attribute names must EXACTLY match those
 	  laid out above.
 
@@ -300,7 +300,7 @@ function you want to use.
 		regional_intersect - Maps pixels (as defined by 
 			pairs of geocoordinates that nominally
 			correspond to pixel corners) to ALL gridcells
-			intersected.  No gemetric weights are
+			intersected.  No geometric weights are
 			calculated.  This function is currently
 			supported by HDFnasaomil2 and HDFknmiomil2
 			filetypes only.  Makes several assumptions:
@@ -360,6 +360,10 @@ function you want to use.
 		 	HDFknmiomil2).  Use with other filetypes is of
 		 	questionable utility.
 
+[sox:~/Documents/process_sat] maki% emacs out_geo.py
+[sox:~/Documents/process_sat] maki% emacs README.txt
+          The required parameters for each projection are listed
+
 			Outputs results to a CSV file.  Does
 			not filter based on time as OMNO2e_netcdf_avg
 			does.
@@ -417,7 +421,7 @@ function you want to use.
   	  The required parameters for each projection are listed
 	  above.
 	- If one of the "value" elements contains whitespace, enclose
-	  the entire name:value pair in parentheses.  For example:
+	  the entire name:value pair in double quotes.  For example:
 	      the:full_monty  	     <- okay
 	      "the:full monty" 	     <- okay
 	      the:full monty	     <- not okay
@@ -425,6 +429,7 @@ function you want to use.
 	  sure that elements of the list are not separated by spaces.
 	  For example:
 	      pythons:EricIdle,JohnCleese	<- okay
+	      pythons:EricIdle, JohnCleese	<- not okay
 	      "pythons:Eric Idle,John Cleese"	<- okay
 	      "pythons:Eric Idle, John Cleese"	<- not okay
 	- Case-sensitive.  Attribute names must EXACTLY match those
@@ -603,7 +608,7 @@ function you want to use.
 				dimensions in the output file.  Must
 				be a comma-delimited list of
 				parenthesis-enclosed lists of period
-				delimited strings.  Use empty
+				delimited labels.  Use empty
 				parentheses to indicate a field with
 				no extra dimensions.  A
 				correctly-formatted value might look
@@ -614,7 +619,7 @@ function you want to use.
 				dimensions in the output file.  Must
 				be a comma-delimited list of
 				parenthesis-enclosed lists of period
-				delimited strings.  Use empty
+				delimited values.  Use empty
 				parentheses to indicate a field with
 				no extra dimensions.  A
 				correctly-formatted value might look
@@ -633,7 +638,7 @@ function you want to use.
 				    hh:mm:ss_MM-DD-YYYY
 			timeStop - The latest time for which data
 				should be recorded into the output
-				files.  All times after this time in
+				file.  All times after this time in
 				the input file(s) will be filtered
 				out.  Must be in the format:
 				    hh:mm:ss_MM-DD-YYYY
@@ -650,20 +655,21 @@ function you want to use.
 				be in UTC) are compared against the
 				start/stop time directly.
 			fillVal - The value to use as a fill value in
-				the output netCDF file.  Used as a
-				fill value for all fields.
+				the output netCDF file.  This value
+				will replace any missing or invalid
+				output values.
 			solZenAngCutoff - The solar zenith angle that
 				defines the day to night transition
 				(we use the SZA to seperate day and
 				night pixels, which should not be
-				averaged).  The geometric value here
-				would be 90.  Recommended value is
-				85. In degrees.
+				averaged together).  The geometric
+				value here would be 90.  Recommended 
+				value is 85. In degrees.
 			solZenAng - The name of the field containing
 				the solar zenith angle (in degrees).
 				{ MOPITT - Solar Zenith Angle }
-			dayTime - Boolean variable that determines
-				whether the output file contains
+			dayTime - Boolean variable that indicates
+				whether the output file should contain
 				values from day or night.  If set to
 				"True" the output file will have
 				daylight values.  If set to "False"

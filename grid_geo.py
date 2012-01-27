@@ -96,14 +96,27 @@ class latlon_GridDef(GridDef):
     @staticmethod
     def requiredParms():
         '''Parameters that must be in the dictonary passed to instantiate'''
-        return {"xOrig":('[xOrig description]', 'decimal'),
-                "yOrig":('[yOrig description]', 'decimal'),
-                "xCell":('[xCell description]', 'decimal'),
-                "yCell":('[yCell description]', 'decimal'),
-                "nRows":('[nRows description]', 'int'),
-                "nCols":('[nCols description]', 'int')}
+        return {"xOrig":('The longitude of the lower-left corner '\
+                             'of the domain', 'decimal'),
+                "yOrig":('The latitude of the lower-left corner '\
+                             'of the domain', 'decimal'),
+                "xCell":('The size of a gridcell in the x '\
+                             '(longitude) direction in degrees', 'posdecimal'),
+                "yCell":('The size of a gridcell in the y '\
+                             '(latitude) direction in degrees', 'posdecimal'),
+                "nRows":('The number of rows in the grid', 'posint'),
+                "nCols":('The number of columns in the grid', 'posint')}
     def __init__(self, parmDict):
         GridDef.__init__(self, parmDict)
+        
+        # even though IO interface handles casting already,
+        # a catchblock has been added here for safety
+        # in case someone wants to use this class directly
+        castDict = {"xOrig":float, "yOrig":float,
+                    "xCell":float, "yCell":float,
+                    "nRows":int, "nCols":int}
+        for (k,func) in castDict.items():
+            parmDict[k] = func(parmDict[k])
         self.parms = parmDict
     def indLims(self):
         return (0, self.parms['nRows']-1, 0, self.parms['nCols']-1)
@@ -131,17 +144,42 @@ class lcc2par_GridDef(GridDef):
         parameters that must be in the dictionary passed to
         instantiate this class
         '''
-        return {"stdPar1":('[stdPar1 description]', 'decimal'),
-                "stdPar2":('[stdPar2 description]', 'decimal'),
-                "refLat":('[refLat description]', 'decimal'),
-                "refLon":('[refLon description]', 'decimal'),
-                "xOrig":('[xOrig description]', 'decimal'),
-                "yOrig":('[yOrig description]', 'decimal'),
-                "xCell":('[xCell description]', 'decimal'),
-                "yCell":('[yCell description]', 'decimal'),
-                "nRows":('[nRows description]', 'int'),
-                "nCols":('[nCols description]', 'int'),
-                "earthRadius":('[earthRadius description]','decimal')}
+        return {"stdPar1":('One of the 2 standard parallels (latitudes) '\
+                               'used to define the Lambert Conic '\
+                               'Conformal projection, in degrees', 'decimal'),
+                "stdPar2":('The second of the standard parallels (latitudes) '\
+                               'used to define the Lambert Conic '\
+                               'Conformal projection, in degrees.  '\
+                               'Set this equal to stdPar1 if the '\
+                               'single-parallel form of the projection '\
+                               'is being used', 'decimal'),
+                "refLat":('The reference latitude upon which the projection '\
+                              'is centered, in degrees.  This is the '\
+                              'YCENT value in the GRIDDESC file', 'decimal'),
+                "refLon":('The reference longitude upon which the projection '\
+                              'is centered, in degrees.  This is BOTH the '\
+                              'XCENT and PROJ_GAMMA values in the GRIDDESC '\
+                              'file.  If these values are not identical, '\
+                              'do not use this function', 'decimal'),
+                "xOrig":('The location of the origin in projected '\
+                             'x coordinates, in the same units as earthRadius.'\
+                             '  This is the XORIG value in the GRIDDESC file', 
+                         'decimal'),
+                "yOrig":('The location of the origin in projected y '\
+                             'coordinates, in the same units as earthRadius.  '\
+                             'This is the YORIG value in the GRIDDESC file', 
+                         'decimal'),
+                "xCell":('The x dimension of a cell in projected coordinates, '\
+                             'in the same units as earthRadius.  This is the '\
+                             'XCELL value in the GRIDDESC file', 'posdecimal'),
+                "yCell":('The y dimension of a cell in projected coordinates,'\
+                             ' in the same units as earthRadius.  This is the '\
+                             'YCELL value in the GRIDDESC file', 'posdecimal'),
+                "nRows":('The number of rows in the grid', 'posint'),
+                "nCols":('The number of columns in the grid', 'posint'),
+                "earthRadius":('The assumed radius of the Earth '\
+                                  '(assumed spherical).  Must match units used'\
+                                  ' for xCell and yCell','posdecimal')}
     def __init__(self, parms):
         GridDef.__init__(self, parms)
 
