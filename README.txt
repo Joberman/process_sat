@@ -112,13 +112,13 @@ multple lines you must use line-continuation characters.
      --projAttrs xOrig:-2916000 yCell:36000 refLon:-97 refLat:40 \
        nCols:162 nRows:126 stdPar2:45 stdPar1:33 xCell:36000 \
        earthRadius:6370000 yOrig:-2268000 \
-     --mapFunc point_in_cell \
+     --mapFunc regional_intersect \
      --outFunc OMNO2e_netCDF_avg \
      --outFuncAttrs overallQualFlag:TropColumnFlag "cloudFrac:Cloud Fraction" \
        solarZenithAngle:SolarZenithAngle time:Time longitude:Longitude \
-       "inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn" \
-       outFieldNames:time,AveragingKernel,TroposphericVerticalColumn \
-       outUnits:TAI93,noUnits0.001,molec/cm^2x1^15 "extraDimLabel:none,none,Layers" \
+       inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
+       outFieldNames:time,avKern,tropVCD \
+       "outUnits:TAI93,unitless x 1000",molec/cm^2x1^-15 extraDimLabel:none,none,Layers \
        "extraDimSize:0,0,34" "timeStart:00:00:00_07-01-2006" "timeStop:23:59:59_07-01-2006" \
        timeComparison:UTC fillVal:-9999 cloudFractUpperCutoff:0.3 \
        solarZenAngUpperCutoff:85 pixIndXtrackAxis:1 \
@@ -292,7 +292,10 @@ function you want to use.
 			sides (with directions defined according to
 			the projected coordinate system).  This
 			function is supported by all currently
-			available input filetypes.
+			available input filetypes.  NOTE: for 
+			filetypes where regional_intersect is 
+			available it is strongly recommended to use
+			regional_intersect over point_in_cell.
 
 		regional_intersect - Maps pixels (as defined by 
 			pairs of geocoordinates that nominally
