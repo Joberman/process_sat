@@ -57,7 +57,7 @@ class ProjArgsAction(argparse.Action):
     '''
     def __call__(self, parser, namespace, values, option_string=None):
         for string in values:
-            pair = string.strip('()').split(':')
+            pair = string.split(':')
             setattr(namespace, pair[0], ':'.join(pair[1:]))
 
 class ListAttrsAction(argparse.Action):
@@ -212,8 +212,8 @@ if not os.access(outDirectory, os.W_OK) or (os.path.isfile(outFileName)\
     sys.exit(0)
 
 gridFileName = (gnomespice.includeGrid and \
-                        os.path.join(outDirectory,gnomespice.includeGrid))
-if not os.access(gridFileName, os.W_OK):
+                        os.path.join(outDirectory,gnomespice.includeGrid[0]))
+if gridFileName and not os.access(gridFileName, os.W_OK):
     print textwrap.wrap("Error: Unable to write output to file {1} in "\
                         "directory {0}.  That directory may already "\
                         "contain an existing file of that name, for which "\

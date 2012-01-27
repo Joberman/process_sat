@@ -416,7 +416,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                     'solarZenAngUpperCutoff':int, 'pixIndXtrackAxis':int,
                     'fillVal':float}
         for (k,func) in castDict.items():
-            self.parmDict[k] = func(self.parmDict[k])
+            try:
+                self.parmDict[k] = func(self.parmDict[k])
+            except TypeError:
+                pass
 
         #Perform some basic sanity checks with parameters
         if self.parmDict['timeStart'] > self.parmDict['timeStop']:
@@ -1187,7 +1190,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
         for (k,func) in castDict.items():
             try:
                 parmDict[k] = func(parmDict[k])
-            except typeError:
+            except TypeError:
                 pass
                 
         # by this point times are already converted to TAI93 standard
