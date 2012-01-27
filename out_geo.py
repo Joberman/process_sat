@@ -1185,8 +1185,11 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                     'dayTime':bool, 'surfTypeField':str,
                     'colMeasField':str}
         for (k,func) in castDict.items():
-            parmDict[k] = func(parmDict[k])
-
+            try:
+                parmDict[k] = func(parmDict[k])
+            except typeError:
+                pass
+                
         # by this point times are already converted to TAI93 standard
         # no need to convert here
         parmDict['timeConv'] = lambda(x):x
