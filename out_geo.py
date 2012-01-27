@@ -64,6 +64,9 @@ def _OMNO2e_formula(cloudFrac, fieldOfView, totalFlag):
     capE = pow(10,-16)*(18.5+2.8*pow(10,-4)*pow(abs(fieldOfView-29.7), 3.5))
     return (numpy.logical_not(totalFlag)*pow((eps*capE), -2))
     
+tai93conv = lambda(timestring):utils.timestr_to_nsecs(timestring, 
+                               '00:00:00_01-01-1993', '%H:%M:%S_%m-%d-%Y')
+
 class OMNO2e_wght_avg_out_func(out_func):
     '''
     Weighted avg based on OMNO2e algorithm
@@ -98,23 +101,51 @@ class OMNO2e_wght_avg_out_func(out_func):
     def required_parms():
         return {'toAvg' : ('The name of the field to be averaged',None),
                 'overallQualFlag' : ('The name of the field containing' \
-                                     ' the overall quality flag',None),
+                                     ' the overall quality flag for the' \
+                                     ' pixels.  This flag should be true' \
+                                     ' (1) for invalid pixels and false' \
+                                     ' (0) for valid pixels.\n{ OMI KNMI' \
+                                     ' - TroposphericColumnFlag\n OMI NASA' \
+                                     ' - vcdQualityFlags }',None),
                 'cloudFrac' : ('The name of the field containing the ' \
-                               'cloud fraction',None),
+                               'cloud fractions.\n{ OMI KNMI - CloudFraction' \
+                               '\n OMI NASA - CloudFraction }',None),
                 'solarZenithAngle' : ('The name of the field containing the ' \
-                                      'solar zenith angle',None),
+                                      'solar zenith angles in degrees.\n{ ' \
+                                      'OMI KNMI - SolarZenithAngle\n OMI' \
+                                      ' NASA - SolarZenithAngle }',None),
                 'cloudFractUpperCutoff' : ('The maximum cloud fraction to ' \
-                                           'include (0<=x<=1)','decimal'),
+                                           'allow before excluding pixel ' \
+                                           'from average.  Suggested value ' \
+                                           'from NASA is 0.3','decimal'),
                 'solarZenAngUpperCutoff' : ('The maximum solar zenith angle ' \
-                                            'to include (in degrees 0<=x<=90)'\
-                                            ,'decimal'),
-                'pixIndXtrackAxis' : ('The element of each index tuple ' \
-                                      'representing the cross-track index ' \
-                                      '(...whatever that means)','int'),
-                'fillVal' : ('The value with which to fill cells without ' \
-                             'valid measurements','decimal')}
+                                            'to allow before excluding pixel ' \
+                                            'from average.  Suggested value ' \
+                                            'from NASA is 85.  Must be in ' \
+                                            'degrees.','decimal'),
+                'pixIndXtrackAxis' : ('The dimension order (0 based) of the ' \
+                                      'of the "cross-track" dimension (which' \
+                                      'ever dimension has size 60).  For all' \
+                                      ' currently known cases should be 1 ' \
+                                      ' (may change in future versions of ' \
+                                      'OMI products).','int'),
+                'fillVal' : ('The value to use as a fill value in the output ' \
+                             'netCDF file.  Used as a fill value for all ' \
+                             'fields.','decimal')}
     
-    def __call__(self, maps, griddef, outfilename, verbose=True):
+    def __call__(self, maps, griddef, outfilename, verbose):
+
+        # even though IO interface handles casting already
+        # a catchblock has been added here for safety
+        # in case someone wants to use this class directly
+        castDict = {'toAvg':str, 'overallQualFlag':str,
+                    'cloudFrac':str, 'solarZenithAngle':str,
+                    'cloudFractUpperCutoff':float, 
+                    'solarZenAngUpperCutoff':float,
+                    'pixIndXtrackAxis':int, 'fillVal':float}
+        for (k,func) in castDict.items():
+            self.parmDict[k] = func(self.parmDict[k])
+
         '''Write out single weighted-avg file'''
         numpy.seterr(over='raise')
         nRows = griddef.indLims()[1] - griddef.indLims()[0] + 1
@@ -242,11 +273,13 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             timestamp and the timeStart and timeStop 
             arguments to see if the pixel is valid.
         timeStart:
-            Initial time we want included in file.  Must
-            be in format hh:mm:ss_MM-DD-YYYY
+            Initial time we want included in file.  
+            Times must be in TAI93 standard format.
+            *format hh:mm:ss_MM-DD-YYYY will also be converted automatically.
         timeStop:
-            Final Time we want in included in file.  Must
-            be in format hh:mm:ss_MM-DD-YYYY
+            Final Time we want in included in file.
+            Times must be in TAI93 standard format.
+            *format hh:mm:ss_MM-DD-YYYY will also be converted automatically.
         cloudFractUpperCutoff:
             Pixels with a higher cloud fraction than this 
             value will be ignored.
@@ -274,55 +307,89 @@ class OMNO2e_netCDF_avg_out_func(out_func):
     @staticmethod
     def required_parms():
         return {'overallQualFlag' : ('The name of the field containing ' \
-                                     'the overall quality flag',None),
+                                     'the overall quality flag for the ' \
+                                     'pixels.  This flag should be true (1) ' \
+                                     'for invalid pixels and false (0) for ' \
+                                     'valid pixels.\n{ OMI KNMI - Tropo' \
+                                     'sphericColumnFlag\n  OMI NASA - vcd' \
+                                     'QualityFlags }',None),
                 'cloudFrac' : ('The name of the field containing the ' \
-                               'cloud fraction',None),
+                               'cloud fractions\n{ OMI KNMI - CloudFraction' \
+                               '\n  OMI NASA - CloudFraction }',None),
                 'solarZenithAngle' : ('The name of the field containing the '\
-                                      'solar zenith angle',None),
+                                      'solar zenith angles in degrees.\n{ ' \
+                                      'OMI KNMI - SolarZenithAngle\n OMI  ' \
+                                      'NASA - SolarZenithAngle }',None),
                 'time' : ('The name of the field containing the timestamps. '\
                           ' Timestamps are assumed to be the in TAI-93 ' \
-                          'format', None),
-                'longitude' : ('The name of the field containing longitudes '\
-                               'at cell centers',None),
-                'inFieldNames' : ('The fields to be output.  Input full ' \
-                                  'field names delimited by commas','list'),
-                'outFieldNames' : ('The names of the output variables.  ' \
-                                   'Must be the same length as input fields, '\
-                                   'and delimited by commas','list'),
-                'outUnits' : ('The units for each of the output variables. ' \
-                              'Must be the same length as the input fields, '\
-                              'delimited by commas','list'),
-                'extraDimLabel' : ('The labels for the extra dimensions '  \
-                                   'present in the output variables.  Only ' \
-                                   'used if output variable has an extra ' \
-                                   'dimension.  Must be same length as input '\
-                                   'field, delimited by commas','list'),
-                'extraDimSize' : ('The size of the extra dimensions.  For '  \
-                                  'variables without an extra dimension, use '\
-                                  '0.  Must be the same length as the input'  \
-                                  ' field, delimited by commas.','list'),
-                'timeComparison' : ('The time filtering selection.  Select ' \
-                                    '\'local\' (each pixel\'s timestamp is '  \
-                                    'compared to the start/stop time for that'\
-                                    ' pixel\'s approximate timezone) or '  \
-                                    '\'UTC\'(where each pixel is compared '  \
-                                    'to time in UTC standard)',None),
-                'timeStart' : ('The first time to be included.  Must be in ' \
-                               'format hh:mm:ss_MM-DD-YYYY',None),
-                'timeStop' : ('The final time to be included.  Must be in ' \
-                               'format hh:mm:ss_MM-DD-YYYY',None),
-                'cloudFractUpperCutoff' : ('The maximum cloud fraction for ' \
-                                           'valid pixels (0<=x<=1)','decimal'),
-                'solarZenAngUpperCutoff' : ('The maximum solar zenith angle '\
-                                            'for valid pixels (in degrees 0' \
-                                            '<=x<=90)','int'),
-                'pixIndXtrackAxis' : ('The element of each index tuple ' \
-                                      'representing the cross-track index ' \
-                                      'number','int'),
-                'fillVal' : ('The fill value for cells that do not contain ' \
-                             'valid data','decimal')}
-    
-    def __call__(self, maps, griddef, outfilename, verbose=True):
+                          'format.\n{ OMI KNMI - Time\n  OMI NASA - TIME }', \
+                          None),
+                'longitude' : ('The name of the field containing longitudes ' \
+                               'at cell centers.  Longitudes should be in ' \
+                               'degrees east.\n{ OMI KNMI - Longitude\n  ' \
+                               'OMI NASA - Longitude }',None),
+                'inFieldNames' : ('The names of the fields desired to be ' \
+                                  'output.  Input as comma-delimited list ', \
+                                  'list'),
+                'outFieldNames' : ('The names of the output variables (even ' \
+                                   'if they are to be the same as the input ' \
+                                   'variables).  Should be a comma-delimited ' \
+                                   'list co-indexed to inFieldNames','list'),
+                'outUnits' : ('The units of the variables to be written out. ' \
+                              'Should be a comma-delimited list co-indexed ' \
+                              'to inFieldNames','list'),
+                'extraDimLabel' : ('The label for the extra dimension '  \
+                                   '(should the variable have an extra ' \
+                                   'dimension).  Ignored in the case of a ' \
+                                   '2D variable.  Should be a comma-delimited '\
+                                   'list co-indexed to inFiledNames','list'),
+                'extraDimSize' : ('The size of the extra dimensions (should ' \
+                                  'the variable have an extra dimension).  ' \
+                                  'For 2D variables, must be set to 0. (zero)' \
+                                  '  Should be a comma-delimited list ' \
+                                  'co-indexed to inFieldNames.','list'),
+                'timeComparison' : ('Must be set to either "local" or "UTC". ' \
+                                    ' Determines how the file timestamps are ' \
+                                    'compared to the start/stop time.  If set '\
+                                    'to "local", then the file timestamps are '\
+                                    'converted to local time on a pixel-by-'\
+                                    'pixel basis (using longitude to estimate '\
+                                    'time zone) before being compared to time '\
+                                    'boundaries.  If set to "UTC" the file ' \
+                                    'timestamps (which are assumed to be in ' \
+                                    'UTC) are compared against the start/stop '\
+                                    'time directly.',None),
+                'timeStart' : ('The earliest time for which data should be ' \
+                               'recorded into the output file.  All times in ' \
+                               'input files before this time will be filtered '\
+                               'out.  Must be in the format hh:mm:ss_MM-DD-' \
+                               'YYYY','time'),
+                'timeStop' : ('The latest time for which data should be ' \
+                               'recorded into the output files.  All times in '\
+                               'input files after this time will be filtered ' \
+                               'out.  Must be in the format hh:mm:ss_MM-DD-' \
+                               'YYYY','time'),
+                'cloudFractUpperCutoff' : ('The maximum cloud fraction to ' \
+                                           'allow before excluding pixel from '\
+                                           'average.  Suggested value from ' \
+                                           'NASA is 0.3','decimal'),
+                'solarZenAngUpperCutoff' : ('The maximum solar zenith angle to'\
+                                            ' allow before excluding pixel ' \
+                                            'from average, in degrees.  ' \
+                                            'Suggested value from NASA is 85.',\
+                                            'int'),
+                'pixIndXtrackAxis' : ('The dimension order (0 based) of the ' \
+                                      '"cross-track" dimension (whichever ' \
+                                      'dimension has size 60).  For all ' \
+                                      'currently known cases set equal to 1 ' \
+                                      '(depends on the construction of the ' \
+                                      'parser function.  If you rewrite the ' \
+                                      'parser, check this).','int'),
+                'fillVal' : ('The value to use as a fill value in the output ' \
+                             'netCDF file.  Used as a fill value for all ' \
+                             'fields.','decimal')}
+
+    def __call__(self, maps, griddef, outfilename, verbose):
         '''Write out a weighted-average file in netcdf format.'''
         #Make sure non-string parameters are in the correct format
         dimsizes = self.parmDict['extraDimSize']
@@ -336,11 +403,20 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 continue
         self.parmDict['extraDimSize'] = dimsizes
 
-        # convert start and stop time to TAI93 standard
-        epoch = '00:00:00_01-01-1993'
-        format = '%H:%M:%S_%m-%d-%Y'
-        self.parmDict['timeStart'] = utils.timestr_to_nsecs(self.parmDict['timeStart'], epoch, format)
-        self.parmDict['timeStop'] = utils.timestr_to_nsecs(self.parmDict['timeStop'], epoch, format)
+        # even though IO interface handles casting already,
+        # a catchblock has been added here for safety
+        # in case someone wants to use this class directly
+        castDict = {'overallQualFlag':str, 'cloudFrac':str,
+                    'solarZenithAngle':str, 'time':str,
+                    'longitude':str, 'inFieldNames':list,
+                    'outFieldNames':list, 'outUnits':list,
+                    'extraDimLabel':list, 'extraDimSize':list,
+                    'timeComparison':str, 'timeStart':tai93conv,
+                    'timeStop':tai93conv, 'cloudFractUpperCutoff':float,
+                    'solarZenAngUpperCutoff':int, 'pixIndXtrackAxis':int,
+                    'fillVal':float}
+        for (k,func) in castDict.items():
+            self.parmDict[k] = func(self.parmDict[k])
 
         #Perform some basic sanity checks with parameters
         if self.parmDict['timeStart'] > self.parmDict['timeStop']:
@@ -564,8 +640,7 @@ class wght_avg_netCDF(out_func):
             set individually for each output field (as it may be appropriate
             to use the log normal distribution only for select fields).  Thus,
             logNormal must be of the same length and co-indexed to the lists
-            above.  Note that this vector must be set as strings "True" and 
-            "False", not as actual boolean values.  
+            above.
         dimLabels:
             List of tuple-like strings(delimited by periods with no whitespace),
             each of which contains as many strings as there are
@@ -770,7 +845,7 @@ class wght_avg_netCDF(out_func):
                 for (cellInd, pixTups) in map.iteritems():
                     
                     # compute the weight only if we haven't already.  In either
-                    # case, put the weightss in array.
+                    # case, put the weights in array.
                     wghts = [wghtDict.setdefault(ind, wghtFunc(p, ind, wgt))
                             for (ind, wgt) in pixTups]
                     
@@ -855,9 +930,16 @@ class wght_avg_netCDF(out_func):
         outFid = netcdf_file(outfilename, 'w')
         outFid.createDimension('row', nRows)
         outFid.createDimension('col', nCols)
+
         # set global attributes
-        setattr(outFid, 'File_start_time', self.parmDict['timeStart'].replace('_', ' '))
-        setattr(outFid, 'File_stop_time', self.parmDict['timeStop'].replace('_', ' '))
+        setattr(outFid, 'File_start_time', 
+                utils.nsecs_to_timestr(self.parmDict['timeStart'], 
+                                       epoch='00:00:00_01-01-1993', 
+                                       format='%H:%M:%S_%m-%d-%Y'))
+        setattr(outFid, 'File_stop_time', 
+                utils.nsecs_to_timestr(self.parmDict['timeStop'], 
+                                       epoch='00:00:00_01-01-1993', 
+                                       format='%H:%M:%S_%m-%d-%Y'))
         setattr(outFid, 'Time_comparison_scheme', self.parmDict['timeComparison'])
         flistStr = ' '.join([map['parser'].name for map in maps])
         setattr(outFid, 'Input_files', flistStr)
@@ -986,72 +1068,93 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
     '''
     @staticmethod
     def required_parms():
-        return {'time' : ('The name of the field containing timestamps', None),
+        return {'time' : ('The name of the field containing timestamps.  ' \
+                          'Timestamps are assumed to be in the TAI-93 format.' \
+                          '\n{ MOPITT - TIME }', None),
                 'longitude' : ('The name of the field containing longitudes ' \
-                               'at cell centers.', None),
-                'inFieldNames' : ('The fieldnames that should be included in' \
-                                  ' the output file.  Input full field names' \
-                                  ' delimited by commas.', 'list'),
-                'outFieldNames': ('The names of the output variables.  Must ' \
-                                  'be the same length as input fields. Input' \
-                                  ' strings for output variables delimited ' \
-                                  'by commas.', 'list'),
-                'outUnits' : ('The units to be listed for each of the output' \
-                              ' variables.  Listed in parameters of output ' \
-                              'file.  Must be same length as input fields.  ' \
-                              'Input strings for units delimited by commas.',
-                              'list'),
-                'logNormal' : ('Boolean determining whether or not we wish ' \
-                               'to perform the averaging operation in log-' \
-                               'space.  Input list of strings "True" or ' \
-                               '"False" for each field.  Must be same length' \
-                               ' as input fields.  Delimited by commas.', 
-                               'list'),                
-                'dimLabels' : ('The names of the extra dimensions in the ' \
-                               'output file.  Only used if output variable ' \
-                               'has extra dimensions.  Must be a comma-' \
-                               'delimited list of parenthesis-enclosed ' \
-                               'period-delimited strings.  Use empty ' \
-                               'parentheses for fields with no extra ' \
-                               'dimensions.  A correct entry should look ' \
-                               'like this: (),(foo),(),(foo.bar)', 'list'),
-                'dimSizes' : ('The sizes of the extra dimensions.  Only ' \
-                              'used if the output variable has extra ' \
-                              'dimensions.  Must be a comma-delimited list ' \
-                              'of parenthesis-enclosed, period-delimited ' \
-                              'integers.  Overall list (comma-delimited) ' \
-                              'must be same length as input fields.  Use ' \
-                              'empty parentheses for fields with no extra ' \
-                              'dimensions.  A correct entry should look ' \
-                              'like this: (),(4),(),(4.5)', 'list'),
-                'timeStart' : ('The first time to be included (hh:mm:ss_' \
-                               'MM-DD-YYYY).', None),
-                'timeStop' : ('The final time to be included (hh:mm:ss_' \
-                              'MM-DD-YYYY).', None),
-                'timeComparison' : ('Selection of how we want to filter ' \
-                                    'times.  Valid options are "local" or ' \
-                                    '"UTC".  If "local" is selected start ' \
-                                    'and stop times are compared against ' \
-                                    'the approximate local time for each pixel.' \
-                                    '  If "UTC" is selected start and stop ' \
-                                    'are directly compared to the UTC ' \
-                                    'timestamp of the pixel.', None),
-                'fillVal' : ('The fill value for cells that do not contain ' \
-                             'valid data.', 'decimal'),
-                'solZenAngCutoff' : ('The solar zenith angle that defines ' \
-                               'day to night transition.  Astronomically ' \
-                               'canonical value is 90.  Typically chosen ' \
-                               'between 80 and 85 in practice.', 'decimal'),
+                               'at cell centers.  Longitudes should be in ' \
+                               'degrees east.\n{ MOPITT - Longitude }', None),
+                'inFieldNames' : ('The names of the fields desired to be ' \
+                                  'output.  Input as comma-delimited list.', \
+                                  'list'),
+                'outFieldNames': ('The names of the output variables. (even ' \
+                                  'if they are to be the same as input ' \
+                                  'variables).  Should be a comma-delimited ' \
+                                  'list co-indexed to inFieldNames', 'list'),
+                'outUnits' : ('The units of the variables to be written out.' \
+                              '  Should be a comma-delimited list co-indexed '\
+                              'to inFieldNames', 'list'),
+                'logNormal' : ('List of boolean strings that specify how to ' \
+                               'take the averages of the corresponding fields.'\
+                               '  If the string is "True" that field is ' \
+                               'averaged assuming a lognormal distribution.  ' \
+                               'If the string is "False" that field is ' \
+                               'averaged assuming a normal distribution.  ' \
+                               'Should be a comma-delimited list co-indexed ' \
+                               'to inFieldNames', 'list'),                
+                'dimLabels' : ('List of names of the extra dimensions in the ' \
+                               'output file.  Must be a comma-delimited list ' \
+                               'of parenthesis-enclosed lists of period-' \
+                               'delimited strings.  Use empty parentheses to ' \
+                               'indicate a field with no extra dimensions.  ' \
+                               'A correctly-formatted value might look somet' \
+                               'hing like this: (),(foo),(),(foo.bar)  Should' \
+                               'be co-indexed to inFieldNames', 'list'),
+                'dimSizes' : ('List of the sizes of the extra dimensions in ' \
+                              'the output file.  Must be a comma-delimited ' \
+                              'list of parentheses-enclosed lists of period-' \
+                              'delimited values.  Use empty parentheses to ' \
+                              'indicate a field with no extra dimensions.  A ' \
+                              'correctly-formatted value might look something '\
+                              'like this: (),(4),(),(4.5)  All elements must ' \
+                              'be castable to integers.  Should be co-indexed' \
+                              'to inFieldNames and all sub-lists should be ' \
+                              'the same size as the corresponding sublist ' \
+                              'in dimLabels.', 'list'),
+                'timeStart' : ('The earliest time for which data should be ' \
+                               'recorded into the output file.  All times ' \
+                               'before this time in the input file(s) will ' \
+                               'be filtered out.  Must be in the format:  hh:' \
+                               'mm:ss_MM-DD-YYYY', 'time'),
+                'timeStop' : ('The latest time for which data should be ' \
+                              'recorded into the output file.  All times after' \
+                              'this time in the input file(s) will be filtered' \
+                              'out.  Must be in the format: hh:mm:ss_MM-DD-' \
+                              'YYYY','time'),
+                'timeComparison' : ('Must be set to either "local" or "UTC".  '\
+                                    'Determines how the file timestamps are ' \
+                                    'compared to the start/stop time.  If set ' \
+                                    'to "local", then the file timestamps are ' \
+                                    'converted to local time on a pixel-by-pixel'\
+                                    'basis (using longitude to estimate time ' \
+                                    'zone) before being compared to time ' \
+                                    'boundaries.  If set to "UTC" the file ' \
+                                    'timestamps (which are assumed to be in UTC)'\
+                                    ' are compared against the start/stop time '\
+                                    'directly.', None),
+                'fillVal' : ('The value to use as a fill value in the output '\
+                             'netCDF file.  This value will replace any '\
+                             'missing or invalid output values', 'decimal'),
+                'solZenAngCutoff' : ('The solar zenith angle that defines the ' \
+                                     'day to night transition (we use the SZA ' \
+                                     'to seperate day and night pixels, which ' \
+                                     'should not be averaged together), in ' \
+                                     'degrees.  The geometric value here would ' \
+                                     'be 90.  Recommended value is 85.', 
+                                     'decimal'),
                 'solZenAng' : ('The name of the field containing the solar' \
-                               ' zenith angle in degrees.', None),
-                'dayTime' : ('Boolean variable to determine what time of ' \
-                             'day output file will represent.  Must be ' \
-                             'either "True" or "False".  If set to "True" ' \
-                             'output file will represent the daytime.  If ' \
-                             'set to "False" output file will represent the' \
-                             ' nighttime.', None),
+                               ' zenith angle in degrees.  { MOPITT - Solar ' \
+                               'Zenith Angle }', 'decimal'),
+                'dayTime' : ('Boolean variable that indicates ' \
+			     'whether the output file should contain ' \
+			     'values from day or night.  If set to ' \
+			     '"True" the output file will have ' \
+			     'daylight values.  If set to "False" ' \
+			     'the output file will have night ' \
+			     'values.', 'bool'),
                 'surfTypeField' : ('The name of the field containing the ' \
-                                   'surface type index.', None),
+                                   'surface type index.  { MOPITT - Surface ' \
+                                   'Index }', None),
                 'colMeasField' : ('The name of the field containing the ' \
                                   'column measurement that will be used to ' \
                                   'determine which levels are valid in a ' \
@@ -1060,20 +1163,33 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                                   'the field will have a layer dimension first' \
                                   ' and a 2-element second dimension (for ' \
                                   'values and std devs) of which we want the ' \
-                                  'first slice.', None)}
+                                  'first slice. { MOPITT - Retrieved CO Mixing '\
+                                  'Ratio Profile }', None)}
     def __init__(self, pDict):
         '''Convert input to format of parent input'''
+
         # make a shallow copy to the parameter dict, as we'll be making changes
         # and we don't want to mutate the argument
         parmDict = dict(pDict)
 
-        # add time converter (based on standards we selected and dictated by data)
-        def tConvFunc(timeStr):
-            # function to conver to TAI93
-            epoch = '00:00:00_01-01-1993'
-            format = '%H:%M:%S_%m-%d-%Y'
-            return utils.timestr_to_nsecs(timeStr, epoch, format)
-        parmDict['timeConv'] = tConvFunc
+        # even though IO interface handles casting already,
+        # a catchblock has been added here for safety
+        # in case someone wants to use this class directly
+        castDict = {'time':str, 'longitude':str,
+                    'inFieldNames':list, 'outFieldNames':list,
+                    'outUnits':list, 'logNormal':list,
+                    'dimLabels':list, 'dimSizes':list,
+                    'timeStart':tai93conv, 'timeStop':tai93conv,
+                    'timeComparison':str, 'fillVal':float,
+                    'solZenAngCutoff':float, 'solZenAng':str,
+                    'dayTime':bool, 'surfTypeField':str,
+                    'colMeasField':str}
+        for (k,func) in castDict.items():
+            parmDict[k] = func(parmDict[k])
+
+        # by this point times are already converted to TAI93 standard
+        # no need to convert here
+        parmDict['timeConv'] = lambda(x):x
         
         # remove extraneous entries in parmDict.  They will be incorporated in
         # weighting and filtering functions
@@ -1083,15 +1199,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
         surfField = parmDict.pop('surfTypeField')
         colMeasField = parmDict.pop('colMeasField')
 
-        # Determine if user wanted day or night and mark file appropriately
-        if dayTime == 'True':
-            dayBool = True
-        elif dayTime == 'False':
-            dayBool = False
-        else:
-            print('Invalid value %s for dayTime.  Must be either "True" or ' \
-                      '"False".  Exiting.' % dayTime)
-            sys.exit(0)
+        dayBool = dayTime
         # note which was chosen
         parmDict['notes'] = 'All values %s with cutoff at %6.2f' % \
             ('daytime' if dayBool else 'nighttime', SZAcut)

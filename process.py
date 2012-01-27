@@ -15,6 +15,7 @@ import sys
 import datetime
 from itertools import izip
 import textwrap
+import utils
 import pdb
 
 import parse_geo
@@ -87,7 +88,7 @@ class ListAttrsAction(argparse.Action):
                     print '  ' + key
                     formatter = textwrap.TextWrapper(initial_indent = indent,
                                 subsequent_indent = indent, width = 76)
-                print '\n'.join(formatter.wrap(list[key]))
+                print '\n'.join(formatter.wrap(list[key][0]))
         sys.exit(0)
     
 def double(string):
@@ -140,6 +141,10 @@ parser.add_argument('--outFileName', help='Optionally, supply the name ' \
                     'of the output file.  If no name is provided, the ' \
                     'output file will be named \'output1\'', metavar = \
                     'FileName')
+parser.add_argument('--includeGrid', nargs=1, metavar='GridFileName', \
+                    help='Optionally, supply the name of a file to which to '\
+                    'write out the latitudes and longitudes of the gridcells '\
+                    'defined by the selected projection')
 parser.add_argument('--verbose', help='Supply False here to disable ' \
                     'verbose execution', default=True, choices={'True',\
                     'False'})
@@ -206,6 +211,16 @@ if not os.access(outDirectory, os.W_OK) or (os.path.isfile(outFileName)\
                         outDirectory, gnomespice.outFileName), 75)
     sys.exit(0)
 
+gridFileName = (gnomespice.includeGrid and \
+                        os.path.join(outDirectory,gnomespice.includeGrid))
+if not os.access(gridFileName, os.W_OK):
+    print textwrap.wrap("Error: Unable to write output to file {1} in "\
+                        "directory {0}.  That directory may already "\
+                        "contain an existing file of that name, for which "\
+                        "you do not have write permissions.  Check the "\
+                        "output directory and try again.".format(\
+                        outDirectory, gnomespice.includeGrid), 75)
+
 # To be implemented later (maybe)
 parserList = None                        
 
@@ -236,7 +251,7 @@ def formerrmsg(attr, type):
     return textwrap.TextWrapper(initial_indent = "Argument Error: ", \
                                 subsequent_indent = "                ", \
                                 width = 80).wrap('Invalid input for argument '\
-                                                 '{0}.  Argument should be a '\
+                                                 '{0}.  Argument should be '\
                                                  '{1}.  Please include a valid'\
                                                  ' value for {0}.\n'\
                                                  .format(attr,type))
@@ -252,12 +267,38 @@ for attr in parms:
             try:
                 gridDict[attr] = int(getattr(gnomespice, attr))
             except ValueError:
-                unitParms = unitParms + formerrmsg(attr, "\bn integer")
+                unitParms = unitParms + formerrmsg(attr, "an integer")
         elif parms[attr][1] == 'decimal':
             try:
                 gridDict[attr] = float(getattr(gnomespice, attr))
             except ValueError:
-                unitParms = unitParms + formerrmsg(attr, "decimal")
+                unitParms = unitParms + formerrmsg(attr, "a decimal")
+        elif parms[attr][1] == 'posint':
+            try:
+                gridDict[attr] = int(getattr(gnomespice, attr))
+                if gridDict[attr] <= 0:
+                    raise ValueError
+            except ValueError:
+                unitParms = unitParms + formerrmsg(attr, "a positive integer")
+        elif parms[attr][1] == 'posdecimal':
+            try:
+                gridDict[attr] = float(getattr(gnomespice, attr))
+                if gridDict[attr] <= 0:
+                    raise ValueError
+            except ValueError:
+                unitParms = unitParms + formerrmsg(attr, "a positive decimal")
+        elif parms[attr][1] == 'list':
+            gridDict[attr] = getattr(gnomespice, \
+                                     attr).split(',')
+
+        elif parms[attr][1] == 'bool':
+            if float(getattr(gnomespice, attr)) == 'True':
+                gridDict[attr] = True
+            elif float(getattr(gnomespice,attr)) == 'False':
+                gridDict[attr] = False
+            else:
+                unitParms = unitParms + formerrmsg(attr, 
+                                                  "either 'True' or 'False'")
         else:
             gridDict[attr] = getattr(gnomespice, attr)
     except AttributeError:
@@ -279,9 +320,41 @@ for attr in parms:
                 outParms[attr] = float(getattr(gnomespice, attr))
             except ValueError:
                 unitParms = unitParms + formerrmsg(attr,"decimal")
+        elif parms[attr][1] == 'posint':
+            try:
+                outParms[attr] = int(getattr(gnomespice, attr))
+                if outParms[attr] <= 0:
+                    raise ValueError
+            except ValueError:
+                unitParms = unitParms + formerrmsg(attr, "a positive integer")
+        elif parms[attr][1] == 'posdecimal':
+            try:
+                gridDict[attr] = float(getattr(gnomespice, attr))
+                if gridDict[attr] <= 0:
+                    raise ValueError
+            except ValueError:
+                unitParms = unitParms + formerrmsg(attr, "a positive decimal")
         elif parms[attr][1] == 'list':
             outParms[attr] = getattr(gnomespice, \
                                      attr).split(',')
+        elif parms[attr][1] == 'bool':
+            if float(getattr(gnomespice, attr)) == 'True':
+                outParms[attr] = True
+            elif float(getattr(gnomespice,attr)) == 'False':
+                outParms[attr] = False
+            else:
+                unitParms = unitParms + formerrmsg(attr, 
+                                                  "either 'True' or 'False'")
+        elif parms[attr][1] == 'time':
+            epoch = '00:00:00_01-01-1993'
+            format = '%H:%M:%S_%m-%d-%Y'
+            try:
+                outParms[attr] = utils.timestr_to_nsecs(getattr
+                                       (gnomespice, attr), epoch, format)
+            except:
+                unitParms = unitParms + formerrmsg(attr, 
+                                                   "in the format " + format)
+
         else:
             outParms[attr] = getattr(gnomespice, attr)
     except AttributeError:
@@ -334,6 +407,9 @@ else:
 # Construct the grid definition
 if verbose: print('constructing grid '+str(datetime.datetime.now()))
 griddef = gridDef(gridDict)
+if gridFileName:
+    if verbose: print('writing grid to file '+str(datetime.datetime.now()))
+    utils.write_grid_to_netcdf(griddef, gridFileName)
 
 # Map data to grid
 if verbose: print('calculating maps '+str(datetime.datetime.now()))
