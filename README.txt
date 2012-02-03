@@ -601,30 +601,38 @@ function you want to use.
 				inFieldNames
 			dimLabels - List of names of the extra
 				dimensions in the output file.  Must
-				be a comma-delimited list of
-				parenthesis-enclosed lists of period
-				delimited labels.  Use empty
-				parentheses to indicate a field with
-				no extra dimensions.  A
-				correctly-formatted value might look
-				something like the following:
-				    (),(foo),(),(foo.bar)
-				Should be co-indexed to inFieldNames
+				be a semicolon-delimited list of
+				comma-delimited lists of labels.  
+				Fields with no extra dimensions may
+				be left blank.  For example, if
+				there are four inFields, the first
+				and third of which have no extra
+				dimensions, the second of which has
+				one ("foo"), and the fourth has two
+				("foo" and "bar"), the dimLabels
+				entry should look like this:
+				    ;foo;;foo,bar
+				The outer (semicolon-delimited) list
+				must be	co-indexed to inFieldNames.
 			dimSizes - List of the sizes of the extra
 				dimensions in the output file.  Must
-				be a comma-delimited list of
-				parenthesis-enclosed lists of period
-				delimited values.  Use empty
-				parentheses to indicate a field with
-				no extra dimensions.  A
-				correctly-formatted value might look
-				something like the following:
-				    (),(4),(),(4.5)
-				All elements must be castable to
-				integers.  Should be co-indexed to
-				inFieldNames and all sub-lists should
-				be the same size as the corresponding
-				sublist in dimLabels.
+				be a semicolon-delimited list of
+				comma-delimited lists of integers.
+				Fields with no extra dimensions may
+				be left blank.  For example, if there
+				are four inFields, the first and
+				third of which have no extra
+				dimensions, the second of which has
+				one (which has length 4), and the
+				fourth has two (which have lengths 
+				four and five, respectively), the
+				dimSizes entry should look like this:
+				    ;4;;4,5
+				The outer (semicolon-delimited list
+				must be co-indexed to inFieldNames 
+				and each inner (comma-delimited) list 
+				should be the same size as the 
+				corresponding sublist in dimLabels.
 			timeStart - The earliest time for which data
 				should be recorded into the output
 				file.  All times before this time in
