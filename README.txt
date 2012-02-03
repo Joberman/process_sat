@@ -666,7 +666,7 @@ function you want to use.
 				output values.
 			solZenAngCutoff - The solar zenith angle that
 				defines the day to night transition
-				(we use the SZA to seperate day and
+				(we use the SZA to separate day and
 				night pixels, which should not be
 				averaged together).  The geometric
 				value here would be 90.  Recommended 

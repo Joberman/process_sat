@@ -964,8 +964,8 @@ class wght_avg_netCDF(out_func):
         # add in attributes for the projection
         setattr(outFid, 'Projection', griddef.__class__.__name__[:-8])
         setattr(outFid, 'Notes', self.parmDict['notes'])
-        for (k,v) in griddef.parms.iteritems():
-            setattr(outFid, k, v)
+        for k in griddef.parm_list():
+            setattr(outFid, k, griddef.parms[k])
 
         # loop over fields and write all information for each field
         for field in self.parmDict['inFieldNames']:
