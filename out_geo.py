@@ -56,6 +56,9 @@ class out_func:
     def __call__(self, map_geo, griddef, outfilenames, verbose):
         raise NotImplementedError
     @staticmethod
+    def parm_list():
+        raise NotImplementedError
+    @staticmethod
     def required_parms():
         raise NotImplementedError
 
@@ -98,6 +101,12 @@ class OMNO2e_wght_avg_out_func(out_func):
     notation.  Cells without valid measurements contain the fillvalue.
     '''  
     @staticmethod
+    def parm_list():
+        return ['toAvg', 'overallQualFlag', 'cloudFrac', 
+                'solarZenithAngle', 'cloudFractUpperCutoff',
+                'pixIndXtrackAxis', 'fillVal']
+
+    @staticmethod
     def required_parms():
         return {'toAvg' : ('The name of the field to be averaged',None),
                 'overallQualFlag' : ('The name of the field containing' \
@@ -105,14 +114,14 @@ class OMNO2e_wght_avg_out_func(out_func):
                                      ' pixels.  This flag should be true' \
                                      ' (1) for invalid pixels and false' \
                                      ' (0) for valid pixels.\n{ OMI KNMI' \
-                                     ' - TroposphericColumnFlag\n OMI NASA' \
+                                     ' - TroposphericColumnFlag\n  OMI NASA' \
                                      ' - vcdQualityFlags }',None),
                 'cloudFrac' : ('The name of the field containing the ' \
                                'cloud fractions.\n{ OMI KNMI - CloudFraction' \
-                               '\n OMI NASA - CloudFraction }',None),
+                               '\n  OMI NASA - CloudFraction }',None),
                 'solarZenithAngle' : ('The name of the field containing the ' \
                                       'solar zenith angles in degrees.\n{ ' \
-                                      'OMI KNMI - SolarZenithAngle\n OMI' \
+                                      'OMI KNMI - SolarZenithAngle\n  OMI' \
                                       ' NASA - SolarZenithAngle }',None),
                 'cloudFractUpperCutoff' : ('The maximum cloud fraction to ' \
                                            'allow before excluding pixel ' \
@@ -238,7 +247,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
     parameters dict must contain keys:
         inFieldNames:
             List of fields to process.  Each of these
-            is output as a seperate variable in the 
+            is output as a separate variable in the 
             netcdf output file.
         outFieldNames:
             List of desired output names.  Must be of the
@@ -305,6 +314,14 @@ class OMNO2e_netCDF_avg_out_func(out_func):
     scheme dedfined in the NASA document linked above.
     '''
     @staticmethod
+    def parm_list():
+        return ['overallQualFlag', 'cloudFrac', 'solarZenithAngle',
+                'time', 'longitude', 'inFieldNames', 'outFieldNames',
+                'outUnits', 'extraDimLabel', 'extraDimSize',
+                'timeComparison', 'timeStart', 'timeStop',
+                'cloudFractUpperCutoff', 'solarZenAngUpperCutoff',
+                'pixIndXtrackAxis', 'fillVal']
+    @staticmethod
     def required_parms():
         return {'overallQualFlag' : ('The name of the field containing ' \
                                      'the overall quality flag for the ' \
@@ -318,7 +335,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                '\n  OMI NASA - CloudFraction }',None),
                 'solarZenithAngle' : ('The name of the field containing the '\
                                       'solar zenith angles in degrees.\n{ ' \
-                                      'OMI KNMI - SolarZenithAngle\n OMI  ' \
+                                      'OMI KNMI - SolarZenithAngle\n  OMI ' \
                                       'NASA - SolarZenithAngle }',None),
                 'time' : ('The name of the field containing the timestamps. '\
                           ' Timestamps are assumed to be the in TAI-93 ' \
@@ -342,7 +359,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                    '(should the variable have an extra ' \
                                    'dimension).  Ignored in the case of a ' \
                                    '2D variable.  Should be a comma-delimited '\
-                                   'list co-indexed to inFiledNames','list'),
+                                   'list co-indexed to inFieldNames','list'),
                 'extraDimSize' : ('The size of the extra dimensions (should ' \
                                   'the variable have an extra dimension).  ' \
                                   'For 2D variables, must be set to 0. (zero)' \
@@ -416,7 +433,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                     'solarZenAngUpperCutoff':int, 'pixIndXtrackAxis':int,
                     'fillVal':float}
         for (k,func) in castDict.items():
-            self.parmDict[k] = func(self.parmDict[k])
+            try:
+                self.parmDict[k] = func(self.parmDict[k])
+            except TypeError:
+                pass
 
         #Perform some basic sanity checks with parameters
         if self.parmDict['timeStart'] > self.parmDict['timeStop']:
@@ -739,7 +759,7 @@ class wght_avg_netCDF(out_func):
         # call ancestor method
         out_func.__init__(self, parmDict)
 
-        # check that all the lists are teh same length
+        # check that all the lists are the same length
         lists = ['outFieldNames', 'outUnits', 'dimLabels', 'dimSizes', 'logNormal']
         canonicalLength = len(self.parmDict['inFieldNames'])
         isCorrectLength = [len(self.parmDict[list]) == canonicalLength for list in lists]
@@ -750,10 +770,8 @@ class wght_avg_netCDF(out_func):
             raise ValueError(msg)
 
         # process lists of tuple-like objects into lists of appropriately-typed tuples
-        labelTupLike = self.parmDict['dimLabels']
-        sizeTupLike = self.parmDict['dimSizes']
-        labelTups = [tup.strip('()').split('.') for tup in labelTupLike]
-        sizeStrTups = [tup.strip('()').split('.') for tup in sizeTupLike]
+        labelTups = self.parmDict['dimLabels']
+        sizeTups = self.parmDict['dimSizes']
         # confirm that each tuple is the same size
         tupsMatch = [len(l) == len(s) for (l,s) in izip(labelTups, sizeStrTups)]
         if not all(tupsMatch):
@@ -1067,6 +1085,12 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
             the retrieved CO mixing ratio profile.
     '''
     @staticmethod
+    def parm_list():
+        return ['time', 'longitude', 'inFieldNames', 'outFieldNames',
+                'outUnits', 'logNormal', 'dimLabels', 'dimSizes', 'timeStart', 
+                'timeStop', 'timeComparison', 'fillVal', 'solZenAngCutoff', 
+                'solZenAng', 'dayTime', 'surfTypeField', 'colMeasField']
+    @staticmethod
     def required_parms():
         return {'time' : ('The name of the field containing timestamps.  ' \
                           'Timestamps are assumed to be in the TAI-93 format.' \
@@ -1093,40 +1117,47 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                                'Should be a comma-delimited list co-indexed ' \
                                'to inFieldNames', 'list'),                
                 'dimLabels' : ('List of names of the extra dimensions in the ' \
-                               'output file.  Must be a comma-delimited list ' \
-                               'of parenthesis-enclosed lists of period-' \
-                               'delimited strings.  Use empty parentheses to ' \
-                               'indicate a field with no extra dimensions.  ' \
-                               'A correctly-formatted value might look somet' \
-                               'hing like this: (),(foo),(),(foo.bar)  Should' \
-                               'be co-indexed to inFieldNames', 'list'),
-                'dimSizes' : ('List of the sizes of the extra dimensions in ' \
-                              'the output file.  Must be a comma-delimited ' \
-                              'list of parentheses-enclosed lists of period-' \
-                              'delimited values.  Use empty parentheses to ' \
-                              'indicate a field with no extra dimensions.  A ' \
-                              'correctly-formatted value might look something '\
-                              'like this: (),(4),(),(4.5)  All elements must ' \
-                              'be castable to integers.  Should be co-indexed' \
-                              'to inFieldNames and all sub-lists should be ' \
-                              'the same size as the corresponding sublist ' \
-                              'in dimLabels.', 'list'),
+                               'output file.  Must be a semicolon-delimited ' \
+                               'list of comma-delimited strings. Fields with no'\
+                               'extra dimensions may be left blank.  ' \
+                               'For example, if there are four inFields, the ' \
+                               'first and third of which have no extra ' \
+                               'dimensions, the second of which has one ("foo"),'\
+                               ' and the fourth has two ("foo" and "bar"), the '\
+                               'dimLabels entry should look like this: '\
+                               ';foo;;foo,bar  The outer (semicolon-delimited) '\
+                               'list must be co-indexed to inFieldNames', 
+                               'listoflists'),
+                'dimSizes' : ('List of the sizes of the extra dimensions in the' \
+                              ' output file.  Must be a semicolon-delimited list'\
+                              ' of comma-delimited lists of integers.  Fields'\
+                              'with no extra dimensions may be left blank.  ' \
+                              'For example, if there are four inFields, the ' \
+                              'first and third of which have no extra ' \
+                              'dimensions, the second of which has one (which ' \
+                              'has length four), and the fourth has two (which '\
+                              'have lengths four and five, respectively), the '\
+                              'dimSizes entry should look like this: ;4;;4,5 ' \
+                              'The outer (semicolon-delimited) list must be ' \
+                              'co-indexed to inFieldNames and all sub-lists ' \
+                              'should be the same size as the corresponding ' \
+                              'sublist in dimLabels.', 'listoflists'),
                 'timeStart' : ('The earliest time for which data should be ' \
                                'recorded into the output file.  All times ' \
                                'before this time in the input file(s) will ' \
                                'be filtered out.  Must be in the format:  hh:' \
                                'mm:ss_MM-DD-YYYY', 'time'),
                 'timeStop' : ('The latest time for which data should be ' \
-                              'recorded into the output file.  All times after' \
-                              'this time in the input file(s) will be filtered' \
-                              'out.  Must be in the format: hh:mm:ss_MM-DD-' \
-                              'YYYY','time'),
+                              'recorded into the output file.  All times after'\
+                              ' this time in the input file(s) will be ' \
+                              'filtered out.  Must be in the format: ' \
+                              'hh:mm:ss_MM-DD-YYYY','time'),
                 'timeComparison' : ('Must be set to either "local" or "UTC".  '\
                                     'Determines how the file timestamps are ' \
-                                    'compared to the start/stop time.  If set ' \
+                                    'compared to the start/stop time.  If set '\
                                     'to "local", then the file timestamps are ' \
                                     'converted to local time on a pixel-by-pixel'\
-                                    'basis (using longitude to estimate time ' \
+                                    ' basis (using longitude to estimate time ' \
                                     'zone) before being compared to time ' \
                                     'boundaries.  If set to "UTC" the file ' \
                                     'timestamps (which are assumed to be in UTC)'\
@@ -1153,7 +1184,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
 			     'the output file will have night ' \
 			     'values.', 'bool'),
                 'surfTypeField' : ('The name of the field containing the ' \
-                                   'surface type index.  { MOPITT - Surface ' \
+                                   'surface type index.\n{ MOPITT - Surface ' \
                                    'Index }', None),
                 'colMeasField' : ('The name of the field containing the ' \
                                   'column measurement that will be used to ' \
@@ -1163,7 +1194,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                                   'the field will have a layer dimension first' \
                                   ' and a 2-element second dimension (for ' \
                                   'values and std devs) of which we want the ' \
-                                  'first slice. { MOPITT - Retrieved CO Mixing '\
+                                  'first slice.\n{ MOPITT - Retrieved CO Mixing '\
                                   'Ratio Profile }', None)}
     def __init__(self, pDict):
         '''Convert input to format of parent input'''
@@ -1187,7 +1218,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
         for (k,func) in castDict.items():
             try:
                 parmDict[k] = func(parmDict[k])
-            except typeError:
+            except TypeError:
                 pass
                 
         # by this point times are already converted to TAI93 standard
