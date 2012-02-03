@@ -7,7 +7,7 @@ Process a series of files, generating some kind of output for each
 If verbose is set to True, all default status updates will be printed.  
 If set to False, the program will run silently
 
-@version 11/21/2011
+@version 2/3/2012
 @author: maki, oberman
 '''
 import os
