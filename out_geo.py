@@ -773,17 +773,15 @@ class wght_avg_netCDF(out_func):
         labelTups = self.parmDict['dimLabels']
         sizeTups = self.parmDict['dimSizes']
         # confirm that each tuple is the same size
-        tupsMatch = [len(l) == len(s) for (l,s) in izip(labelTups, sizeStrTups)]
+        tupsMatch = [len(l) == len(s) for (l,s) in izip(labelTups, sizeTups)]
         if not all(tupsMatch):
-            misMatch = [l+' does not match '+s for (l,s,m) in izip(labelTupLike,sizeTupLike,tupsMatch) if not m]
+            misMatch = [l+' does not match '+s for (l,s,m) in izip(labelTups,sizeTups,tupsMatch) if not m]
             msg = "All tuple-like strings must correspond to tuples of corresponding size. " \
                 "The following sets do not correspond: "+' '.join(misMatch)
             raise ValueError(msg)
-        # remove empty strings in labels
-        labelTups = [[l for l in labelTup if l !=''] for labelTup in labelTups]
         # convert sizes to integers
         try:
-            sizeIntTups = [[int(s) for s in strTup if s != ''] for strTup in sizeStrTups]
+            sizeIntTups = [[int(s) for s in strTup] for strTup in sizeTups]
         except ValueError as err:
             messageWords = err.message.split()
             uncastable = messageWords[-1].strip("'")
