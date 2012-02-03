@@ -1,7 +1,7 @@
 PROJECT TITLE: Process_sat
 PURPOSE OF PROJECT: Provide a well-documented, easy-to-use general-purpose
                     processing module for processing satellite data
-VERSION: 0.2.72 (12/16/2011)
+VERSION: 0.2.82 (2/3/2012)
 AUTHORS: oberman, maki, strom
 CONTACT: oberman@wisc.edu
 
@@ -360,10 +360,6 @@ function you want to use.
 		 	HDFknmiomil2).  Use with other filetypes is of
 		 	questionable utility.
 
-[sox:~/Documents/process_sat] maki% emacs out_geo.py
-[sox:~/Documents/process_sat] maki% emacs README.txt
-          The required parameters for each projection are listed
-
 			Outputs results to a CSV file.  Does
 			not filter based on time as OMNO2e_netcdf_avg
 			does.
@@ -433,7 +429,7 @@ function you want to use.
 	      "pythons:Eric Idle,John Cleese"	<- okay
 	      "pythons:Eric Idle, John Cleese"	<- not okay
 	- Case-sensitive.  Attribute names must EXACTLY match those
-	  laid out above.
+	  laid out below.
 	- Below are the required parameters for each existing output
 	  function.  { } contain usable/recommended parameters for 
 	  applicable filetypes.  These are based on the current 
@@ -532,9 +528,10 @@ function you want to use.
 				If you rewrite the parser, check 
 				this).
 			fillVal - The value to use as a fill value in
-				the output netCDF file.  Used as a
-				fill value for all fields.
-
+				the output netCDF file.  This value
+				will replace any missing or invalid
+				output values.
+			
 		OMNO2e_wght_avg -
 			toAvg - The name of the field to be averaged
 			overallQualFlag - The name of the field
@@ -567,9 +564,10 @@ function you want to use.
 				be 1 (may change in future versions of
 				OMI products).
 			fillVal - The value to use as a fill value in
-				the output netCDF file.  Used as a
-				fill value for all fields.
-
+				the output netCDF file.  This value
+				will replace any missing or invalid
+				output values.
+			
 		unweighted_filtered_MOPITT_avg_netCDF -
 			time - The name of the field containing
 				timestamps.  Timestamps are assumed to
@@ -606,30 +604,38 @@ function you want to use.
 				inFieldNames
 			dimLabels - List of names of the extra
 				dimensions in the output file.  Must
-				be a comma-delimited list of
-				parenthesis-enclosed lists of period
-				delimited labels.  Use empty
-				parentheses to indicate a field with
-				no extra dimensions.  A
-				correctly-formatted value might look
-				something like the following:
-				    (),(foo),(),(foo.bar)
-				Should be co-indexed to inFieldNames
+				be a semicolon-delimited list of
+				comma-delimited lists of labels.  
+				Fields with no extra dimensions may
+				be left blank.  For example, if
+				there are four inFields, the first
+				and third of which have no extra
+				dimensions, the second of which has
+				one ("foo"), and the fourth has two
+				("foo" and "bar"), the dimLabels
+				entry should look like this:
+				    ;foo;;foo,bar
+				The outer (semicolon-delimited) list
+				must be	co-indexed to inFieldNames.
 			dimSizes - List of the sizes of the extra
 				dimensions in the output file.  Must
-				be a comma-delimited list of
-				parenthesis-enclosed lists of period
-				delimited values.  Use empty
-				parentheses to indicate a field with
-				no extra dimensions.  A
-				correctly-formatted value might look
-				something like the following:
-				    (),(4),(),(4.5)
-				All elements must be castable to
-				integers.  Should be co-indexed to
-				inFieldNames and all sub-lists should
-				be the same size as the corresponding
-				sublist in dimLabels.
+				be a semicolon-delimited list of
+				comma-delimited lists of integers.
+				Fields with no extra dimensions may
+				be left blank.  For example, if there
+				are four inFields, the first and
+				third of which have no extra
+				dimensions, the second of which has
+				one (which has length 4), and the
+				fourth has two (which have lengths 
+				four and five, respectively), the
+				dimSizes entry should look like this:
+				    ;4;;4,5
+				The outer (semicolon-delimited list
+				must be co-indexed to inFieldNames 
+				and each inner (comma-delimited) list 
+				should be the same size as the 
+				corresponding sublist in dimLabels.
 			timeStart - The earliest time for which data
 				should be recorded into the output
 				file.  All times before this time in
@@ -704,6 +710,13 @@ function you want to use.
 	  adding any file extensions here (IE .nc if it's a netCDF,
 	  .txt if it's an ASCII).  Output will be written in
 	  outDirectory under this name.
+
+  --includeGrid GridFileName
+        REQUIRED: NO
+        DEFAULT: N/A
+        - Supply this flag along with the name of a file (in the output directory)
+          to which to write out the latitudes and longitudes of the gridcells
+          defined by the selected projection.
 
   --verbose {True,False}
   	REQUIRED: NO
