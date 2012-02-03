@@ -67,18 +67,34 @@ class ListAttrsAction(argparse.Action):
     description for each
     ''' 
     def __call__(self, parser, namespace, values, option_string=None):
+        # error message if no parameters passed
+        if (len(values) == 0):
+            ms = ("Warning: Recieved '--AttributeHelp' flag, but no valid " \
+                  "projection or output function names.  Select any number " \
+                  "of these from {" + ', '.join(out_geo.ValidOutfuncs())+ ', '\
+                  + ', '.join(grid_geo.ValidProjections()) + "} and try again.")
+            print '\n'.join(textwrap.wrap(ms, width = 76, 
+                                          subsequent_indent = '    '))
+
+        # print the attribute help for each selected projection/outfunc
         indent = '                        '
+        follow_up = textwrap.TextWrapper(initial_indent = indent,
+                                         subsequent_indent = indent, width = 76,
+                                         drop_whitespace = False)
         for string in values:
             if string in out_geo.ValidOutfuncs():
                 #build list of attributes
-                list = getattr(out_geo, string + '_out_func').required_parms()
+                list = getattr(out_geo, string + '_out_func').parm_list()
+                dict = getattr(out_geo, string + '_out_func').required_parms()
             elif string in grid_geo.ValidProjections():
                 #build list of attributes
-                list = getattr(grid_geo, string + '_GridDef').requiredParms()
+                list = getattr(grid_geo, string + '_GridDef').parm_list()
+                dict = getattr(grid_geo, string + '_GridDef').requiredParms() 
             else:
                 print string + ' is not a valid projection or output function.'
                 continue
             print 'Attributes required for ' + string + ':'
+
             for key in list:
                 if len(key) < 20:
                     formatter = textwrap.TextWrapper(initial_indent = '  ' +  \
@@ -88,7 +104,10 @@ class ListAttrsAction(argparse.Action):
                     print '  ' + key
                     formatter = textwrap.TextWrapper(initial_indent = indent,
                                 subsequent_indent = indent, width = 76)
-                print '\n'.join(formatter.wrap(list[key][0]))
+                text = dict[key][0].split('\n')
+                print '\n'.join(formatter.wrap(text[0]))
+                for line in text[1:]:
+                    print '\n'.join(follow_up.wrap(line))
         sys.exit(0)
     
 def double(string):
@@ -337,6 +356,11 @@ for attr in parms:
         elif parms[attr][1] == 'list':
             outParms[attr] = getattr(gnomespice, \
                                      attr).split(',')
+        elif parms[attr][1] == 'listoflists':
+            lists  = getattr(gnomespice, attr).split(';')
+            outParms[attr] = []
+            for list in lists:
+                outParms[attr].append(list.split(','))
         elif parms[attr][1] == 'bool':
             if float(getattr(gnomespice, attr)) == 'True':
                 outParms[attr] = True

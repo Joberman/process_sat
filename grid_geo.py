@@ -94,6 +94,10 @@ class latlon_GridDef(GridDef):
       coordinates being put in.
     '''
     @staticmethod
+    def parm_list():
+        return ['xOrig', 'yOrig', 'xCell', 'yCell', 'nRows', 'nCols']
+
+    @staticmethod
     def requiredParms():
         '''Parameters that must be in the dictonary passed to instantiate'''
         return {"xOrig":('The longitude of the lower-left corner '\
@@ -138,6 +142,11 @@ class latlon_GridDef(GridDef):
     
 class lcc2par_GridDef(GridDef):
     '''Performs transformations with the lambert conic conformal'''
+    @staticmethod
+    def parm_list():
+        return ['stdPar1', 'stdPar2', 'refLat', 'refLon', 'xOrig', 'yOrig', 
+                'xCell', 'yCell', 'nRows', 'nCols', 'earthRadius']
+
     @staticmethod
     def requiredParms():
         '''
