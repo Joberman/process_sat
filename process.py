@@ -360,7 +360,10 @@ for attr in parms:
             lists  = getattr(gnomespice, attr).split(';')
             outParms[attr] = []
             for list in lists:
-                outParms[attr].append(list.split(','))
+                if list == '':
+                    outParms[attr].append([])
+                else:
+                    outParms[attr].append(list.split(','))
         elif parms[attr][1] == 'bool':
             if float(getattr(gnomespice, attr)) == 'True':
                 outParms[attr] = True
