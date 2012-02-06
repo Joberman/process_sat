@@ -45,8 +45,10 @@ timestep, so you'll need to invoke the command once for each timestep
 to write a shell script that calls the command once for each day)
 
 
-6. Create a grid file for your chosen grid by PLACEHOLDER PLACEHOLDER
-PLACEHOLDER PLACEHOLDER PLACEHOLDER
+6. Additionally, you may create a grid file for your chosen grid by 
+including the --includeGrid flag followed by the desired filename.  
+A file containing the gridcells used by the projection will be written 
+to the same directory as the standard output file.
 
 
 7. Concatenate your outputs if desired (the authors recommend the NCO
@@ -84,8 +86,8 @@ multple lines you must use line-continuation characters.
      --outFuncAttrs time:Time longitude:Longitude \
      "inFieldNames:Time,Retrieved CO Mixing Ratio Profile,Retrieved CO Surface Mixing Ratio" \
      outFieldNames:time,COprof,COsurf outUnits:TAI93,ppbv,ppbv \
-     logNormal:False,True,True "dimLabels:(),(layer.valOrStdDev),(valOrStdDev)" \
-     "dimSizes:(),(9.2),(2)" "timeStart:00:00:00_01-06-2005" \
+     logNormal:False,True,True "dimLabels:;layer,valOrStdDev;valOrStdDev" \
+     "dimSizes:;9,2;2" "timeStart:00:00:00_01-06-2005" \
      "timeStop:23:59:59_01-06-2005" timeComparison:UTC \
      fillVal:-9999.0 \
      solZenAngCutoff:85 \

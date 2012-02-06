@@ -139,8 +139,8 @@ class OMNO2e_wght_avg_out_func(out_func):
                                       ' (may change in future versions of ' \
                                       'OMI products).','int'),
                 'fillVal' : ('The value to use as a fill value in the output ' \
-                             'netCDF file.  Used as a fill value for all ' \
-                             'fields.','decimal')}
+                             'netCDF file.  This value will replace any missing '\
+                             ' or invalid output values','decimal')}
     
     def __call__(self, maps, griddef, outfilename, verbose):
 
@@ -219,7 +219,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
     
     Set up to work specifically for OMI instruments.
 
-    fieldnames dict must contain keys:
+    parameters dict must contain keys:
         overallQualFlag:
             Flag used as overall quality.  Assumed that
             when this flag is set, the data is BAD and 
@@ -243,8 +243,6 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             Used to estimate timezones of the pixels if
             'local' is selected for timeComparison.  Not
             used when timeComparison is 'UTC'
-
-    parameters dict must contain keys:
         inFieldNames:
             List of fields to process.  Each of these
             is output as a separate variable in the 
@@ -403,8 +401,8 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                       'parser function.  If you rewrite the ' \
                                       'parser, check this).','int'),
                 'fillVal' : ('The value to use as a fill value in the output ' \
-                             'netCDF file.  Used as a fill value for all ' \
-                             'fields.','decimal')}
+                             'netCDF file.  This value will replace any missing '\
+                             'or invalid output values','decimal')}
 
     def __call__(self, maps, griddef, outfilename, verbose):
         '''Write out a weighted-average file in netcdf format.'''
@@ -1164,9 +1162,9 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                 'fillVal' : ('The value to use as a fill value in the output '\
                              'netCDF file.  This value will replace any '\
                              'missing or invalid output values', 'decimal'),
-                'solZenAngCutoff' : ('The solar zenith angle that defines the ' \
-                                     'day to night transition (we use the SZA ' \
-                                     'to seperate day and night pixels, which ' \
+                'solZenAngCutoff' : ('The solar zenith angle that defines the '\
+                                     'day to night transition (we use the SZA '\
+                                     'to separate day and night pixels, which '\
                                      'should not be averaged together), in ' \
                                      'degrees.  The geometric value here would ' \
                                      'be 90.  Recommended value is 85.', 
