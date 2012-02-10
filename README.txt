@@ -100,7 +100,7 @@ multple lines you must use line-continuation characters.
      --interactive True
 
 2. Process OMI level 2 DOMINO NO2 data, (Version 5) 
-     - processes a single file
+     - processes any number of files
      - Uses a 36km lambert conic conformal grid centered over North
      America
      - Writes out a 2D, and 3D parameter from the file
@@ -109,6 +109,7 @@ multple lines you must use line-continuation characters.
      process.py \
      --directory /where/you/keep/the/files/ \
      --fileList OMI-Aura_L2-OMDOMINO_2006m0701t0023-o10423_v003-2010m1008t224420.he5 \
+     OMI-Aura_L2-OMDOMINO_2006m0701t0112-o10424_v003-20120m1008t224845.he5 \
      --filetype HDFknmiomil2 \
      --gridProj lcc2par \
      --projAttrs xOrig:-2916000 yCell:36000 refLon:-97 refLat:40 \
