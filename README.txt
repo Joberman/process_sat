@@ -107,7 +107,7 @@ multple lines you must use line-continuation characters.
 
 
      process.py \
-     --directory /Users/strom/satellite/omi_no2_he5_20060701/ \
+     --directory /where/you/keep/the/files/ \
      --fileList OMI-Aura_L2-OMDOMINO_2006m0701t0023-o10423_v003-2010m1008t224420.he5 \
      --filetype HDFknmiomil2 \
      --gridProj lcc2par \
@@ -120,11 +120,11 @@ multple lines you must use line-continuation characters.
        solarZenithAngle:SolarZenithAngle time:Time longitude:Longitude \
        inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
        outFieldNames:time,avKern,tropVCD \
-       "outUnits:TAI93,unitless x 1000",molec/cm^2x1^-15 extraDimLabel:none,Layers,none \
-       "extraDimSize:0,0,34" "timeStart:00:00:00_07-01-2006" "timeStop:23:59:59_07-01-2006" \
+       "outUnits:TAI93,unitless x 1000,molec/cm^2x1^-15" extraDimLabel:none,Layers,none \
+       extraDimSize:0,0,34 timeStart:00:00:00_07-01-2006 timeStop:23:59:59_07-01-2006 \
        timeComparison:UTC fillVal:-9999 cloudFractUpperCutoff:0.3 \
        solarZenAngUpperCutoff:85 pixIndXtrackAxis:1 \
-     --outDirectory /Users/strom/satellite \
+     --outDirectory /where/you/want/output \
      --outFileName OMI_DOMINO_20060701_test.nc \
      --includeGrid OMI_DOMINO_GridFileName \
      --verbose True \
