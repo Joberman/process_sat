@@ -120,12 +120,13 @@ multple lines you must use line-continuation characters.
        solarZenithAngle:SolarZenithAngle time:Time longitude:Longitude \
        inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
        outFieldNames:time,avKern,tropVCD \
-       "outUnits:TAI93,unitless x 1000",molec/cm^2x1^-15 extraDimLabel:none,none,Layers \
+       "outUnits:TAI93,unitless x 1000",molec/cm^2x1^-15 extraDimLabel:none,Layers,none \
        "extraDimSize:0,0,34" "timeStart:00:00:00_07-01-2006" "timeStop:23:59:59_07-01-2006" \
        timeComparison:UTC fillVal:-9999 cloudFractUpperCutoff:0.3 \
        solarZenAngUpperCutoff:85 pixIndXtrackAxis:1 \
      --outDirectory /Users/strom/satellite \
      --outFileName OMI_DOMINO_20060701_test.nc \
+     --includeGrid OMI_DOMINO_GridFileName \
      --verbose True \
      --interactive True
      
