@@ -16,10 +16,10 @@ import datetime
 from itertools import izip
 import textwrap
 import utils
+import argparse
 import pdb
 
 import parse_geo
-import argparse
 import grid_geo
 import map_geo
 import out_geo
