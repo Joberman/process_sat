@@ -110,7 +110,7 @@ def write_grid_to_netcdf(griddef, outFname):
     '''
     (minRow, maxRow, minCol, maxCol) = griddef.indLims()
     nRows = maxRow-minRow+1
-    nCols = maxRow-minRow+1
+    nCols = maxCol-minCol+1
     # create the index vectors we need to make grids
     (cols, rows) = numpy.meshgrid(numpy.arange(minCol, maxCol+1), 
                                   numpy.arange(minRow, maxRow+1))
