@@ -25,6 +25,15 @@ class Helpers:
         zeros = numpy.zeros(shape)
         zeros[:] = numpy.NaN
         return zeros
+
+def does_pytables_close_all(filename):
+    '''Returns true if pytables shows all files as closed after one is closed, false otherwise'''
+    fid1 = tables.openFile(filename, mode='r')
+    fid2 = tables.openFile(filename, mode='r')
+    fid1.close()
+    retVal = not fid2.isopen
+    fid2.close()
+    return retVal
     
 def skipUnlessSamples():
     '''Skip this test unless our folder has the sample data'''
@@ -218,24 +227,24 @@ class TestGeneralHDFParser(unittest.TestCase):
         self.nonHDF_Filename = os.path.join(dir, 'sample_data', 'empty')
         
     def test_instantiate(self):
-        obj = parse_geo.HDF_File(self.HDF_Filename)
-        self.assertIsInstance(obj, parse_geo.HDF_File)
+        obj = parse_geo.HDFFile(self.HDF_Filename)
+        self.assertIsInstance(obj, parse_geo.HDFFile)
         
     def test_autofill_extension(self):
-        obj = parse_geo.HDF_File(self.HDF_Filename)
+        obj = parse_geo.HDFFile(self.HDF_Filename)
         self.assertEqual(obj.ext, 'hdf')
         
     def test_override_extension(self):
-        obj = parse_geo.HDF_File(self.HDF_Filename, extension='foo')
+        obj = parse_geo.HDFFile(self.HDF_Filename, extension='foo')
         self.assertEqual(obj.ext, 'foo')
         
     def test_override_subtype(self):
-        obj = parse_geo.HDF_File(self.HDF_Filename, subtype='foo')
+        obj = parse_geo.HDFFile(self.HDF_Filename, subtype='foo')
         self.assertEqual(obj.sub, 'foo')
         
     def test_reject_nonHDF(self):
         with self.assertRaises(IOError):
-            unused_obj = parse_geo.HDF_File(self.nonHDF_Filename)
+            unused_obj = parse_geo.HDFFile(self.nonHDF_Filename)
 
 @skipUnlessSamples()
 class TestKnmiOmiL2Parser(unittest.TestCase):
@@ -348,10 +357,15 @@ class TestKnmiOmiL2Parser(unittest.TestCase):
                 self.assertIsInstance(var, numpy.ndarray)
                 
     def test_get_cm_closes_when_done(self):
+        closes_all = does_pytables_close_all(self.fname)
         fid = tables.openFile(self.fname, mode='r')
         with self.parser as p:
             unused_var = p.get_cm('Time')
-        self.assertFalse(fid.isopen)
+        if closes_all:
+            self.assertFalse(fid.isopen)
+        else:
+            self.assertTrue(fid.isopen)
+            fid.close()
         
     def test_get_retrieves_right_sizes(self):
         sizes = [1622*60,
@@ -832,10 +846,15 @@ class TestNASAOmiL2Parser(TestParser):
                 self.assertIsInstance(var, numpy.ndarray)
             
     def test_get_cm_cleans_up_open_file(self):
+        closes_all = does_pytables_close_all(self.fname)
         fid = tables.openFile(self.fname, mode='r')
         with self.parser as p:
             unused_var = p.get_cm('Time')
-        self.assertFalse(fid.isopen)
+        if closes_all:
+            self.assertFalse(fid.isopen)
+        else:
+            self.assertTrue(fid.isopen)
+            fid.close()
         
     def test_get_retrieves_right_sizes_of_full_vars(self):
         chkSizes = [self.parser.get(key).size for key in self.checkKeys]
@@ -967,10 +986,16 @@ class TestNASAOmiL2GetGeoCorners(unittest.TestCase):
         self.assertRaises(IOError, newParser.get_geo_corners)
         
     def test_closes_cornerfile_when_done(self):
+        closes_all = does_pytables_close_all(self.fname)
         fid = tables.openFile(self.cornerName, 'r')
         parser = parse_geo.HDFnasaomil2_File(self.fname, pixCornerFname=self.cornerName)
         unused_geoarray = parser.get_geo_corners()
-        self.assertFalse(fid.isopen)
+        if closes_all:
+            self.assertFalse(fid.isopen)
+        else:
+            self.assertTrue(fid.isopen)
+            fid.close()
+        
         
 @skipUnlessSamples()
 class TestNASAOmiL2GetGeoCenters(TestNASAOmiL2Parser):
@@ -4144,10 +4169,9 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
 
 '''
 if __name__ == '__main__':
-    foo = '__main__.TestMOPPITL2GetGeoCenters.test_geocenters_can_feed_ind_to_get'
+    foo = '__main__.TestKnmiOmiL2GetGeoCenters.test_get_cm_closes_when_done'
     suite = unittest.defaultTestLoader.loadTestsFromName(foo)
     unittest.TextTestRunner(verbosity=2).run(suite)
 '''
 if __name__ == '__main__':
     unittest.main(verbosity=2)
-

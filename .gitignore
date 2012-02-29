@@ -1,4 +1,6 @@
 testlog.txt
 *.pyc
 *~
+sample_data
+build
 

@@ -1,4 +1,4 @@
-PROJECT TITLE: Process_sat
+PROJECT TITLE: WHIPS
 PURPOSE OF PROJECT: Provide a well-documented, easy-to-use general-purpose
                     processing module for processing satellite data
 VERSION: 0.2.82 (2/3/2012)
@@ -100,7 +100,7 @@ multple lines you must use line-continuation characters.
      --interactive True
 
 2. Process OMI level 2 DOMINO NO2 data, (Version 5) 
-     - processes a single file
+     - processes any number of files
      - Uses a 36km lambert conic conformal grid centered over North
      America
      - Writes out a 2D, and 3D parameter from the file
@@ -109,6 +109,7 @@ multple lines you must use line-continuation characters.
      process.py \
      --directory /where/you/keep/the/files/ \
      --fileList OMI-Aura_L2-OMDOMINO_2006m0701t0023-o10423_v003-2010m1008t224420.he5 \
+     OMI-Aura_L2-OMDOMINO_2006m0701t0112-o10424_v003-20120m1008t224845.he5 \
      --filetype HDFknmiomil2 \
      --gridProj lcc2par \
      --projAttrs xOrig:-2916000 yCell:36000 refLon:-97 refLat:40 \
@@ -120,12 +121,13 @@ multple lines you must use line-continuation characters.
        solarZenithAngle:SolarZenithAngle time:Time longitude:Longitude \
        inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
        outFieldNames:time,avKern,tropVCD \
-       "outUnits:TAI93,unitless x 1000,molec/cm^2x1^-15" extraDimLabel:none,none,Layers \
+       "outUnits:TAI93,unitless x 1000,molec/cm^2x1^-15" extraDimLabel:none,Layers,none \
        extraDimSize:0,0,34 timeStart:00:00:00_07-01-2006 timeStop:23:59:59_07-01-2006 \
        timeComparison:UTC fillVal:-9999 cloudFractUpperCutoff:0.3 \
        solarZenAngUpperCutoff:85 pixIndXtrackAxis:1 \
      --outDirectory /where/you/want/output \
      --outFileName OMI_DOMINO_20060701_test.nc \
+     --includeGrid OMI_DOMINO_GridFileName \
      --verbose True \
      --interactive True
      
@@ -238,7 +240,7 @@ function you want to use.
 				   file. In degrees
 			 refLon  - The reference longitude upon which
 			 	   the  projection is centered.  This
-			 	   is BOTH the XCENT and PROJ_GAMMA
+				   is BOTH the XCENT and PROJ_GAMMA
 			 	   values in the GRIDDESC file.  If
 			 	   these values are not identical, do
 			 	   not use this function. In degrees.
