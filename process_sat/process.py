@@ -24,7 +24,19 @@ import grid_geo
 import map_geo
 import out_geo
 
+'''
+Global dictionary mapping filetypes to their default output function
+Any new filetypes should be included in this dictionary to ensure
+proper AttributeHelp functionality and default output function selection
+'''
+out_func_mapper = {"HDFknmiomil2":"OMNO2e_netCDF_avg",
+                   "HDFmopittl2":"unweighted_filtered_MOPITT_avg_netCDF",
+                   "HDFnasaomil2":"OMNO2e_netCDF_avg"}
+
 def bad_file_default(filename):
+    '''
+    Dummy function for non-interactive file handling
+    '''
     return 1
 
 def bad_file(filename):
@@ -63,16 +75,19 @@ class ProjArgsAction(argparse.Action):
 class ListAttrsAction(argparse.Action):
     '''
     Print the additional parameters required for the given
-    grid projections and/or output functions and a brief
-    description for each
+    grid projections, output functions, and/or filetype(s) 
+    and a brief description for each
     ''' 
     def __call__(self, parser, namespace, values, option_string=None):
         # error message if no parameters passed
         if (len(values) == 0):
             ms = ("Warning: Recieved '--AttributeHelp' flag, but no valid " \
-                  "projection or output function names.  Select any number " \
-                  "of these from {" + ', '.join(out_geo.ValidOutfuncs())+ ', '\
-                  + ', '.join(grid_geo.ValidProjections()) + "} and try again.")
+                  "projection names, output function names, or filetypes.  "\
+                  "Select any number of these from {" + 
+                  ', '.join(out_geo.ValidOutfuncs()) + ', ' + \
+                  ', '.join(grid_geo.ValidProjections()) + ', ' + \
+                  ', '.join(parse_geo.SupportedFileTypes()) + \
+                  "} and try again.")
             print '\n'.join(textwrap.wrap(ms, width = 76, 
                                           subsequent_indent = '    '))
 
@@ -81,7 +96,12 @@ class ListAttrsAction(argparse.Action):
         follow_up = textwrap.TextWrapper(initial_indent = indent,
                                          subsequent_indent = indent, width = 76,
                                          drop_whitespace = False)
+
         for string in values:
+            if string in parse_geo.SupportedFileTypes():
+                print 'Using output function ' + out_func_mapper[string] + \
+                      '\n   for filetype ' + string + '.'
+                string = out_func_mapper[string]
             if string in out_geo.ValidOutfuncs():
                 #build list of attributes
                 list = getattr(out_geo, string + '_out_func').parm_list()
@@ -91,7 +111,8 @@ class ListAttrsAction(argparse.Action):
                 list = getattr(grid_geo, string + '_GridDef').parm_list()
                 dict = getattr(grid_geo, string + '_GridDef').requiredParms() 
             else:
-                print string + ' is not a valid projection or output function.'
+                print string + ' is not a valid projection, output function,'\
+                    'or filetype.'
                 continue
             print 'Attributes required for ' + string + ':'
 
@@ -108,6 +129,7 @@ class ListAttrsAction(argparse.Action):
                 print '\n'.join(formatter.wrap(text[0]))
                 for line in text[1:]:
                     print '\n'.join(follow_up.wrap(line))
+            print ''
         sys.exit(0)
     
 def double(string):
@@ -148,7 +170,7 @@ parser.add_argument('--mapFunc', help='Supply a valid mapping function.  ' \
                     ValidMaps(), required = True)
 parser.add_argument('--outFunc', help='Supply desired output function.  ' \
                     'This argument is required.', choices=out_geo.\
-                    ValidOutfuncs(), required = True)
+                    ValidOutfuncs(), required = False)
 parser.add_argument('--outFuncAttrs', nargs='*', action=ProjArgsAction, \
                     type=double, help='Supply the attributes required for ' \
                     'the output function', metavar='AttributeName:Value'\
@@ -174,11 +196,12 @@ parser.add_argument('--interactive', help='Supply True here to enable ' \
                     'processing all requested files)', default=False, \
                     choices = {'True','False'}) 
 parser.add_argument('--AttributeHelp', nargs='*', help='Supply this flag, ' \
-                    'followed by a list of projection names and/or output ' \
-                    'functions to see a list of additional parameters ' \
-                    'required for those selections, and a brief ' \
-                    'description of each parameter.', action=ListAttrsAction, \
-                    metavar = 'ProjectionName/OutputFunctionName')
+                    'followed by a list of one or more projection names, ' \
+                    'output function names, or filetypes to see a list of ' \
+                    'additional parameters required for those selections, ' \
+                    'and a brief description of each parameter.', 
+                    action=ListAttrsAction, \
+                    metavar = 'Projection/OutputFunction/filetype')
 
 # ---------------- #
 # Parse the inputs #
@@ -249,7 +272,14 @@ gridDef = getattr(grid_geo, gnomespice.gridProj + '_GridDef')
 gridDict = dict()
 
 # retrieve output function function from out_geo
+if gnomespice.outFunc not in locals():
+    if gnomespice.filetype == 'HDFmopitl2':
+        gnomespice.outFunc = 'unweighted_filtered_MOPITT_avg_netCDF'
+    else:
+        gnomespice.outFunc = 'OMNO2e_netCDF_avg'
 outFunc = getattr(out_geo, gnomespice.outFunc + '_out_func')
+if verbose: print('Using outfunc ' + gnomespice.outFunc)
+
 # output function parameter dictionary
 outParms = dict()
 
