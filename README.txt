@@ -6,9 +6,8 @@ AUTHORS: oberman, maki, strom
 CONTACT: oberman@wisc.edu
 
 
------------------
--- QUICK START --
------------------
+QUICK START
+===========
 
 
 1. Install the program and run the built-in test module to confirm
@@ -56,9 +55,8 @@ operators at http://nco.sourceforge.net/ if you're using a netCDF
 output format) and carry on!  
 
 
-----------------------------------
--- EXAMPLE/TEMPLATE INVOCATIONS --
-----------------------------------
+EXAMPLE/TEMPLATE INVOCATIONS
+============================
 
 For clarity and readability, line continuation characters are used to
 place each attribute on a separate line.  It is not required to break
@@ -67,6 +65,8 @@ invocation as a single command, so if you want to break it onto
 multple lines you must use line-continuation characters.
 
 1. Process MOPITT level 2 CO data, (Version 5) 
+----------------------------------------------
+
      - processes a single file
      - Uses a 36km lambert conic conformal grid centered over North
      America
@@ -100,6 +100,8 @@ multple lines you must use line-continuation characters.
      --interactive True
 
 2. Process OMI level 2 DOMINO NO2 data, (Version 5) 
+---------------------------------------------------
+
      - processes any number of files
      - Uses a 36km lambert conic conformal grid centered over North
      America
@@ -132,10 +134,8 @@ multple lines you must use line-continuation characters.
      --interactive True
      
 
------------------------
--- PARAMETER DETAILS --
------------------------
-
+PARAMETER DETAILS
+=================
 
 Each input attribute is explained here.  Note that each output
 function has a separate set of required inputs and that the

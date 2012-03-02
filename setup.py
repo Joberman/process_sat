@@ -1,12 +1,13 @@
 from distutils.core import setup
 REQUIRES = ['numpy', 'shapely', 'pyproj', 'tables', 'netCDF4', 'pyhdf']
-setup(name='process_sat',
+setup(name='WHIPS',
       version='0.2.82',
 
       install_requires = REQUIRES,
 
       description='Scripts for customized regridding of Level-2 data to Level-3 data',
-      long_description=open('README.txt').read(),
+      long_description=open('reST.txt').read(),
+      license = 'LICENSE.txt',
       author='Jacob Oberman, Keith Maki',
       author_email='oberman@wisc.edu',
       packages=['process_sat'],

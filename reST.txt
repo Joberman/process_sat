@@ -2,12 +2,12 @@
 Wisconsin Horizontal Interpolation Program for Satellites (WHIPS)
 =================================================================
 
-PROJECT TITLE: WHIPS
-PURPOSE OF PROJECT: Provide a well-documented, easy-to-use general-purpose
+**Project Title:** WHIPS
+**Purpose of Project:** Provide a well-documented, easy-to-use general-purpose
                     processing module for processing satellite data
-VERSION: 0.2.82 (2/3/2012)
-AUTHORS: oberman, maki, strom
-CONTACT: oberman@wisc.edu
+**Version:** 0.2.82 (2/3/2012)
+**Authors:** oberman, maki, strom
+**Contact:** oberman@wisc.edu
 
 
 QUICK START
