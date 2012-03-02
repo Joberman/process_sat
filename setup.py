@@ -3,7 +3,7 @@ from distutils.core import setup
 REQUIRES = ['numpy', 'shapely', 'pyproj', 'tables', 'netCDF4', 'pyhdf']
 
 setup(name='WHIPS',
-      version='0.2.82',
+      version='0.2.83',
       install_requires = REQUIRES,
       description='Scripts for customized regridding of Level-2 data to Level-3 data',
       long_description=open('reST.txt').read(),
