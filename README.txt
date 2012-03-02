@@ -75,8 +75,8 @@ multple lines you must use line-continuation characters.
 
      process.py \
      --directory /path/to/input/files/ \
-     --fileList MOP02T-20050106-L2V10.1.1.prov.hdf \
      --filetype HDFmopittl2 \
+     --fileList MOP02T-20050106-L2V10.1.1.prov.hdf \
      --gridProj lcc2par \
      --projAttrs xOrig:-2916000 yCell:36000 refLon:-97 refLat:40 \
      nCols:162 nRows:126 stdPar2:45 stdPar1:33 xCell:36000 \
@@ -108,9 +108,9 @@ multple lines you must use line-continuation characters.
 
      process.py \
      --directory /where/you/keep/the/files/ \
-     --fileList OMI-Aura_L2-OMDOMINO_2006m0701t0023-o10423_v003-2010m1008t224420.he5 \
-     OMI-Aura_L2-OMDOMINO_2006m0701t0112-o10424_v003-20120m1008t224845.he5 \
      --filetype HDFknmiomil2 \
+     --fileList OMI-Aura_L2-OMDOMINO_2006m0701t0023-o10423_v003-2010m1008t224420.he5 \
+       OMI-Aura_L2-OMDOMINO_2006m0701t0112-o10424_v003-20120m1008t224845.he5 \
      --gridProj lcc2par \
      --projAttrs xOrig:-2916000 yCell:36000 refLon:-97 refLat:40 \
        nCols:162 nRows:126 stdPar2:45 stdPar1:33 xCell:36000 \
@@ -122,12 +122,12 @@ multple lines you must use line-continuation characters.
        inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
        outFieldNames:time,avKern,tropVCD \
        "outUnits:TAI93,unitless x 1000,molec/cm^2x1^-15" extraDimLabel:none,Layers,none \
-       extraDimSize:0,0,34 timeStart:00:00:00_07-01-2006 timeStop:23:59:59_07-01-2006 \
+       extraDimSize:0,34,0 timeStart:00:00:00_07-01-2006 timeStop:23:59:59_07-01-2006 \
        timeComparison:UTC fillVal:-9999 cloudFractUpperCutoff:0.3 \
        solarZenAngUpperCutoff:85 pixIndXtrackAxis:1 \
      --outDirectory /where/you/want/output \
      --outFileName OMI_DOMINO_20060701_test.nc \
-     --includeGrid OMI_DOMINO_GridFileName \
+     --includeGrid OMI_DOMINO_GridFileName.nc \
      --verbose True \
      --interactive True
      

@@ -39,7 +39,7 @@ import pdb
 
 
 import numpy
-from scipy.io import netcdf_file
+import netCDF4
 
 import utils
 
@@ -555,7 +555,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
         extraDim = dict(izip(self.parmDict['inFieldNames'], self.parmDict['extraDimLabel']))
                 
         # write out results to a netcdf file
-        outFid = netcdf_file(outfilename, 'w')
+        outFid = netCDF4.Dataset(outfilename, 'w', format='NETCDF3_CLASSIC')
         # create the 2 dimensions all files use
         outFid.createDimension('row', nRows)
         outFid.createDimension('col', nCols)
@@ -585,11 +585,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                     outFid.createDimension(dimName, dimSize)
                 varDims = ('row', 'col', dimName)
             # create and assign value to variable
-            varHandle = outFid.createVariable(outFnames[field], 'd', varDims)
+            varHandle = outFid.createVariable(outFnames[field], 'd', varDims, fill_value=self.parmDict['fillVal'])
             varHandle[:] = avgs[field]
             # assign variable attributes
             setattr(varHandle, 'Units', units[field])
-            setattr(varHandle, '_FillValue', self.parmDict['fillVal'])
         outFid.close()
         # create a dict with teh same data as avgs, but diff names
         outAvg = dict()
@@ -941,7 +940,7 @@ class wght_avg_netCDF(out_func):
         # done looping over maps
                 
         # set up the parts of the netcdf file that AREN'T field specific
-        outFid = netcdf_file(outfilename, 'w')
+        outFid = netCDF4.Dataset(outfilename, 'w', format='NETCDF3_CLASSIC')
         outFid.createDimension('row', nRows)
         outFid.createDimension('col', nCols)
 
@@ -978,12 +977,11 @@ class wght_avg_netCDF(out_func):
             # write the variable to file
             vDims = ['row', 'col'] + extraDimLabels
             outFieldName = self.parmDict['outFieldNames'][field]
-            varHand = outFid.createVariable(outFieldName, 'd', vDims)
+            varHand = outFid.createVariable(outFieldName, 'd', vDims, fill_value=self.parmDict['fillVal'])
             varHand[:] = outputArrays[field]
             
             # write variable attributes
             setattr(varHand, 'Units', self.parmDict['outUnits'][field])
-            setattr(varHand, '_FillValue', self.parmDict['fillVal'])
 
         # close the output file
         outFid.close()
