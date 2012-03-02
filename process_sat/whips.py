@@ -1,4 +1,4 @@
-#!/Library/Frameworks/Python.framework/Versions/Current/bin/python
+#! /Library/Frameworks/Python.framework/Versions/Current/bin/python
 '''
 New command-line io for oberman's process scripts
 
@@ -7,7 +7,7 @@ Process a series of files, generating some kind of output for each
 If verbose is set to True, all default status updates will be printed.  
 If set to False, the program will run silently
 
-@version 2/3/2012
+@version 3/1/2012
 @author: maki, oberman
 '''
 import os
@@ -15,15 +15,14 @@ import sys
 import datetime
 from itertools import izip
 import textwrap
-import utils
 import argparse
 import pdb
 
-import parse_geo
-import grid_geo
-import map_geo
-import out_geo
-
+from process_sat import parse_geo
+from process_sat import grid_geo
+from process_sat import map_geo
+from process_sat import out_geo
+from process_sat import utils
 '''
 Global dictionary mapping filetypes to their default output function
 Any new filetypes should be included in this dictionary to ensure
