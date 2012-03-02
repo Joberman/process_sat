@@ -121,12 +121,12 @@ multple lines you must use line-continuation characters.
        inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
        outFieldNames:time,avKern,tropVCD \
        "outUnits:TAI93,unitless x 1000,molec/cm^2x1^-15" extraDimLabel:none,Layers,none \
-       extraDimSize:0,0,34 timeStart:00:00:00_07-01-2006 timeStop:23:59:59_07-01-2006 \
+       extraDimSize:0,34,0 timeStart:00:00:00_07-01-2006 timeStop:23:59:59_07-01-2006 \
        timeComparison:UTC fillVal:-9999 cloudFractUpperCutoff:0.3 \
        solarZenAngUpperCutoff:85 pixIndXtrackAxis:1 \
      --outDirectory /where/you/want/output \
      --outFileName OMI_DOMINO_20060701_test.nc \
-     --includeGrid OMI_DOMINO_GridFileName \
+     --includeGrid OMI_DOMINO_GridFileName.nc \
      --verbose True \
      --interactive True
      
@@ -737,7 +737,7 @@ function you want to use.
 	  files.  Under the default behavior (--interactive False)
 	  the software will automatically ignore any file it can't
 	  process and continue processing any other files in
-	  --fileList.  If set to True, exectuion will be suspended and
+	  --fileList.  If set to True, execution will be suspended and
 	  the user will be given several options when an invalid file
 	  is encountered.
 
