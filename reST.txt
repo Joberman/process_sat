@@ -1,9 +1,13 @@
-PROJECT TITLE: WHIPS
-PURPOSE OF PROJECT: Provide a well-documented, easy-to-use general-purpose
+=================================================================
+Wisconsin Horizontal Interpolation Program for Satellites (WHIPS)
+=================================================================
+
+**Project Title:** WHIPS
+**Purpose of Project:** Provide a well-documented, easy-to-use general-purpose
                     processing module for processing satellite data
-VERSION: 0.2.82 (2/3/2012)
-AUTHORS: oberman, maki, strom
-CONTACT: oberman@wisc.edu
+**Version:** 0.2.82 (2/3/2012)
+**Authors:** oberman, maki, strom
+**Contact:** oberman@wisc.edu
 
 
 QUICK START
@@ -82,6 +86,7 @@ multple lines you must use line-continuation characters.
      nCols:162 nRows:126 stdPar2:45 stdPar1:33 xCell:36000 \
      earthRadius:6370000 yOrig:-2268000\
      --mapFunc point_in_cell \
+     --outFunc unweighted_filtered_MOPITT_avg_netCDF \
      --outFuncAttrs time:Time longitude:Longitude \
      "inFieldNames:Time,Retrieved CO Mixing Ratio Profile,Retrieved CO Surface Mixing Ratio" \
      outFieldNames:time,COprof,COsurf outUnits:TAI93,ppbv,ppbv \
@@ -117,6 +122,7 @@ multple lines you must use line-continuation characters.
        nCols:162 nRows:126 stdPar2:45 stdPar1:33 xCell:36000 \
        earthRadius:6370000 yOrig:-2268000 \
      --mapFunc regional_intersect \
+     --outFunc OMNO2e_netCDF_avg \
      --outFuncAttrs overallQualFlag:TropColumnFlag "cloudFrac:Cloud Fraction" \
        solarZenithAngle:SolarZenithAngle time:Time longitude:Longitude \
        inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
@@ -141,12 +147,12 @@ function has a separate set of required inputs and that the
 you're referencing the details for the attributes relevant to the
 function you want to use.  
 
-  --help
+* --help
 	REQUIRED: NO
 	DEFAULT: N/A
 	- Display the onscreen help message and exit the program.
 
-  --directory /path/to/input/directory
+* --directory /path/to/input/directory
   	REQUIRED: NO
 	DEFAULT: the current working directory at time of invocation  	      
   	- The input directory that the program will search for whatever
@@ -154,7 +160,7 @@ function you want to use.
   	  this directory, the programs behavior is governed by the
   	  value of the --interactive flag
 
-  --fileList file1 [file2] [file3] ...
+* --fileList file1 [file2] [file3] ...
   	REQUIRED: NO
 	DEFAULT: The list of all files in --directory (non-recursive)
 	- The list of files that the program should attempt to
@@ -172,7 +178,7 @@ function you want to use.
 		NASA OMI - <http://mirador.gsfc.nasa.gov/cgi-bin/mirador/collectionlist.pl?keyword=omno2>
 		KNMI OMI - <http://www.temis.nl/airpollution/no2col/data/omi/data_v2/>
 
-  --filetype {HDFknmiomil2, HDFmopittl2, HDFnasaomil2}
+* --filetype {HDFknmiomil2, HDFmopittl2, HDFnasaomil2}
   	REQUIRED: YES
 	DEFAULT: N/A
 	- The type of file we're attempting to read in.  Must be one
@@ -184,7 +190,7 @@ function you want to use.
   	supported have a look at parse_geo.py and look at possibly
   	extending it to include your filetype.
 
-  --gridProj {latlon, lcc2par}
+* --gridProj {latlon, lcc2par}
   	REQUIRED: YES
 	DEFAULT: N/A
 	- The grid projection used to define the target grid (the grid
@@ -264,7 +270,7 @@ function you want to use.
 			 	   (assumed spherical).  Must match
 				   units used for xCell and yCell.
 
-  --projAttrs name1:value1 name2:value2 ...
+* --projAttrs name1:value1 name2:value2 ...
 	REQUIRED: YES
 	DEFAULT: N/A
 	- The attributes required for the chosen projection.  Must
@@ -274,7 +280,7 @@ function you want to use.
 	- Case-sensitive.  Attribute names must EXACTLY match those
 	  laid out above.
 
-  --mapFunc {point_in_cell, regional_intersect}
+* --mapFunc {point_in_cell, regional_intersect}
   	REQUIRED: YES
 	DEFAULT: N/A
 	- The mapping function that will be used to assign pixels to
@@ -311,9 +317,9 @@ function you want to use.
 			  - grid is rectilinear in projected space.
 			  - Pixels are convex polygons.
 		
-  --outFunc {OMNO2e_netCDF_avg,OMNO2e_wght_avg,unweighted_filtered_MOPITT_avg_netCDF}
-  	REQUIRED: NO
-	DEFAULT: Depends on the value chose for --filetype
+* --outFunc {OMNO2e_netCDF_avg,OMNO2e_wght_avg,unweighted_filtered_MOPITT_avg_netCDF}
+  	REQUIRED: YES
+	DEFAULT: N/A
 	- The function that computes the output and writes the output
   	  file.  Functions are given significant freedom, but all
 	  current functions take some kind of average and write it to
@@ -322,14 +328,8 @@ function you want to use.
   	  instrument or input format.  Efforts are made to make them
   	  as general as possible, but specialized output functions are
 	  only guaranteed (and really should only be used) for the
-	  parser types for which they have been designed.  To this 
-	  end, the associated function will be chosen by default for 
-	  all filetypes, though it can always be overridden with this 
-	  command.
-	- Currently, functions are assigned to filetypes as follows:
-	     HDFknmiomil2 --> OMNO2e_netCDF_avg
-	     HDFnasaomil2 --> OMNO2e_netCDF_avg
-	     HDFmopittl2  --> unweighted_filtered_MOPITT_avg_netCDF
+	  parser types for which they have been designed.  Where this
+          is the case, it is noted below.
 	- In all cases where a fieldname must be given for a
    	  parameter it is the short name (the name used to access the
   	  field through the parser) that must be given.  The 
@@ -344,9 +344,9 @@ function you want to use.
 	     	 OMNO2e_netCDF_avg - Averaging algorithm based on the
 		 	NASA OMI level 2 to level 3 processing
 		 	algorithm.  Designed for the OMI level 2
-		 	filetypes (HDFnasaomil2 and HDFknmiomil2) and 
-			is the default for those filetypes use with 
-			other filetypes is of questionable utility.  
+		 	filetypes (HDFnasaomil2 and HDFknmiomil2).
+		 	Use with other filetypes is of questionable
+		 	utility.  
 
 			Outputs results to a netCDF file.
 			
@@ -365,8 +365,7 @@ function you want to use.
 		 	on the NASA algorithm used to process OMI from
 		 	level 2 to level 3.  Designed for the OMI
 		 	level 2 filetypes (currently HDFnasaomil2 and
-		 	HDFknmiomil2) but is NOT the default for those
-			filetypes.  Use with other filetypes is of
+		 	HDFknmiomil2).  Use with other filetypes is of
 		 	questionable utility.
 
 			Outputs results to a CSV file.  Does
@@ -393,9 +392,8 @@ function you want to use.
 		 	algorithm based on the NASA algorithm for
 		 	processing level 2 MOPITT CO data to level 3
 		 	MOPITT CO data.  Designed for the MOPITT level
-		 	2 filetypes (HDFmopittl2 only at present) and 
-			is the default for that filetype. Use with 
-			other filetypes is discouraged.
+		 	2 filetypes (HDFmopittl2 only at present).
+		 	Use with other filetypes is discouraged.
 			
 			Outputs resuts to a netCDF file.
 
@@ -419,7 +417,7 @@ function you want to use.
 			  - Timestamps are in the TAI93 format.
 
 
-  --outFuncAttrs name1:value1 name2:value2
+* --outFuncAttrs name1:value1 name2:value2
   	REQUIRED: YES
 	DEFAULT: N/A
 	- The attributes required for the chosen output function.
@@ -705,7 +703,7 @@ function you want to use.
 				NaN's at the appropriate levels.
 				{ MOPITT - Retrieved CO Mixing Ratio Profile }
 
-  --outDirectory /path/to/output/directory
+* --outDirectory /path/to/output/directory
   	REQUIRED: YES
 	DEFAULT: N/A
 	- The output directory to which the output file(s) should be
@@ -713,7 +711,7 @@ function you want to use.
 	  directory (the program will complain and quit out if you do
   	  not).
 
-  --outFileName FileName
+* --outFileName FileName
   	REQUIRED: NO
 	DEFAULT: output1
 	- The name of the output file itself.  User is responsible for
@@ -721,14 +719,14 @@ function you want to use.
 	  .txt if it's an ASCII).  Output will be written in
 	  outDirectory under this name.
 
-  --includeGrid GridFileName
+* --includeGrid GridFileName
         REQUIRED: NO
         DEFAULT: N/A
         - Supply this flag along with the name of a file (in the output directory)
           to which to write out the latitudes and longitudes of the gridcells
           defined by the selected projection.
 
-  --verbose {True,False}
+* --verbose {True,False}
   	REQUIRED: NO
 	DEFAULT: True
 	- Determines how much command-line output the software
@@ -737,7 +735,7 @@ function you want to use.
 	  subprocesses inside the software.  Setting "False" here will
 	  cause the software to be completely silent while running.
 
-  --interactive {True,False}
+* --interactive {True,False}
   	REQUIRED: NO
 	DEFAULT: False
 	- Determines how the program will handle invalid/nonexistent
@@ -748,14 +746,12 @@ function you want to use.
 	  the user will be given several options when an invalid file
 	  is encountered.
 
-  --AttributeHelp ProjectionName/OutputFunctionName/FileType [...]
+* --AttributeHelp ProjectionName/OutputFunctionName [...]
   	REQUIRED: NO
 	DEFAULT: N/A
 	- Prints a message explaining the required attributes for a
 	  given output function or projection and then exits the
 	  program.
-	- Inputting a filetype outputs the required attributes for
-	  the default output function associated with that filetype.
 
 	
 	      
