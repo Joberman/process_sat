@@ -9,7 +9,7 @@ from itertools import izip, product
 import pdb
 
 import numpy
-import scipy.io as sio
+import netCDF4
 import tables
 
 import parse_geo
@@ -25,6 +25,15 @@ class Helpers:
         zeros = numpy.zeros(shape)
         zeros[:] = numpy.NaN
         return zeros
+
+def does_pytables_close_all(filename):
+    '''Returns true if pytables shows all files as closed after one is closed, false otherwise'''
+    fid1 = tables.openFile(filename, mode='r')
+    fid2 = tables.openFile(filename, mode='r')
+    fid1.close()
+    retVal = not fid2.isopen
+    fid2.close()
+    return retVal
     
 def skipUnlessSamples():
     '''Skip this test unless our folder has the sample data'''
@@ -218,24 +227,24 @@ class TestGeneralHDFParser(unittest.TestCase):
         self.nonHDF_Filename = os.path.join(dir, 'sample_data', 'empty')
         
     def test_instantiate(self):
-        obj = parse_geo.HDF_File(self.HDF_Filename)
-        self.assertIsInstance(obj, parse_geo.HDF_File)
+        obj = parse_geo.HDFFile(self.HDF_Filename)
+        self.assertIsInstance(obj, parse_geo.HDFFile)
         
     def test_autofill_extension(self):
-        obj = parse_geo.HDF_File(self.HDF_Filename)
+        obj = parse_geo.HDFFile(self.HDF_Filename)
         self.assertEqual(obj.ext, 'hdf')
         
     def test_override_extension(self):
-        obj = parse_geo.HDF_File(self.HDF_Filename, extension='foo')
+        obj = parse_geo.HDFFile(self.HDF_Filename, extension='foo')
         self.assertEqual(obj.ext, 'foo')
         
     def test_override_subtype(self):
-        obj = parse_geo.HDF_File(self.HDF_Filename, subtype='foo')
+        obj = parse_geo.HDFFile(self.HDF_Filename, subtype='foo')
         self.assertEqual(obj.sub, 'foo')
         
     def test_reject_nonHDF(self):
         with self.assertRaises(IOError):
-            unused_obj = parse_geo.HDF_File(self.nonHDF_Filename)
+            unused_obj = parse_geo.HDFFile(self.nonHDF_Filename)
 
 @skipUnlessSamples()
 class TestKnmiOmiL2Parser(unittest.TestCase):
@@ -348,10 +357,15 @@ class TestKnmiOmiL2Parser(unittest.TestCase):
                 self.assertIsInstance(var, numpy.ndarray)
                 
     def test_get_cm_closes_when_done(self):
+        closes_all = does_pytables_close_all(self.fname)
         fid = tables.openFile(self.fname, mode='r')
         with self.parser as p:
             unused_var = p.get_cm('Time')
-        self.assertFalse(fid.isopen)
+        if closes_all:
+            self.assertFalse(fid.isopen)
+        else:
+            self.assertTrue(fid.isopen)
+            fid.close()
         
     def test_get_retrieves_right_sizes(self):
         sizes = [1622*60,
@@ -832,10 +846,15 @@ class TestNASAOmiL2Parser(TestParser):
                 self.assertIsInstance(var, numpy.ndarray)
             
     def test_get_cm_cleans_up_open_file(self):
+        closes_all = does_pytables_close_all(self.fname)
         fid = tables.openFile(self.fname, mode='r')
         with self.parser as p:
             unused_var = p.get_cm('Time')
-        self.assertFalse(fid.isopen)
+        if closes_all:
+            self.assertFalse(fid.isopen)
+        else:
+            self.assertTrue(fid.isopen)
+            fid.close()
         
     def test_get_retrieves_right_sizes_of_full_vars(self):
         chkSizes = [self.parser.get(key).size for key in self.checkKeys]
@@ -967,10 +986,16 @@ class TestNASAOmiL2GetGeoCorners(unittest.TestCase):
         self.assertRaises(IOError, newParser.get_geo_corners)
         
     def test_closes_cornerfile_when_done(self):
+        closes_all = does_pytables_close_all(self.fname)
         fid = tables.openFile(self.cornerName, 'r')
         parser = parse_geo.HDFnasaomil2_File(self.fname, pixCornerFname=self.cornerName)
         unused_geoarray = parser.get_geo_corners()
-        self.assertFalse(fid.isopen)
+        if closes_all:
+            self.assertFalse(fid.isopen)
+        else:
+            self.assertTrue(fid.isopen)
+            fid.close()
+        
         
 @skipUnlessSamples()
 class TestNASAOmiL2GetGeoCenters(TestNASAOmiL2Parser):
@@ -2973,7 +2998,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         # passes if no exception is raised in the above 2 lines
 
     def test_output_file_opens_if_variables_share_extra_dim(self):
@@ -2988,7 +3013,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = newOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         # passes if no exception is raised in the above 2 lines
 
         
@@ -2996,35 +3021,35 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.File_start_time, self.startTimeStr)
         
     def test_output_file_contains_stop_time(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.File_end_time, self.stopTimeStr)   
         
     def test_output_file_contains_grid_name(self):    
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.Projection, 'latlon')
         
     def test_output_file_contains_cfrac_cutoff(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.Max_valid_cloud_fraction, self.defParms['cloudFractUpperCutoff'])        
         
     def test_output_file_contains_sza_cutoff(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.Max_valid_solar_zenith_angle, self.defParms['solarZenAngUpperCutoff'])        
 
         
@@ -3032,7 +3057,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.Time_comparison_scheme, self.defParms['timeComparison'])        
         
     def test_output_file_contains_input_file_list(self):
@@ -3049,14 +3074,14 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         secondParser.prime_get('test3D', self.test3D)
         dictList = [firstDict, secondDict]
         unused_result = self.defOutFunc(dictList, self.one_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.Input_files, 'foo.dat bar.dat')
         
     def test_output_file_contains_gridParms(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         outDict = {'xOrig' : self.fid.xOrig, 'yOrig' : self.fid.yOrig,
                    'xCell' : self.fid.xCell, 'yCell' : self.fid.yCell,
                    'nRows' : self.fid.nRows, 'nCols' : self.fid.nCols}
@@ -3066,15 +3091,18 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         expectedDims = {'row' : 2, 'col' : 3, 'layer' : 4}       
-        self.assertDictEqual(expectedDims, self.fid.dimensions)
+        actualDims = {}
+        for (name,dim) in self.fid.dimensions.items():
+            actualDims[name] = len(dim)
+        self.assertDictEqual(expectedDims, actualDims)
         
     def test_output_file_right_variables(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         outVars = self.fid.variables.keys()
         self.assertItemsEqual(self.defParms['outFieldNames'], outVars)
         
@@ -3082,7 +3110,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         fillVals = [self.fid.variables['outTest2D']._FillValue,
                     self.fid.variables['outTest3D']._FillValue]
         expected = 2*[self.defParms['fillVal']]
@@ -3092,7 +3120,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         units = [self.fid.variables['outTest2D'].Units,
                  self.fid.variables['outTest3D'].Units]
         self.assertListEqual(units, self.defParms['outUnits'])        
@@ -3101,7 +3129,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         shapes = [self.fid.variables['outTest2D'].shape,
                   self.fid.variables['outTest3D'].shape]
         expected = [(2,3), (2,3,4)]
@@ -3124,7 +3152,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         unused_result = self.defOutFunc(dictList, self.one_el_grid, self.outFname, verbose=False)
         weight = 1.088125096 # calculated by hand
         expected = (data[0,:]*weight+data[1,:])/(weight+1)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         out = self.fid.variables['outTest3D'][0,0,:]
         numpy.testing.assert_array_almost_equal(expected, out)
         
@@ -3145,7 +3173,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         unused_result = self.defOutFunc(dictList, self.one_el_grid, self.outFname, verbose=False)
         weight = 1.088125096 # calculated by hand
         expected = (data[0]*weight+data[1])/(weight+1)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         out = self.fid.variables['outTest2D'][0,0]
         numpy.testing.assert_array_almost_equal(expected, out)
         
@@ -3171,7 +3199,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
             self.mapDict[(i,j)] = [((0,28+oneDind), None), ((1,28+oneDind), None)]        
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         expected = data[0,:,:].reshape((2,3,4))
-        self.fid = sio.netcdf_file(self.outFname, 'r')       
+        self.fid = netCDF4.Dataset(self.outFname, 'r')       
         out = self.fid.variables['outTest3D'][:]
         numpy.testing.assert_array_almost_equal(expected, out)
         
@@ -3197,7 +3225,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
             self.mapDict[(i,j)] = [((0,28+oneDind), None), ((1,28+oneDind), None)]
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         expected = data[0,:].reshape((2,3))
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         out = self.fid.variables['outTest2D'][:]
         numpy.testing.assert_array_almost_equal(expected, out)
 
@@ -3998,39 +4026,39 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
 
     def test_output_file_is_netcdf(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         # passes if no exception is raised during this step
 
     def test_output_file_contains_start_time(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         expected = self.pDict['timeStart'].replace('_', ' ')
         self.assertEqual(self.fid.File_start_time, expected)
 
     def test_output_file_contains_stop_time(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         expected = self.pDict['timeStop'].replace('_', ' ')
         self.assertEqual(self.fid.File_stop_time, expected)
 
     def test_output_file_contains_grid_name(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.Projection, 'latlon')
         
     def test_output_file_contains_tComp(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.Time_comparison_scheme, self.pDict['timeComparison'])
 
     def test_output_file_contains_notes(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.Notes, 'All values daytime with cutoff at  85.00')
 
     def test_output_file_containts_input_file_list_singledict(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.Input_files, 'foo.dat')
 
     @unittest.skip("Skipped until function can be rewritten to accomodate multiple inputs")
@@ -4040,12 +4068,12 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         mapDict2['parser'] = parser2
         dictList = [self.mapDict, mapDict2]
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertEqual(self.fid.Input_files, 'foo.dat bar.dat')
 
     def test_output_file_contains_gridParms(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         keys = self.six_el_gridParms.keys()
         expected = dict()
         for key in keys:
@@ -4054,21 +4082,24 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
 
     def test_output_file_has_correct_dims_and_dimsizes(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         expectedDims = {'row' : 2, 'col' : 3, 'layer' : 3, 'value' : 2}
-        self.assertDictEqual(self.fid.dimensions, expectedDims)
+        actualDims = {}
+        for (name,dim) in self.fid.dimensions.items():
+            actualDims[name] = len(dim)
+        self.assertDictEqual(actualDims, expectedDims)
 
     def test_output_file_has_correct_variables(self):
         expected = ['foo', 'bar', 'baz', 'qux', 'spam']
         self.pDict['outFieldNames'] = expected
         newOutClass = out_geo.unweighted_filtered_MOPITT_avg_netCDF_out_func(self.pDict)
         unused_result = newOutClass(self.mapDict, self.sixElGr, self.outFname, verbose=False)
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertItemsEqual(self.fid.variables.keys(), expected)
 
     def test_output_file_has_correctly_documented_units(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         varNames = self.pDict['outFieldNames']
         expected = self.pDict['outUnits']
         output = [self.fid.variables[var].Units for var in varNames]
@@ -4076,7 +4107,7 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
 
     def test_output_file_has_correctly_documented_fillVals(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         varNames = self.pDict['outFieldNames']
         expected = [self.pDict['fillVal']]*5
         output = [self.fid.variables[var]._FillValue for var in varNames]
@@ -4084,7 +4115,7 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
 
     def test_output_file_variables_correct_shape(self):
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         varNames = self.pDict['outFieldNames']
         expected = [(2,3), (2,3,3), (2,3), (2,3,3), (2,3,3,2)]
         output = [self.fid.variables[var].shape for var in varNames]
@@ -4096,7 +4127,7 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         self.twoDnorm[2,2] = expected+1
         self.twoDnorm[2,3] = expected-1
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         self.assertAlmostEqual(self.fid.variables['twoDnorm'][1,2], expected)
 
     def test_output_correctly_writes_valid_values_3D(self):
@@ -4105,7 +4136,7 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         self.threeDnorm[2,2,:] = expected+1
         self.threeDnorm[2,3,:] = expected-1
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:], expected)
 
     def test_output_correctly_writes_valid_values_4D(self):
@@ -4114,40 +4145,39 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         self.fourDcol[2,2,...] = expected+1
         self.fourDcol[2,3,...] = expected-1
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         numpy.testing.assert_array_almost_equal(self.fid.variables['fourDcol'][1,2,...], expected)
 
     def test_output_correctly_writes_fillVal_2D(self):
         self.mapDict[(1,2)] = [((2,3), None)]
         self.SZA[2,3] = 100
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         expected = self.pDict['fillVal']
-        self.assertEqual(self.fid.variables['twoDnorm'][1,2], expected)
+        self.assertEqual(self.fid.variables['twoDnorm'][1,2].filled(), expected)
 
     def test_output_correctly_writes_full_fillVal_3D(self):
         self.mapDict[(1,2)] = [((2,3), None)]
         self.SZA[2,3] = 100
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         expected = numpy.array([self.pDict['fillVal']]*3)
-        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:].filled(), expected)
 
     def test_output_correctly_writes_partial_fillVal_3D(self):
         self.mapDict[(1,2)] = [((2,3), None)]
         self.threeDnorm[2,3,2] = numpy.NaN
         unused_result = self.defaultOutFunc()
-        self.fid = sio.netcdf_file(self.outFname, 'r')
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
         expected = self.threeDnorm[2,3,:]
         expected[2] = self.pDict['fillVal']
-        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:].filled(), expected)
 
 '''
 if __name__ == '__main__':
-    foo = '__main__.TestMOPPITL2GetGeoCenters.test_geocenters_can_feed_ind_to_get'
+    foo = '__main__.TestKnmiOmiL2GetGeoCenters.test_get_cm_closes_when_done'
     suite = unittest.defaultTestLoader.loadTestsFromName(foo)
     unittest.TextTestRunner(verbosity=2).run(suite)
 '''
 if __name__ == '__main__':
     unittest.main(verbosity=2)
-
