@@ -7,7 +7,7 @@ support a Windows installation.
 PREREQUISITES
 =============
 
-PLACEHOLDER depends on the following 3rd party pieces of software
+WHIPS depends on the following 3rd party pieces of software
 
 1) python (version 2.5.x or newer, but NOT version 3)
 
@@ -219,63 +219,88 @@ PLACEHOLDER depends on the following 3rd party pieces of software
 	    		--enable-fortran \
 			--with-zlib=/path/to/base/directory/lib,/path/to/base/directory/include \
 
-   3.5 Build HDF5
+   3.5: Build HDF5
 
        	   make
 
-   3.6 Test the build
+   3.6: Test the build
 
        	   make check
 
-   3.7 Install the build
+   3.7: Install the build
 
        	   make install
 
---------------------------- TEMPORARILY ON HOLD --------------------
 4) Install netCDF
 
    netCDF is necessary to write out to the commonly used netCDF file
    format.  The software has only been tested with a netcdf-4.1.3
-   installation, but there's no particular reason a netCDF-3 install
-   wouldn't work.  If you try it, send some feedback and let us know
-   your results!
+   installation.  Earlier versions of netCDF-4 might work, and 
+   there's even a chance netCDF-3 would work, but you're best off
+   with the latest verison.
 
    4.1: Download the source from
       http://www.unidata.ucar.edu/downloads/netcdf/index.jsp
 
-   4.2: 
---------------------------- TEMPORARILY ON HOLD --------------------
+   4.2: Decompress the source code
 
-4) Install the geos framework
+   	   untar -xzvf netcdf-4.1.3.tar.gz
+
+   4.3: Set environmental variables that will tell netCDF where the 
+      HDF5 installation lives.  We need to include both of these so
+      it can find the libraries and the include files
+
+      	   setenv LDFLAGS -L/path/to/base/directory/lib
+	   setenv CPPFLAGS -L/path/to/base/directory/include
+
+   4.4: Configure the installation using the prefix flag to specify
+      the base directory for the install.
+
+           cd netcdf-4.1.3
+	   ./configure --prefix=/path/to/base/directory
+
+   4.5: Build the program
+   	   
+	   make
+
+   4.6: Test the build
+
+   	   make check
+
+   4.7: If the test ran successfully, install.  
+
+           make install
+
+5) Install the geos framework
 
    The geos framework (short for geometry engine - open source) is a
    library containing many common GIS functions.  We need it to build
    shapely, the python module that we use to perform the geometry
    operations needed in interpolation.
 
-   4.1: Obtain the source for the geos framework from
+   5.1: Obtain the source for the geos framework from
       http://trac.osgeo.org/geos
 
-   4.2: Decompress the installation. 
+   5.2: Decompress the installation. 
 
    	  bunzip2 geos-3.3.2.tar.bz2
 	  tar -xvf geos-3.3.2.tar
 
-   4.3: Configure the installtion, using the --prefix flag to specifiy
+   5.3: Configure the installtion, using the --prefix flag to specifiy
       the base directory.
 
       	  cd geos-3.3.2
 	  ./configure --prefix=/path/to/base/directory
 
-   4.4: Build geos
+   5.4: Build geos
 
    	  make
 
-   4.5: Install geos to the base directory
+   5.5: Install geos to the base directory
 
    	  make install
 
-   4.6: If the library directory under your base directory is not in a
+   5.6: If the library directory under your base directory is not in a
       default location (IE /usr/local/lib) where the shell
       automatically looks, you need to add it to the library path.
       These lines should probably be added to your .tcshrc or .bashrc
@@ -284,21 +309,21 @@ PLACEHOLDER depends on the following 3rd party pieces of software
 
       	  setenv LD_LIBRARY_PATH /path/to/base/directory/lib:$LD_LIBRARY_PATH
 
-5) Install pyhdf 
+6) Install pyhdf 
 
    This is, to the best of my knowledge, the only python library that
    can read HDF4 files (like MOPITT).  It should theoretically be
    installable using the same technique as other python modules, but
    seems to be more finicky.
 
-   5.1: Download the source for pyhdf from
+   6.1: Download the source for pyhdf from
       http://sourceforge.net/projects/pysclint
 
-   5.2: Untar the source 
+   6.2: Untar the source 
 
    	 tar -xzvf pyhdf-0.8.3.tar.gz
 
-   5.3: Set environment variables so that the pyhdf installation will
+   6.3: Set environment variables so that the pyhdf installation will
       know where to find the hdf, zlib, and jpeg libraries.  Note that
       if these are in different libraries, you'll need to set the
       variables to point to multiple directories.  Note that because
@@ -308,7 +333,7 @@ PLACEHOLDER depends on the following 3rd party pieces of software
          setenv INCLUDE_DIRS /path/to/base/directory
 	 setenv LIBRARY_DIRS /path/to/base/directory
 
-   5.4: Go into the pyhdf folder and invoke the python setup script
+   6.4: Go into the pyhdf folder and invoke the python setup script
       (which will both compile and install the script)
 
       	 cd pyhdf-0.8.3
@@ -317,7 +342,7 @@ PLACEHOLDER depends on the following 3rd party pieces of software
       If you run into problems, make sure that you properly set the
       -fPIC flag when compiling HDF4 (see step 2.7)
 
-6) Install easy_install
+7) Install easy_install
 
    easy_install is a widely implemented framework for the installation
    of python modules.  It performs many of the features of a
@@ -326,7 +351,7 @@ PLACEHOLDER depends on the following 3rd party pieces of software
    We're going to use it extensively from here on out to install the
    python modules needed by whips
 
-   6.1: Obtain the "egg" (distributed package) of easy_install from
+   7.1: Obtain the "egg" (distributed package) of easy_install from
       the maintainers at
 
          http://pypi.python.org/pypi/setuptools#downloads
@@ -334,13 +359,52 @@ PLACEHOLDER depends on the following 3rd party pieces of software
       Make sure to select the egg that matches your installation of
       python.
 
-   6.2: Run the egg as a shell script and easy_install should install
+   7.2: Run the egg as a shell script and easy_install should install
       itself under the binary directory associated with your python
       installation.
 
 	 sh setuptools-0.6c11-py2.7.egg
 
-7) Install python modules available through easy_install
+8) Install netCDF4-python
+
+   This particular python module requires a different installation 
+   approach than the others listed below, so we take care of it 
+   first.  It's used for writing results to the popular netCDF
+   file type.
+
+   8.1: Download the source code for netcdf4-python from 
+      code.google.com/p/netcdf4-python/downloads/list
+
+   8.2: Unpack the source distribution
+
+         tar -xzvf netcdf4-0.9.9.tar.gz
+
+   8.3: If you haven't done so already, set HDF5_DIR 
+      environmental variable to point to the base directory for
+      the HDF5 install.  In addition, set NETCDF4_DIR to point
+      to the base directory for the netCDF install.
+
+         setenv HDF5_DIR /path/to/base/directory/
+	 setenv NETCDF4_DIR /path/to/base/directory/
+
+   8.4: Build the netCDF4-python library
+
+   	 cd netCDF4-0.9.9
+   	 python setup.py build
+
+   8.5: Assuming the build didn't throw any errors, install 
+      the library.
+
+         python setup.py install
+
+   8.6: If you want to, test the installation.  Note that in 
+      some circumstances the library will work fine even if 
+      the tests refuse to run entirely.
+
+         cd test
+	 python run_all.py
+
+9) Install python modules available through easy_install
 
    These python modules are all used by whips to perform various
    operations.  They will be installed to whichever copy of python the
@@ -348,85 +412,77 @@ PLACEHOLDER depends on the following 3rd party pieces of software
    that you double check that this is the version you want (see step
    1.6)
 
-   7.1: Install numpy, which is a basic array operation library.
+   9.1: Install numpy, which is a basic array operation library.
 
    	 easy_install numpy
 
-   7.2: Install shapely, a geometry library used by the interpolation
+   9.2: Install shapely, a geometry library used by the interpolation
       routines in whips
 
       	 easy_install shapely
 
-   7.3: Install pyproj, which is a port of the popular PROJ4 fortran
+   9.3: Install pyproj, which is a port of the popular PROJ4 fortran
       library.  It provides the optimized projection functions used by
       whips.
 
 	 easy_install PyProj
 
-   7.4: Install numexpr, which is required for pytables
+   9.4: Install numexpr, which is required for pytables
 
          easy_install numexpr
 
-   7.5: Install cython, which is also required for pytables
+   9.5: Install cython, which is also required for pytables
 
    	 easy_install Cython
 
-   7.6: Install pytables, a program allowing python read/write
+   9.6: Install pytables, a program allowing python read/write
       access to HDF5 files.
 
-      7.6.1: Tell pytables where the HDF5 installation is.  Give it
+      9.6.1: Tell pytables where the HDF5 installation is.  Give it
          the base directory (as opposed to the library directory) via
          the environment variable HDF5_DIR.  This environment variable
          is only needed for the installation.
 
 	      setenv HDF5_DIR /path/to/base/directory
 
-      7.6.2: Install the actual pytables module itself (note that it
+      9.6.2: Install the actual pytables module itself (note that it
          isn't called pytables!)
 
 	      easy_install tables
 
-      7.6.3: Add the lib directory where you installed tables to your
+      9.6.3: Add the lib directory where you installed tables to your
          library path.  This should go in your .tcshrc or .bashrc or
          .cshrc file (depending on your shell) for whips to function
          properly
 
 	      setenv LD_LIBRARY_PATH /path/to/base/directory/lib:$LD_LIBRARY-PATH
 
-======================No longer needed========================
-   7.7: Install scipy
-
-      DOOOOOOOOOOM!  DOOOOOOOOOOOM! DOOOOOOOOOOM!
-====================Dependencies removed======================
-
-8) Install whips 
+10) Install whips 
 
    Like most of the other python modules described here, whips is
-   available through easy_install.  However, because it is meant to be
-   accessible as a command line utility (rather than a python module)
-   there are a few other steps not required for the other modules.
+   available through easy_install. 
 
    8.1: Install whips using the easy_install command
 
          easy_install whips
 
-   8.2: Modify the permissions on process.py module in order to
-      make it executable (as this is the script that actually runs the
-      program).  Note that the path here assumes your python
-      installation is set according to the default - if you've
-      modified it, you'll have to figure out the path yourself.
+   8.2: The whips.py executable will be installed in 
 
-         cd /path/to/base/directory/lib/python2.7/site-packages/process_sat/
-      	 chmod u+x process.py 
+         /path/to/base/directory/bin/   
 
-   8.3: Set up an alias in order to make it possible to run the
-      program from the command line.  Alternatively, you could add the
-      folder containign process.py to the path or symlink it into a
-      directory already on the path.  I've opted for the alias route
-      because I find that it has the smallest footprint.
+      so if that folder isn't on your path, you'll need to make 
+      it accessible from the command line.  The easiest means is 
+      probably to add it to the path in your remote config file 
+      (.tcshrc or .bashrc or .cshrc or ...).  This can be 
+      accomplished from .tcshrc by adding the following line.
 
-      	 alias process.py /path/to/base/directory/lib/python2.7/site-packsat/
-   
+      	 setenv PATH $PATH:/path/to/base/directory/bin/
+
+      Note that the first time you do this, you'll need to run
+      
+         source ~/.tcshrc 
+
+      for it to take effect.
 
 
 

@@ -21,23 +21,23 @@ is designed to process OMI NO2 DOMINO level 2 data, OMI NO2 NASA level
 --filelist argument for locations of data.
 
 
-3. Navigate to the folder where process.py is located (or add it to
+3. Navigate to the folder where whips.py is located (or add it to
 your path) and invoke it as:
      
-     process.py --help
+     whips.py --help
 
 
 4. Follow the on-screen instructions, adding each of the required
 parameters.  If you need help with the projection attributes or the
 output function attributes, invoke the built-in help as:
 
-     process.py --AttributeHelp <function_name>
+     whips.py --AttributeHelp <function_name>
 
 For detailed explanations of all parameters and attributes, see the
 "Parameter Details" section below.
 
 
-5. Invoke process.py once for each output file you'd like to create.
+5. Invoke whips.py once for each output file you'd like to create.
 Note that the software creates output files with only a single
 timestep, so you'll need to invoke the command once for each timestep
 (IE if you want a month with timesteps every day, you'll probably want
@@ -73,7 +73,7 @@ multple lines you must use line-continuation characters.
      - Writes out a 2D, 3D, and 4D parameter from the file
 
 
-     process.py \
+     whips.py \
      --directory /path/to/input/files/ \
      --filetype HDFmopittl2 \
      --fileList MOP02T-20050106-L2V10.1.1.prov.hdf \
@@ -107,7 +107,7 @@ multple lines you must use line-continuation characters.
      - Writes out a 2D, and 3D parameter from the file
 
 
-     process.py \
+     whips.py \
      --directory /where/you/keep/the/files/ \
      --filetype HDFknmiomil2 \
      --fileList OMI-Aura_L2-OMDOMINO_2006m0701t0023-o10423_v003-2010m1008t224420.he5 \
