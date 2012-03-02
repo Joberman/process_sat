@@ -82,7 +82,6 @@ multple lines you must use line-continuation characters.
      nCols:162 nRows:126 stdPar2:45 stdPar1:33 xCell:36000 \
      earthRadius:6370000 yOrig:-2268000\
      --mapFunc point_in_cell \
-     --outFunc unweighted_filtered_MOPITT_avg_netCDF \
      --outFuncAttrs time:Time longitude:Longitude \
      "inFieldNames:Time,Retrieved CO Mixing Ratio Profile,Retrieved CO Surface Mixing Ratio" \
      outFieldNames:time,COprof,COsurf outUnits:TAI93,ppbv,ppbv \
@@ -116,7 +115,6 @@ multple lines you must use line-continuation characters.
        nCols:162 nRows:126 stdPar2:45 stdPar1:33 xCell:36000 \
        earthRadius:6370000 yOrig:-2268000 \
      --mapFunc regional_intersect \
-     --outFunc OMNO2e_netCDF_avg \
      --outFuncAttrs overallQualFlag:TropColumnFlag "cloudFrac:Cloud Fraction" \
        solarZenithAngle:SolarZenithAngle time:Time longitude:Longitude \
        inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
@@ -314,8 +312,8 @@ function you want to use.
 			  - Pixels are convex polygons.
 		
   --outFunc {OMNO2e_netCDF_avg,OMNO2e_wght_avg,unweighted_filtered_MOPITT_avg_netCDF}
-  	REQUIRED: YES
-	DEFAULT: N/A
+  	REQUIRED: NO
+	DEFAULT: Depends on the value chose for --filetype
 	- The function that computes the output and writes the output
   	  file.  Functions are given significant freedom, but all
 	  current functions take some kind of average and write it to
@@ -324,8 +322,14 @@ function you want to use.
   	  instrument or input format.  Efforts are made to make them
   	  as general as possible, but specialized output functions are
 	  only guaranteed (and really should only be used) for the
-	  parser types for which they have been designed.  Where this
-          is the case, it is noted below.
+	  parser types for which they have been designed.  To this 
+	  end, the associated function will be chosen by default for 
+	  all filetypes, though it can always be overridden with this 
+	  command.
+	- Currently, functions are assigned to filetypes as follows:
+	     HDFknmiomil2 --> OMNO2e_netCDF_avg
+	     HDFnasaomil2 --> OMNO2e_netCDF_avg
+	     HDFmopittl2  --> unweighted_filtered_MOPITT_avg_netCDF
 	- In all cases where a fieldname must be given for a
    	  parameter it is the short name (the name used to access the
   	  field through the parser) that must be given.  The 
@@ -340,9 +344,9 @@ function you want to use.
 	     	 OMNO2e_netCDF_avg - Averaging algorithm based on the
 		 	NASA OMI level 2 to level 3 processing
 		 	algorithm.  Designed for the OMI level 2
-		 	filetypes (HDFnasaomil2 and HDFknmiomil2).
-		 	Use with other filetypes is of questionable
-		 	utility.  
+		 	filetypes (HDFnasaomil2 and HDFknmiomil2) and 
+			is the default for those filetypes use with 
+			other filetypes is of questionable utility.  
 
 			Outputs results to a netCDF file.
 			
@@ -361,7 +365,8 @@ function you want to use.
 		 	on the NASA algorithm used to process OMI from
 		 	level 2 to level 3.  Designed for the OMI
 		 	level 2 filetypes (currently HDFnasaomil2 and
-		 	HDFknmiomil2).  Use with other filetypes is of
+		 	HDFknmiomil2) but is NOT the default for those
+			filetypes.  Use with other filetypes is of
 		 	questionable utility.
 
 			Outputs results to a CSV file.  Does
@@ -388,8 +393,9 @@ function you want to use.
 		 	algorithm based on the NASA algorithm for
 		 	processing level 2 MOPITT CO data to level 3
 		 	MOPITT CO data.  Designed for the MOPITT level
-		 	2 filetypes (HDFmopittl2 only at present).
-		 	Use with other filetypes is discouraged.
+		 	2 filetypes (HDFmopittl2 only at present) and 
+			is the default for that filetype. Use with 
+			other filetypes is discouraged.
 			
 			Outputs resuts to a netCDF file.
 
@@ -742,12 +748,14 @@ function you want to use.
 	  the user will be given several options when an invalid file
 	  is encountered.
 
-  --AttributeHelp ProjectionName/OutputFunctionName [...]
+  --AttributeHelp ProjectionName/OutputFunctionName/FileType [...]
   	REQUIRED: NO
 	DEFAULT: N/A
 	- Prints a message explaining the required attributes for a
 	  given output function or projection and then exits the
 	  program.
+	- Inputting a filetype outputs the required attributes for
+	  the default output function associated with that filetype.
 
 	
 	      
