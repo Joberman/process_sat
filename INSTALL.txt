@@ -153,7 +153,7 @@ PLACEHOLDER depends on the following 3rd party pieces of software
 
 	     make install
 
-   2.7: Set some environmental variables that will be needed during
+   2.5: Set some environmental variables that will be needed during
       the install.  Note that the F77 variable might not be necessary, but
       CFLAGS does need to include the -fPIC flag
 
@@ -393,9 +393,11 @@ PLACEHOLDER depends on the following 3rd party pieces of software
 
 	      setenv LD_LIBRARY_PATH /path/to/base/directory/lib:$LD_LIBRARY-PATH
 
+======================No longer needed========================
    7.7: Install scipy
 
       DOOOOOOOOOOM!  DOOOOOOOOOOOM! DOOOOOOOOOOM!
+====================Dependencies removed======================
 
 8) Install whips 
 

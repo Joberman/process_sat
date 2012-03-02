@@ -3093,7 +3093,10 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, self.outFname, verbose=False)
         self.fid = netCDF4.Dataset(self.outFname, 'r')
         expectedDims = {'row' : 2, 'col' : 3, 'layer' : 4}       
-        self.assertDictEqual(expectedDims, self.fid.dimensions)
+        actualDims = {}
+        for (name,dim) in self.fid.dimensions.items():
+            actualDims[name] = len(dim)
+        self.assertDictEqual(expectedDims, actualDims)
         
     def test_output_file_right_variables(self):
         for i,j in product(range(2), range(3)):
@@ -4081,7 +4084,10 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         unused_result = self.defaultOutFunc()
         self.fid = netCDF4.Dataset(self.outFname, 'r')
         expectedDims = {'row' : 2, 'col' : 3, 'layer' : 3, 'value' : 2}
-        self.assertDictEqual(self.fid.dimensions, expectedDims)
+        actualDims = {}
+        for (name,dim) in self.fid.dimensions.items():
+            actualDims[name] = len(dim)
+        self.assertDictEqual(actualDims, expectedDims)
 
     def test_output_file_has_correct_variables(self):
         expected = ['foo', 'bar', 'baz', 'qux', 'spam']
@@ -4148,7 +4154,7 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         unused_result = self.defaultOutFunc()
         self.fid = netCDF4.Dataset(self.outFname, 'r')
         expected = self.pDict['fillVal']
-        self.assertEqual(self.fid.variables['twoDnorm'][1,2], expected)
+        self.assertEqual(self.fid.variables['twoDnorm'][1,2].filled(), expected)
 
     def test_output_correctly_writes_full_fillVal_3D(self):
         self.mapDict[(1,2)] = [((2,3), None)]
@@ -4156,7 +4162,7 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         unused_result = self.defaultOutFunc()
         self.fid = netCDF4.Dataset(self.outFname, 'r')
         expected = numpy.array([self.pDict['fillVal']]*3)
-        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:].filled(), expected)
 
     def test_output_correctly_writes_partial_fillVal_3D(self):
         self.mapDict[(1,2)] = [((2,3), None)]
@@ -4165,7 +4171,7 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         self.fid = netCDF4.Dataset(self.outFname, 'r')
         expected = self.threeDnorm[2,3,:]
         expected[2] = self.pDict['fillVal']
-        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:], expected)
+        numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:].filled(), expected)
 
 '''
 if __name__ == '__main__':

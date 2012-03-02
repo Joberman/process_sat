@@ -51,6 +51,7 @@ Functions implemented for each class:
         Returns (lat,lon) in degrees.
 '''
 import sys
+
 from pyproj import Proj
 
 def ValidProjections():
