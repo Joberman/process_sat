@@ -117,7 +117,7 @@ multple lines you must use line-continuation characters.
        nCols:162 nRows:126 stdPar2:45 stdPar1:33 xCell:36000 \
        earthRadius:6370000 yOrig:-2268000 \
      --mapFunc regional_intersect \
-     --outFuncAttrs overallQualFlag:TropColumnFlag "cloudFrac:Cloud Fraction" \
+     --outFuncAttrs overallQualFlag:TroposphericColumnFlag cloudFrac:CloudFraction \
        solarZenithAngle:SolarZenithAngle time:Time longitude:Longitude \
        inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
        outFieldNames:time,avKern,tropVCD \
