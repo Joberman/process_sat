@@ -21,8 +21,9 @@ is designed to process OMI NO2 DOMINO level 2 data, OMI NO2 NASA level
 --filelist argument for locations of data.
 
 
-3. Navigate to the folder where whips.py is located (or add it to
-your path) and invoke it as:
+3. Navigate to the folder where whips.py installed or add it to
+your path.  It should be the /bin folder corresponding to the /lib 
+folder where your python packages live.  Invoke it as:
      
      whips.py --help
 
@@ -67,7 +68,7 @@ multple lines you must use line-continuation characters.
 1. Process MOPITT level 2 CO data, (Version 5) 
 ----------------------------------------------
 
-     - processes a single file
+     - Processes a single file
      - Uses a 36km lambert conic conformal grid centered over North
      America
      - Writes out a 2D, 3D, and 4D parameter from the file
@@ -98,10 +99,10 @@ multple lines you must use line-continuation characters.
      --verbose True \
      --interactive True
 
-2. Process OMI level 2 DOMINO NO2 data, (Version 5) 
+2. Process OMI level 2 DOMINO NO2 data, (Version 2) 
 ---------------------------------------------------
 
-     - processes any number of files
+     - Processes any number of files
      - Uses a 36km lambert conic conformal grid centered over North
      America
      - Writes out a 2D, and 3D parameter from the file
@@ -251,7 +252,7 @@ function you want to use.
 			 	   is the YORIG value in the GRIDDESC
 			 	   file. In same units as earthRadius.
 			 xCell	 - The x dimension of a cell, in
-			 	   projected coordinates.  IN the same
+			 	   projected coordinates.  In the same
 			 	   units as earthRadius.  This is the
 			 	   XCELL value in the GRIDDESC file
 			 yCell	 - The y dimension of a cell, in
@@ -397,7 +398,7 @@ function you want to use.
 			is the default for that filetype. Use with 
 			other filetypes is discouraged.
 			
-			Outputs resuts to a netCDF file.
+			Outputs results to a netCDF file.
 
 			IMPORTANT: Only 1 input file may be used with
 			this function.  Conveniently, NASA currently

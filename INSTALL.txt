@@ -1,6 +1,6 @@
 INSTALL.txt
 
-This file provides instructions on how to install the PLACEHOLDER
+This file provides instructions on how to install the whips
 program on your local *nix machine.  There are currently no plans to
 support a Windows installation.
 
@@ -462,11 +462,11 @@ WHIPS depends on the following 3rd party pieces of software
    Like most of the other python modules described here, whips is
    available through easy_install. 
 
-   8.1: Install whips using the easy_install command
+   10.1: Install whips using the easy_install command
 
          easy_install whips
 
-   8.2: The whips.py executable will be installed in 
+   10.2: The whips.py executable will be installed in 
 
          /path/to/base/directory/bin/   
 
