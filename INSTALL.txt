@@ -122,9 +122,11 @@ WHIPS depends on the following 3rd party pieces of software
          unlike most well-behaved distributions, this actually has a
          chance of failing.  If it complains about a file called
          'cjpeg.1', try explicitly creating the filetree in which it
-         resides, then re-running the install.
+         resides, then re-running the install.  Note that we have to
+	 run two separate commands to actually get the libraries.
 
-	     make install
+	      make install
+	      make install-lib
 
    2.4: Install zlib.  The HDF4 installation depends on this library
       as well.  We build it from source, though binaries may work
@@ -158,7 +160,15 @@ WHIPS depends on the following 3rd party pieces of software
       CFLAGS does need to include the -fPIC flag
 
       	     setenv F77 gfortran
-	     setenv CFLAGS -fPIC $CFLAGS
+	     setenv CFLAGS -fPIC 
+
+      On 64-bit versions of OSX (and possibly other operating systems),
+      the compilers may get confused.  If this is the case, it can be
+      rectified by adjusting the above to the following:
+
+      	     setenv F77 gfortran
+	     setenv CFLAGS "-fPIC -m64"
+	     setenv FFLAGS -m64
 
    2.6: Configure HDF for installation.  Note that unlike most
       configurations, this step requires more than just the --prefix
