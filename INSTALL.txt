@@ -342,6 +342,7 @@ WHIPS depends on the following 3rd party pieces of software
 
          setenv INCLUDE_DIRS /path/to/base/directory
 	 setenv LIBRARY_DIRS /path/to/base/directory
+	 setenv NOSZIP 1
 
    6.4: Go into the pyhdf folder and invoke the python setup script
       (which will both compile and install the script)
