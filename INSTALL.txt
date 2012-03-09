@@ -261,13 +261,13 @@ WHIPS depends on the following 3rd party pieces of software
       it can find the libraries and the include files
 
       	   setenv LDFLAGS -L/path/to/base/directory/lib
-	   setenv CPPFLAGS -L/path/to/base/directory/include
+	   setenv CPPFLAGS -I/path/to/base/directory/include
 
    4.4: Configure the installation using the prefix flag to specify
       the base directory for the install.
 
            cd netcdf-4.1.3
-	   ./configure --prefix=/path/to/base/directory
+	   ./configure --disable-fortran --prefix=/path/to/base/directory
 
    4.5: Build the program
    	   
