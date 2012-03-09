@@ -10,7 +10,7 @@ import calendar
 from itertools import izip
 
 import numpy
-import scipy.io
+import netCDF4
 
 def wrap_lon_0_360(lon):
     '''Wrap a single longitude to the interval [0, 360)'''
@@ -117,7 +117,7 @@ def write_grid_to_netcdf(griddef, outFname):
     cols = cols.astype(numpy.float32) # cast as precaution
     rows = rows.astype(numpy.float32)
     # write out netcdf
-    fid = scipy.io.netcdf_file(outFname, 'w')
+    fid = netCDF4.Dataset(outFname, 'w', format='NETCDF3_CLASSIC')
     # create dimensions and variables
     fid.createDimension('row', nRows)
     fid.createDimension('col', nCols)
