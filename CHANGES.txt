@@ -1,2 +1,3 @@
 v<1.0.0>, <3/9/2012> -- Initial release.
 v<1.0.1>, <3/9/2012> -- Culled the reST file for website brevity.
+v<1.0.2>, <3/9/2012> -- Removed the last traces of scipy.
