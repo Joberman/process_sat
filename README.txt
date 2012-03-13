@@ -6,6 +6,21 @@ AUTHORS: oberman, maki, strom
 CONTACT: oberman@wisc.edu
 
 
+ACKNOWLEDGEMENT POLICY
+======================
+Whenever you publish research or present results generated with WHIPS,
+please include the following acknowledgement or an appropriate
+equivalent:
+
+	We wish to thank the University of Wisconsin--Madison for the 
+	use and development of the Wisconsin Horizontal Interpolation
+	Program for Satellites (WHIPS).  WHIPS was developed by Jacob
+	Oberman, Erica Scotty, Keith Maki and Tracey Holloway, with 
+	funding from the NASA Air Quality Applied Science Team 
+	(AQAST) and the Wisconsin Space Grant Consortium Undergraduate
+	Award.
+
+
 QUICK START
 ===========
 
