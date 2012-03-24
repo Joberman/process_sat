@@ -62,15 +62,19 @@ class out_func:
     def required_parms():
         raise NotImplementedError
 
-def _OMNO2e_formula(cloudFrac, fieldOfView, totalFlag):
+def _OMNO2e_formula(cloudFrac, fieldOfView):
     eps = 1.5*pow(10,15)*(1+3*cloudFrac)
     capE = pow(10,-16)*(18.5+2.8*pow(10,-4)*pow(abs(fieldOfView-29.7), 3.5))
-    return (numpy.logical_not(totalFlag)*pow((eps*capE), -2))
+    return pow((eps*capE), -2)
+
+class invalidPixCeption(Exception):
+    pass
     
 tai93conv = lambda(timestring):utils.timestr_to_nsecs(timestring, 
                                '00:00:00_01-01-1993', '%H:%M:%S_%m-%d-%Y')
 
-class OMNO2e_wght_avg_out_func(out_func):
+#class OMNO2e_wght_avg_out_func(out_func):
+class OMONO2e_wght_avg_BORKED(out_func): 
     '''
     Weighted avg based on OMNO2e algorithm
 
@@ -144,6 +148,13 @@ class OMNO2e_wght_avg_out_func(out_func):
     
     def __call__(self, maps, griddef, outfilename, verbose):
 
+        # function is broken until it can be refactored such that
+        # _OMNO2e_func doesn't require totFlag.  Needs to have pixel
+        # loop to check each 
+        BORKED = 2
+        print('THIS FUNCTION IS BORKED.  ABORT! ABORT! ABORT!')
+        sys.exit(BORKED)
+
         # even though IO interface handles casting already
         # a catchblock has been added here for safety
         # in case someone wants to use this class directly
@@ -183,7 +194,9 @@ class OMNO2e_wght_avg_out_func(out_func):
                                         for (pxind, unused_weight) in v])
                     toAvg = numpy.array([p.get_cm(self.parmDict['toAvg'], pxind)
                                           for (pxind, unused_weight) in v])
-                    weights = _OMNO2e_formula(cFrac, fov, totFlag)
+                    # BORKED
+                    weights = 0
+                    #   weights = _OMNO2e_formula(cFrac, fov)
                     assert ~any(numpy.logical_and(~numpy.isnan(weights), numpy.isnan(toAvg)))
                     sumWeight = numpy.nansum(weights)
                     sumWeightVals = numpy.nansum(toAvg*weights)
@@ -469,10 +482,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
         
         for map in maps:
             # open up context manager
-            with map.pop('parser') as p: # remove parser for looping
+            with map.pop('parser') as parser: # remove parser for looping
                 if verbose:
                     print('Processing {0} for output at {1}.'.format(\
-                            p.name, str(datetime.datetime.now())))
+                            parser.name, str(datetime.datetime.now())))
                 # loop over gridboxes in map and calculate weights
                 for (gridCell, pixTup) in map.iteritems():
                     # translate gridCell to account for possible non-zero ll corner
@@ -480,57 +493,51 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                     gridCol = gridCell[1]
                     gridInd = (gridRow - minRow, gridCol - minCol)
                     # get the values needed to calculate weight
-                    sumFlag = numpy.array([p.get_cm(self.parmDict['overallQualFlag'], pxind)
-                                           for (pxind, unused_weight) in pixTup])
-                    sumFlag = numpy.mod(sumFlag, 2)
-                    cFrac = numpy.array([p.get_cm(self.parmDict['cloudFrac'], pxind)
-                                          for (pxind, unused_weight) in pixTup])
-                    cFracFlag = cFrac > self.parmDict['cloudFractUpperCutoff']
-                    solZen = numpy.array([p.get_cm(self.parmDict['solarZenithAngle'], pxind)
-                                          for (pxind, unused_weight) in pixTup])
-                    solZenFlag = solZen > self.parmDict['solarZenAngUpperCutoff']
-                    time = numpy.array([p.get_cm(self.parmDict['time'], pxind)
-                                        for (pxind, unused_weight) in pixTup])
-                    # calculate and factor in offsets if we wanted local time
-                    if self.parmDict['timeComparison'] == 'local':
-                        pixLons = (p.get_cm(self.parmDict['longitude'], pxind)
-                                            for (pxind, unused_weight) in pixTup)
-                        offsets = numpy.array([utils.UTCoffset_from_lon(lon) for lon in pixLons])
-                        time += offsets
-                    # create time flag
-                    timeFlag = numpy.logical_or(time < self.parmDict['timeStart'],
-                                                time > self.parmDict['timeStop'])
-                    totFlag = numpy.logical_or(sumFlag, cFracFlag)
-                    totFlag = numpy.logical_or(totFlag, solZenFlag)
-                    totFlag = numpy.logical_or(totFlag, timeFlag)
-                    fov = numpy.array([pxind[self.parmDict['pixIndXtrackAxis']]
-                                        for (pxind, unused_weight) in pixTup])
-                    # compute all weights and add if necessary
-                    weights = _OMNO2e_formula(cFrac, fov, totFlag)
-                    cellWght = numpy.nansum(weights)
-                    # only bother with this if it matters
-                    if cellWght > 0:
-                        sumWght[gridInd] = numpy.nansum([sumWght[gridInd][0], cellWght])
-                        # loop over variables we're outputting
+                    for (pxInd, unused_weight) in pixTup:
+                        # check summary flag
+                        sumFlag = parser.get_cm(self.parmDict['overallQualFlag'], pxInd)
+                        if sumFlag % 2:
+                            continue
+                        # check cloud fraction flag
+                        cFrac = parser.get_cm(self.parmDict['cloudFrac'], pxInd)
+                        if not (cFrac <= self.parmDict['cloudFractUpperCutoff']):
+                            continue
+                        # check solar zenith angle flag
+                        solZenAng = parser.get_cm(self.parmDict['solarZenithAngle'], pxInd)
+                        if solZenAng > self.parmDict['solarZenAngUpperCutoff']:
+                            continue
+                        # check time flag
+                        time = parser.get_cm(self.parmDict['time'], pxInd)
+                        # calculate and factor in offset if the user wanted us to
+                        if self.parmDict['timeComparison'] == 'local':
+                            pixLon = parser.get_cm(self.parmDict['longitude'], pxInd)
+                            offset = utils.UTCoffset_from_lon(pixLon)
+                            time += offset
+                        if time < self.parmDict['timeStart'] or time > self.parmDict['timeStop']:
+                            continue
+                        # read in all the data, abandon ship if data is all NaN
+                        rawDataDict = {}
+                        try:
+                            for field in self.parmDict['inFieldNames']:
+                                rawData = parser.get_cm(field, pxInd)
+                                if numpy.isnan(rawData).all():
+                                    raise invalidPixCeption
+                                rawDataDict[field] = rawData
+                        except invalidPixCeption:
+                            continue
+                        # compute the weight
+                        fov = pxInd[self.parmDict['pixIndXtrackAxis']]
+                        weight = _OMNO2e_formula(cFrac, fov)
+                        assert weight != numpy.NaN
+                        # add the weight tot the total for this cell
+                        sumWght[gridInd] += weight
                         for field in self.parmDict['inFieldNames']:
-                            # pull out the array for this cell 
-                            toAvg = numpy.array([p.get_cm(field, pxind) 
-                                                 for (pxind, unused_weight) in pixTup])
-                            assert len(toAvg.shape) <= 2
-                            if len(toAvg.shape) == 1:
-                                # pad toAvg 
-                                toAvg = toAvg.reshape((toAvg.size, 1))
-                                # check that we correctly set size
-                                assert sumVars[field].shape[-1] == 1
+                            weightVals = rawDataDict[field] * weight
+                            if weightVals.size > 1:
+                                sumVars[field][gridInd] = numpy.nansum([sumVars[field][gridInd], weightVals], axis=0)        
                             else:
-                                # check we correctly set size
-                                assert sumVars[field].shape[-1] == toAvg.shape[-1]
-                            # calculate weights and compute cell sum
-                            weightVals = toAvg*weights[:,numpy.newaxis]              
-                            cellVal = numpy.nansum(weightVals, axis=0)
-                            # if we have valid data, add to totals 
-                            sumVars[field][gridInd] = numpy.nansum([sumVars[field][gridInd], cellVal], axis=0)
-                map['parser'] = p  # return parser to map
+                                sumVars[field][gridInd] = numpy.nansum([sumVars[field][gridInd][0], weightVals])
+                map['parser'] = parser  # return parser to map
                 
         # divide out variables by weights to get avgs. 
         oldSettings = numpy.seterr(divide='ignore')
@@ -542,11 +549,9 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 filtAvgs = numpy.where(sumWght != 0, unfiltAvgs, \
                            self.parmDict['fillVal'])
                 # strip trailing singlet for 2D arrays
-                if filtAvgs.shape[-1] == 1:
-                    avgs[field] = filtAvgs.reshape(filtAvgs.shape[0:2])
-                else:
-                    avgs[field] = filtAvgs
+                avgs[field] = filtAvgs.squeeze()
         numpy.seterr(divide=oldSettings['divide'])
+
         
         # associate coindexed parameters into dicts 
         # so we can loop by field
