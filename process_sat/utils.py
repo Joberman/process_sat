@@ -136,3 +136,62 @@ def write_grid_to_netcdf(griddef, outFname):
     for (k,v) in griddef.parms.iteritems():
         setattr(fid, k, v)
     fid.close()
+
+def parse_fromFile_input_file(inFileName):
+    '''
+    Open and read the file and parse it 
+    for various parameter values.
+    Generate and return a command line call
+    that can be used to call whips
+    with those parameter values.
+    '''
+    call = ""
+    attrs = ""
+    f = open(inFileName, 'r')
+    s = f.readline()
+    try:
+        while(s != ""):
+            if(s == "BEGIN\n"):
+                while(s != ""):
+                    s = f.readline()
+                    if(s == "END\n"):
+                        return call + " --projAttrs {0}".format(attrs)
+                    words = s.split()
+                    '''Determine what the line is supposed to do'''
+                    if(words == [] or words[0][0] == '.'):
+                        pass
+                    elif(words[1] != "="):
+                        break
+                    elif(words[0] == "DIRECTORY"):
+                        call += " --directory {0}".format(' '.join(words[2:]))
+                    elif(words[0] == "FILELIST"):
+                        call += " --fileList {0}".format(' '.join(words[2:]))
+                    elif(words[0] == "FILETYPE"):
+                        call += " --filetype {0}".format(' '.join(words[2:]))
+                    elif(words[0] == "GRIDPROJ"):
+                        call += " --gridProj {0}".format(' '.join(words[2:]))
+                    elif(words[0] == "MAPFUNC"):
+                        call += " --mapFunc {0}".format(' '.join(words[2:]))
+                    elif(words[0] == "OUTFUNC"):
+                        call += " --outFunc {0}".format(' '.join(words[2:]))
+                    elif(words[0] == "OUTDIRECTORY"):
+                        call +=" --outDirectory {0}".format(' '.join(words[2:]))
+                    elif(words[0] == "OUTFILENAME"):
+                        call += " --outFileName {0}".format(' '.join(words[2:]))
+                    elif(words[0] == "INCLUDEGRID"):
+                        call += " --includeGrid {0}".format(' '.join(words[2:]))
+                    elif(words[0] == "VERBOSE"):
+                        call += " --verbose {0}".format(' '.join(words[2:]))
+                    elif(words[0] == "INTERACTIVE"):
+                        call += " --interactive {0}".format(' '.join(words[2:]))
+                    else:
+                        attrs +=" {0}:{1}".format(words[0], ' '.join(words[2:]))
+                break
+            s = f.readline()
+    except:
+        pass
+    if(line != ""):
+        raise SyntaxError ("Invalid input file.  File must be formatted " \
+                      "correctly.\nCheck line '{0}' and try again".format(line))
+    raise SyntaxError ("Invalid input file.  Check that the file matches the "\
+                      "format described in the documentation and try again")

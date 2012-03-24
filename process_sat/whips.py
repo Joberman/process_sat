@@ -32,6 +32,10 @@ out_func_mapper = {"HDFknmiomil2":"OMNO2e_netCDF_avg",
                    "HDFmopittl2":"unweighted_filtered_MOPITT_avg_netCDF",
                    "HDFnasaomil2":"OMNO2e_netCDF_avg"}
 
+class NeedToParseInFileException(Exception):
+    '''exception class for signaling the need to parse input file'''
+    pass
+
 def bad_file_default(filename):
     '''
     Dummy function for non-interactive file handling
@@ -70,6 +74,18 @@ class ProjArgsAction(argparse.Action):
         for string in values:
             pair = string.split(':')
             setattr(namespace, pair[0], ':'.join(pair[1:]))
+
+class inFromFileAction(argparse.Action):
+    '''
+    Open and read input from the input file
+    '''
+    def __call__(self, parser, namespace, values, option_string=None):
+        fname = os.path.abspath(values[0])
+        if not os.access(fname, os.R_OK):
+            print textwrap.wrap("Error: Unable to read from file {0}.  Check "\
+                                "the input file and try again.".format(fname))
+            sys.exit(0)
+        raise NeedToParseInFileException(fname)
 
 class ListAttrsAction(argparse.Action):
     '''
@@ -201,11 +217,23 @@ parser.add_argument('--AttributeHelp', nargs='*', help='Supply this flag, ' \
                     'and a brief description of each parameter.', 
                     action=ListAttrsAction, \
                     metavar = 'Projection/OutputFunction/filetype')
+parser.add_argument('--inFromFile', nargs=1, help='Supply this flag, ' \
+                    'followed by a FILLER FILLER FILLER', \
+                    action=inFromFileAction)
 
 # ---------------- #
 # Parse the inputs #
 # ---------------- #
-gnomespice = parser.parse_args()
+
+try:
+    gnomespice = parser.parse_args()
+except NeedToParseInFileException as fname:
+    print "parsing from input file {0}".format(fname[0])
+    print "This run can be repeated by executing the following call:\n  " \
+          + "\n    ".join(textwrap.wrap("whips.py {0}".format(\
+                utils.parse_fromFile_input_file(fname[0])), 70))
+    gnomespice = \
+        parser.parse_args(utils.parse_fromFile_input_file(fname[0]).split())
 
 # Parse verbose flag
 verbose = gnomespice.verbose != 'False'

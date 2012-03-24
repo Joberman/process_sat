@@ -1,7 +1,7 @@
 PROJECT TITLE: WHIPS
 PURPOSE OF PROJECT: Provide a well-documented, easy-to-use general-purpose
                     processing module for processing satellite data
-VERSION: 1.0.2 (3/9/2012)
+VERSION: 1.0.4 (3/23/2012)
 AUTHORS: oberman, maki, strom
 CONTACT: oberman@wisc.edu
 
@@ -773,9 +773,142 @@ function you want to use.
 	- Inputting a filetype outputs the required attributes for
 	  the default output function associated with that filetype.
 
-	
-	      
+  --inFromFile FileName
+  	REQUIRED: NO
+	DEFAULT: N/A
+	- Optionally, instead of parsing the command line for input,
+	  WHIPS can read in an input file which specifies the desired
+	  parameters.
 
+The remainder of this readme will cover the format of this parameter input file.
+The input file should be an ascii text file containing a 'BEGIN' statement,
+followed by a list of assignment statements ('PARAM = value') for each of 
+the desired parameters, separated by newlines.  Sample input file templates 
+will be released on the SAGE website at a later date.  Comments (which will 
+be ignored by the parser) are indicated by a period at the start of the line.  
+Each output function attribute and each projection attribute should be given 
+its own assignment statement, separated from the others by newlines.  Anything
+before BEGIN or after END will be ignored, as will quotation mark characters ".
+
+By way of example, the two sample WHIPS commands given above are expressed
+here in input file form.  Either of these cases, if saved in a text file,
+(e.g. "in.txt") can be run using the simple command 
+
+    whips.py --inFromFile in.txt
+
+1. Process MOPITT level 2 CO data, (Version 5) 
+----------------------------------------------
+- Processes a single file
+- Uses a 36km lambert conic conformal grid centered over North
+  America
+- Writes out a 2D, 3D, and 4D parameter from the file
+
+WHIPS INPUT FILE
+BEGIN
+
+DIRECTORY = /path/to/input/files/
+FILETYPE = HDFmopittl2
+FILELIST = MOP02T-20050106-L2V10.1.1.prov.hdf
+GRIDPROJ = lcc2par
+
+.PROJATTRS
+xOrig = -2916000
+yCell = 36000
+refLon = -97
+refLat = 40
+nCols = 162
+nRows = 126
+stdPar2 = 45
+stdPar1 = 33
+xCell = 36000
+earthRadius = 6370000
+yOrig = -2268000
+
+MAPFUNC = point_in_cell
+
+.OUTFUNCATTRS
+time = Time
+longitude = Longitude
+inFieldNames = Time,Retrieved CO Mixing Ratio Profile,Retrieved CO Surface Mixing Ratio
+outFieldNames = time,COprof,COsurf
+outUnits = TAI93,ppbv,ppbv
+logNormal = False,True,True
+dimLabels = ;layer,valOrStdDev;valOrStdDev
+dimSizes = ;9,2;2
+timeStart = 00:00:00_01-06-2005
+timeStop = 23:59:59_01-06-2005
+timeComparison = UTC
+fillVal = -9999.0
+solZenAngCutoff = 85
+solZenAng = Solar Zenith Angle
+dayTime = True
+surfTypeField = Surface Index
+colMeasField = Retrieved CO Mixing Ratio Profile
+
+OUTDIRECTORY = /path/to/output/directory/
+OUTFILENAME = MOPITT_v5_20050106_daytime_CONUS36km_test.nc
+VERBOSE = True
+INTERACTIVE = True
+
+END
 			
+
+2. Process OMI level 2 DOMINO NO2 data, (Version 2) 
+---------------------------------------------------
+
+- Processes any number of files
+- Uses a 36km lambert conic conformal grid centered over North
+  America
+- Writes out a 2D, and 3D parameter from the file
+
+WHIPS INPUT FILE
+BEGIN
+
+DIRECTORY = /where/you/keep/the/files/
+FILETYPE = HDFknmiomil2 \
+FILELIST = OMI-Aura_L2-OMDOMINO_2006m0701t0023-o10423_v003-2010m1008t224420.he5 OMI-Aura_L2-OMDOMINO_2006m0701t0112-o10424_v003-20120m1008t224845.he5
+GRIDPROJ = lcc2par
+
+.PROJATTRS
+xOrig = -2916000
+yCell = 36000
+refLon = -97
+refLat = 40
+nCols = 162
+nRows = 126
+stdPar2 = 45
+stdPar1 = 33
+xCell = 36000
+earthRadius = 6370000
+yOrig = -2268000
+
+MAPFUNC = regional_intersect
+
+.OUTFUNCATTRS
+overallQualFlag = TroposphericColumnFlag
+cloudFrac = CloudFraction
+solarZenithAngle = SolarZenithAngle
+time = Time
+longitude = Longitude
+inFieldNames = Time,AveragingKernel,TroposphericVerticalColumn
+outFieldNames = time,avKern,tropVCD
+outUnits = TAI93,unitless x 1000,molec/cm^2x1^-15
+extraDimLabel = none,Layers,none
+extraDimSize = 0,34,0
+timeStart = 00:00:00_07-01-2006
+timeStop = 23:59:59_07-01-2006
+timeComparison = UTC
+fillVal = -9999
+cloudFractUpperCutoff = 0.3
+solarZenAngUpperCutoff = 85
+pixIndXtrackAxis = 1
+
+OUTDIRECTORY = /where/you/want/output
+OUTFILENAME = OMI_DOMINO_20060701_test.nc
+INCLUDEGRID = OMI_DOMINO_GridFileName.nc
+VERBOSE = True
+INTERACTIVE = True
+
+END
 										
 			
