@@ -218,8 +218,10 @@ parser.add_argument('--AttributeHelp', nargs='*', help='Supply this flag, ' \
                     action=ListAttrsAction, \
                     metavar = 'Projection/OutputFunction/filetype')
 parser.add_argument('--inFromFile', nargs=1, help='Supply this flag, ' \
-                    'followed by a FILLER FILLER FILLER', \
-                    action=inFromFileAction)
+                    'followed by a file path (relative or absolute) to an ' \
+                    'input file which specifies the desired attributes.  '\
+                    'See the README for more on the format of this file.', 
+                    action=inFromFileAction, metavar = 'FileName')
 
 # ---------------- #
 # Parse the inputs #
@@ -231,9 +233,9 @@ except NeedToParseInFileException as fname:
     print "parsing from input file {0}".format(fname[0])
     print "This run can be repeated by executing the following call:\n  " \
           + "\n    ".join(textwrap.wrap("whips.py {0}".format(\
-                utils.parse_fromFile_input_file(fname[0])), 70))
+                " ".join(utils.parse_fromFile_input_file(fname[0], True))), 70))
     gnomespice = \
-        parser.parse_args(utils.parse_fromFile_input_file(fname[0]).split())
+        parser.parse_args(utils.parse_fromFile_input_file(fname[0], False))
 
 # Parse verbose flag
 verbose = gnomespice.verbose != 'False'
