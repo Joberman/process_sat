@@ -137,7 +137,7 @@ def write_grid_to_netcdf(griddef, outFname):
         setattr(fid, k, v)
     fid.close()
 
-def parse_fromFile_input_file(inFileName):
+def parse_fromFile_input_file(inFileName, dryRun):
     '''
     Open and read the file and parse it 
     for various parameter values.
@@ -145,8 +145,8 @@ def parse_fromFile_input_file(inFileName):
     that can be used to call whips
     with those parameter values.
     '''
-    call = ""
-    attrs = ""
+    call = []
+    attrs = []
     f = open(inFileName, 'r')
     s = f.readline()
     try:
@@ -155,43 +155,63 @@ def parse_fromFile_input_file(inFileName):
                 while(s != ""):
                     s = f.readline()
                     if(s == "END\n"):
-                        return call + " --projAttrs {0}".format(attrs)
-                    words = s.split()
+                        return call + ["--projAttrs"] + attrs
+                    if(s[0] == '.'):
+                        continue
+                    s = s.split('"')
+                    if(len(s) > 1 and dryRun):
+                        print "Warning: Found line containing "\
+                              "stray quotation marks... stripping."
+                    words = ("".join(s)).split()
                     '''Determine what the line is supposed to do'''
-                    if(words == [] or words[0][0] == '.'):
-                        pass
+                    if(words == []):
+                        continue
                     elif(words[1] != "="):
                         break
                     elif(words[0] == "DIRECTORY"):
-                        call += " --directory {0}".format(' '.join(words[2:]))
+                        call += ["--directory", 
+                                 "{0}".format(' '.join(words[2:]))]
                     elif(words[0] == "FILELIST"):
-                        call += " --fileList {0}".format(' '.join(words[2:]))
+                        call += ["--fileList"] + words[2:]
                     elif(words[0] == "FILETYPE"):
-                        call += " --filetype {0}".format(' '.join(words[2:]))
+                        call += ["--filetype", 
+                                 "{0}".format(' '.join(words[2:]))]
                     elif(words[0] == "GRIDPROJ"):
-                        call += " --gridProj {0}".format(' '.join(words[2:]))
+                        call += ["--gridProj", 
+                                 "{0}".format(' '.join(words[2:]))]
                     elif(words[0] == "MAPFUNC"):
-                        call += " --mapFunc {0}".format(' '.join(words[2:]))
+                        call += ["--mapFunc", 
+                                 "{0}".format(' '.join(words[2:]))]
                     elif(words[0] == "OUTFUNC"):
-                        call += " --outFunc {0}".format(' '.join(words[2:]))
+                        call += ["--outFunc",
+                                 "{0}".format(' '.join(words[2:]))]
                     elif(words[0] == "OUTDIRECTORY"):
-                        call +=" --outDirectory {0}".format(' '.join(words[2:]))
+                        call += ["--outDirectory", 
+                                 "{0}".format(' '.join(words[2:]))]
                     elif(words[0] == "OUTFILENAME"):
-                        call += " --outFileName {0}".format(' '.join(words[2:]))
+                        call += ["--outFileName", 
+                                 "{0}".format(' '.join(words[2:]))]
                     elif(words[0] == "INCLUDEGRID"):
-                        call += " --includeGrid {0}".format(' '.join(words[2:]))
+                        call += ["--includeGrid",
+                                 "{0}".format(' '.join(words[2:]))]
                     elif(words[0] == "VERBOSE"):
-                        call += " --verbose {0}".format(' '.join(words[2:]))
+                        call += ["--verbose", 
+                                 "{0}".format(' '.join(words[2:]))]
                     elif(words[0] == "INTERACTIVE"):
-                        call += " --interactive {0}".format(' '.join(words[2:]))
+                        call += ["--interactive", 
+                                 "{0}".format(' '.join(words[2:]))]
+                    elif(dryRun):
+                        attrs += ['"{0}:{1}"'.format(words[0], \
+                                                         ' '.join(words[2:]))]
                     else:
-                        attrs +=" {0}:{1}".format(words[0], ' '.join(words[2:]))
+                        attrs += ['{0}:{1}'.format(words[0], \
+                                                         ' '.join(words[2:]))]
                 break
             s = f.readline()
     except:
         pass
-    if(line != ""):
+    if(s != ""):
         raise SyntaxError ("Invalid input file.  File must be formatted " \
-                      "correctly.\nCheck line '{0}' and try again".format(line))
+                      "correctly.\nCheck line '{0}' and try again".format(s))
     raise SyntaxError ("Invalid input file.  Check that the file matches the "\
                       "format described in the documentation and try again")
