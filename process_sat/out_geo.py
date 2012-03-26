@@ -549,7 +549,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 filtAvgs = numpy.where(sumWght != 0, unfiltAvgs, \
                            self.parmDict['fillVal'])
                 # strip trailing singlet for 2D arrays
-                avgs[field] = filtAvgs.squeeze()
+                if filtAvgs.shape[-1] == 1:
+                    avgs[field] = filtAvgs.reshape(filtAvgs.shape[0:2])
+                else:
+                    avgs[field] = filtAvgs
         numpy.seterr(divide=oldSettings['divide'])
 
         
