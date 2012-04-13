@@ -1,15 +1,29 @@
 ===========
-WHIPS 1.0.2
+WHIPS 1.0.6
 ===========
+
+* **Project Title:** WHIPS
+* **Purpose of Project:** Provide a well-documented, easy-to-use general-purpose processing module for processing satellite data
+* **Version:** 1.1.0 (4/13/2012)
+* **Authors:** oberman, maki, strom, holloway
+* **Contact:** oberman@wisc.edu
 
 Wisconsin Horizontal Interpolation Program for Satellites (WHIPS)
 =================================================================
 
-* **Project Title:** WHIPS
-* **Purpose of Project:** Provide a well-documented, easy-to-use general-purpose processing module for processing satellite data
-* **Version:** 1.0.2 (3/9/2012)
-* **Authors:** oberman, maki, strom
-* **Contact:** oberman@wisc.edu
+ACKNOWLEDGEMENT POLICY
+----------------------
+Whenever you publish research or present results generated with WHIPS,
+please include the following acknowledgement or an appropriate
+equivalent:
+
+	*We wish to thank the University of Wisconsin--Madison for the* 
+	*use and development of the Wisconsin Horizontal Interpolation*
+	*Program for Satellites (WHIPS).  WHIPS was developed by Jacob*
+	*Oberman, Erica Scotty, Keith Maki and Tracey Holloway, with* 
+	*funding from the NASA Air Quality Applied Science Team* 
+	*(AQAST) and the Wisconsin Space Grant Consortium Undergraduate*
+	*Award.*
 
 
 QUICK START

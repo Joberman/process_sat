@@ -403,6 +403,8 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 'fillVal' : ('The value to use as a fill value in the output ' \
                              'netCDF file.  This value will replace any missing '\
                              'or invalid output values','decimal')}
+    # variable signifying which list is to act as the master list index
+    __userKeys__ = "inFieldNames"
 
     def __call__(self, maps, griddef, outfilename, verbose):
         '''Write out a weighted-average file in netcdf format.'''
@@ -1190,6 +1192,8 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                                   'values and std devs) of which we want the ' \
                                   'first slice.\n{ MOPITT - Retrieved CO Mixing '\
                                   'Ratio Profile }', None)}
+    # variable signifying which list is to act as the master list index 
+    __userKeys__ = "inFieldNames"
     def __init__(self, pDict):
         '''Convert input to format of parent input'''
 

@@ -75,18 +75,16 @@ import pdb
 
 import tables
 import numpy
-
 import pyhdf.HDF
 import pyhdf.V
 import pyhdf.VS
 import pyhdf.SD
 
+import filetypes
 
 def SupportedFileTypes():
     '''Return a list of supported file types'''
-    currentModule = sys.modules[__name__]
-    names = dir(currentModule)
-    return [el[:-5] for el in names if el.endswith("_File")]
+    return [el[:-9] for el in dir(filetypes) if el.endswith("_filetype")]
 
 def get_parser(file, filetype):
     """Retrieve appropriate instantiated parser for a file"""
