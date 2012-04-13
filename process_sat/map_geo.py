@@ -40,6 +40,84 @@ def ValidMaps():
     names = dir(currentModule)
     return [el[:-8] for el in names if el.endswith("_map_geo")]
 
+def global_intersect_UNTESTED_map_geo(parser, griddef, verbose=True):
+    '''
+    For each pixel, find all gridcells that it intersects
+
+    This function does not compute or save teh fractional 
+    overlap of individual pixels.  
+
+    This function is designed to handle grids that span 
+    the entire globe, with the cyclic point (the point 
+    where longitude "wraps") ocurring at index [*,0]
+
+    Assumptions:
+        - Straight lines in projected space adequately 
+        approximate the edges of pixels/gridcells.
+        - polar discontinuities aren't of concern
+        - we ARE dealing with a global projection that 
+        cyclizes at index (*,0)
+        - grid is rectilinear
+        - pixels are convex polygons
+    '''
+    if verbose:
+        print('Mapping '+parser.name+'\nat '+str(datetime.datetime.now()))  
+    # create the dictionary we'll use as a map
+    map = map_helpers.init_output_map(griddef.indLims())
+    map['parser'] = parser
+        # we're going to hold onto both the prepared and unprepared versions
+    # of the polys, so we can access the fully method set in the unprep
+    # polys, but still do fast comparisons
+    gridPolys = map_helpers.rect_grid_polys(griddef.indLims())
+    prepPolys = map_helpers.rect_grid_polys(griddef.indLims())
+    if verbose: print('prepping polys in grid')
+    for poly in prepPolys.itervalues():
+        poly = prep(poly)  # prepare these, they're going to get compared a lot
+    if verbose: print('done prepping polys in grid')
+    cornersStruct = parser.get_geo_corners()
+    (row, col) = griddef.geoToGridded(cornersStruct['lat'], \
+                                      cornersStruct['lon']) 
+    ind = cornersStruct['ind']
+    # reshape the matrixes to make looping workable
+    row = row.reshape(-1,4)
+    col = col.reshape(-1,4)
+    ind = ind.reshape(row.shape[0],-1)
+    if verbose: print('Intersecting pixels')
+    # create the appropriate pixel(s) depending on whether
+    # the pixels span the cyclic point
+    minRow = griddef.indLims()[0]
+    maxRow = griddef.indLims()[1]
+    minCol = griddef.indLims()[2]
+    maxCol = griddef.indLims()[3]
+    midCol = (minCol+maxCol)/2.0
+    for (pxrow, pxcol, pxind) in izip(row, col, ind):
+        pointsTup = zip(pxrow, pxcol)
+        prelimPoly = geom.MultiPoint(pointsTup).convex_hull
+        (bbLeft, bbBot, bbRight, bbTop) = prelimPoly.bounds
+        if bbLeft < midCol and bbRight > midCol:
+            pointsLeft = [ (r,c) for (r,c) in pointsTup if c < midCol]
+            pointsRight = [ (r,c) for (r,c) in pointsTup if c >= midCol]
+            pointsLeft += [ (bbBot, minCol), (bbTop, minCol) ]
+            pointsRight += [ (bbBot, maxCol), (bbTop, maxCol) ]
+            polyLeft = geom.MultiPoint(pointsLeft).convex_hull
+            polyRight = geom.MultiPoint(pointsRight).convex_hull
+            splitArea = polyLeft.area + polyRight.area
+            spanArea = prelimPoly.area
+            if splitArea < spanArea:
+                pixPolys = [polyLeft, polyRight]
+            else:
+                pixPolys = [prelimPoly]
+        else:
+            pixPolys = [prelimPoly]
+        # try intersecting the poly(s) with all the grid polygons
+        for poly in pixPolys:
+            for key in gridPolys.iterkeys():
+                if prepPolys[key].intersects(poly) and not gridPolys[key].touches(poly):
+                    map[key].append((tuple(pxInd), None))
+        if verbose: print('Done intersecting.')
+        return map
+
+    
 def regional_intersect_map_geo(parser, griddef, verbose=True):
     '''
     For each pixel, find all gridcells that it intersects
@@ -100,6 +178,7 @@ def regional_intersect_map_geo(parser, griddef, verbose=True):
                              format(griddedPix))
             sys.stdout.flush()
             pixPoly = geom.MultiPoint(zip(pxrow, pxcol)).convex_hull
+            
             for key in gridPolys.iterkeys():
                 if prepPolys[key].intersects(pixPoly) and not \
                                   gridPolys[key].touches(pixPoly) :

@@ -736,7 +736,6 @@ class HDFmopittl2_File(HDF4File):
         '''Overloaded version of get_cm that applied the correct missing value.'''
         return HDF4File.get_cm(self, key, indices, missingValue=-9999.0)
 
-
     def get_geo_centers(self):
         '''Retrieves array of the corners of the pixels'''
         lat = self.get('Latitude').squeeze()
