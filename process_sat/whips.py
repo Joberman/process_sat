@@ -113,8 +113,7 @@ class ListAttrsAction(argparse.Action):
         for string in values:
             if string in parse_geo.SupportedFileTypes():
                 ftype = getattr(filetypes, string + '_filetype')
-                print 'Using output function ' + ftype.doutf + \
-                      '\n   for filetype ' + string + '.'
+                print 'Using output function ' + ftype.doutf + '\n   for filetype ' + string + '.'
                 list = getattr(out_geo, ftype.doutf + '_out_func').parm_list()
                 list = [el for el in list if el not in dir(ftype)]
                 dict = getattr(out_geo, ftype.doutf + \
@@ -312,10 +311,9 @@ gridDict = dict()
 
 # retrieve output function function from out_geo
 if gnomespice.outFunc not in locals():
-    if gnomespice.filetype == 'HDFmopitl2':
-        gnomespice.outFunc = 'unweighted_filtered_MOPITT_avg_netCDF'
-    else:
-        gnomespice.outFunc = 'OMNO2e_netCDF_avg'
+    gnomespice.outFunc = getattr(filetypes, 
+                                 gnomespice.filetype + '_filetype').doutf
+
 outFunc = getattr(out_geo, gnomespice.outFunc + '_out_func')
 if verbose: print('Using outfunc ' + gnomespice.outFunc)
 
