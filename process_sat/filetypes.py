@@ -1,18 +1,25 @@
 class HDFknmiomil2_generic_filetype():
     parser = "HDFknmiomil2"
     doutf = "OMNO2e_netCDF_avg"
+    parserParms = {}
 
 class HDFnasaomil2_generic_filetype():
     parser = "HDFnasaomil2"
     doutf = "OMNO2e_netCDF_avg"
+    parserParms = {"cornerFile":("Absolute path to the file containing "\
+                                 "geolocation information for the four "\
+                                 "corners (OMPIXCOR).  Must be matched "\
+                                 "to the input file.", "filePath")}
 
 class HDFmopittl2_generic_filetype():
     parser = "HDFmopittl2"
     doutf = "unweighted_filtered_MOPITT_avg_netCDF"
+    parserParms = {}
 
 class MOPITT_CO_NASA_HDF_V5_filetype():
     parser = "HDFmopittl2"
     doutf = "unweighted_filtered_MOPITT_avg_netCDF"
+    parserParms = {}
     time = "Time"
     longitude = "Longitude"
     solZenAng = "Solar Zenith Angle"

@@ -113,19 +113,22 @@ class ListAttrsAction(argparse.Action):
         for string in values:
             if string in parse_geo.SupportedFileTypes():
                 ftype = getattr(filetypes, string + '_filetype')
-                print 'Using output function ' + ftype.doutf + '\n   for filetype ' + string + '.'
+                print 'Using output function ' + ftype.doutf + \
+                      '\n   for filetype ' + string + '.'
                 list = getattr(out_geo, ftype.doutf + '_out_func').parm_list()
-                list = [el for el in list if el not in dir(ftype)]
-                dict = getattr(out_geo, ftype.doutf + \
-                               '_out_func').required_parms()
+                list = [el for el in list if el not in dir(ftype)] \
+                            + [el for el in ftype.parserParms]
+                rDict = dict(getattr(out_geo, ftype.doutf + \
+                               '_out_func').required_parms().items() + \
+                                ftype.parserParms.items())
             elif string in out_geo.ValidOutfuncs():
                 #build list of attributes
                 list = getattr(out_geo, string + '_out_func').parm_list()
-                dict = getattr(out_geo, string + '_out_func').required_parms()
+                rDict = getattr(out_geo, string + '_out_func').required_parms()
             elif string in grid_geo.ValidProjections():
                 #build list of attributes
                 list = getattr(grid_geo, string + '_GridDef').parm_list()
-                dict = getattr(grid_geo, string + '_GridDef').requiredParms() 
+                rDict = getattr(grid_geo, string + '_GridDef').requiredParms() 
             else:
                 print string + ' is not a valid projection, output function,'\
                     'or filetype.'
@@ -141,7 +144,7 @@ class ListAttrsAction(argparse.Action):
                     print '  ' + key
                     formatter = textwrap.TextWrapper(initial_indent = indent,
                                 subsequent_indent = indent, width = 76)
-                text = dict[key][0].split('\n')
+                text = rDict[key][0].split('\n')
                 print '\n'.join(formatter.wrap(text[0]))
                 for line in text[1:]:
                     print '\n'.join(follow_up.wrap(line))
@@ -243,8 +246,9 @@ except NeedToParseInFileException as fname:
         parser.parse_args(utils.parse_fromFile_input_file(fname[0], False))
 
 # Parse filetype
-if gnomespice.filetype not in parse_geo.SupportedFileTypes():
-    utils.parse_filetype(gnomespice)
+if gnomespice.filetype not in [el[:-5] for el in dir(parse_geo) 
+                                        if el.endswith("_File")]:
+    gnomespice = utils.parse_filetype(gnomespice)
 
 # Parse verbose flag
 verbose = gnomespice.verbose != 'False'
@@ -310,10 +314,6 @@ gridDef = getattr(grid_geo, gnomespice.gridProj + '_GridDef')
 gridDict = dict()
 
 # retrieve output function function from out_geo
-if gnomespice.outFunc not in locals():
-    gnomespice.outFunc = getattr(filetypes, 
-                                 gnomespice.filetype + '_filetype').doutf
-
 outFunc = getattr(out_geo, gnomespice.outFunc + '_out_func')
 if verbose: print('Using outfunc ' + gnomespice.outFunc)
 
@@ -377,9 +377,9 @@ for attr in parms:
             gridDict[attr] = getattr(gnomespice, \
                                      attr).split(',')
         elif parms[attr][1] == 'bool':
-            if float(getattr(gnomespice, attr)) == 'True':
+            if getattr(gnomespice, attr) == 'True':
                 gridDict[attr] = True
-            elif float(getattr(gnomespice,attr)) == 'False':
+            elif getattr(gnomespice,attr) == 'False':
                 gridDict[attr] = False
             else:
                 unitParms = unitParms + formerrmsg(attr, 
@@ -394,8 +394,8 @@ for attr in parms:
 parms = outFunc.required_parms()
 try:
     # add coindexed list indexer to dictionary first
-    outParms[outFunc.userKeys] = getattr(gnomespice, 
-                                         outFunc.userKeys).split(',')
+    outParms[outFunc.__userKeys__] = getattr(gnomespice, 
+                                     outFunc.__userKeys__).split(',')
     for attr in parms:
         # Again, need to cast input to correct type, then add to dictionary
         try:
@@ -429,8 +429,9 @@ try:
                 try:
                     outParms[attr] = getattr(gnomespice, attr).split(',')
                 except AttributeError:
+                    print "outFunc.__userKeys__ : {0}".format(outFunc.__userKeys__)
                     outParms[attr] = [getattr(gnomespice, attr)[el] for \
-                                          el in outParms[gnomespice.userKeys]]
+                                      el in outParms[outFunc.__userKeys__]]
             elif parms[attr][1] == 'listoflists':
                 try:
                     lists = getattr(gnomespice, attr).split(';')
@@ -441,12 +442,13 @@ try:
                         else:
                             outParms[attr].append(list.split(','))
                 except AttributeError:
+                    print "messing with listsoflists"
                     outParms[attr] = [getattr(gnomespice, attr)[el] for \
-                                          el in outParms[gnomespice.userKeys]]
+                                      el in outParms[outFunc.__userKeys__]]
             elif parms[attr][1] == 'bool':
-                if float(getattr(gnomespice, attr)) == 'True':
+                if getattr(gnomespice, attr) == 'True':
                     outParms[attr] = True
-                elif float(getattr(gnomespice,attr)) == 'False':
+                elif getattr(gnomespice,attr) == 'False':
                     outParms[attr] = False
                 else:
                     unitParms = unitParms + formerrmsg(attr, 
@@ -467,8 +469,16 @@ try:
             unitParms = unitParms + argerrmsg(attr, 'output function (' + \
                                                   gnomespice.outFunc + ')') 
 except AttributeError:
-    unitParms = unitParms + argerrmsg(outFunc.userKeys, 'output function ('\
+    unitParms = unitParms + argerrmsg(outFunc.__userKeys__, 'output function ('\
                                           + gnomespice.outFunc + ')')
+
+#Build the error message for any parser-specific parameters
+parserParms = {}
+try:
+    for attr in gnomespice.parserParms:
+        parserParms[attr] = getattr(gnomespice, attr)
+except AttributeError:
+    unitParms = unitParms + argerrmsg(attr, 'filetype')
 
 # Unless everything checked out, print those messages and quit
 if unitParms != []:
@@ -491,7 +501,7 @@ badfile = gnomespice.interactive == 'True' and bad_file or bad_file_default
 for f in files:
     if verbose: print "Instantiating parser for file {0}".format(f)
     try:
-        parser = parse_geo.get_parser(f, filetype)
+        parser = parse_geo.get_parser(f, filetype, parserParms)
     except(IOError):
         if verbose: print "there was an IOError when instantiating parser"
         answer = badfile(f) # badfile() depends on --interactive

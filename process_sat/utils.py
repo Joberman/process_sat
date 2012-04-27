@@ -224,12 +224,15 @@ def parse_filetype(namespace):
     Open and read the filetype file
     to add associated parameters to namespace 
     '''
-    filetype = getattr(filetypes, namespace.filetype)
+    filetype = getattr(filetypes, namespace.filetype + "_filetype")
+    print "Hey! I'm parsing your filetype\n"
     
     for attr in dir(filetype):
         if attr == "parser":
-            setattr(namespace, "filetype", filetype.attr)
+            setattr(namespace, "filetype", getattr(filetype, attr))
         elif attr == "doutf":
+            setattr(namespace, "outFunc", getattr(filetype, attr))
+        elif attr[0] == "_":
             pass
         else:
             try:
@@ -239,4 +242,7 @@ def parse_filetype(namespace):
                       getattr(namespace, attr), attr, namespace.filetype)
             except AttributeError:
                 pass
-            setattr(namespace, attr, filetype.attr)
+            setattr(namespace, attr, getattr(filetype, attr))
+            print("Value for {0} provided by specific filetype machinery".format(attr))
+
+    return namespace
