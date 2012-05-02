@@ -146,6 +146,9 @@ class OMONO2e_wght_avg_BORKED(out_func):
                              'netCDF file.  This value will replace any missing '\
                              ' or invalid output values','decimal')}
     
+    # userKeys not necessary, so 'filler' field used instead
+    __userKeys__ = "filetype"
+
     def __call__(self, maps, griddef, outfilename, verbose):
 
         # function is broken until it can be refactored such that
@@ -416,6 +419,8 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 'fillVal' : ('The value to use as a fill value in the output ' \
                              'netCDF file.  This value will replace any missing '\
                              'or invalid output values','decimal')}
+    # variable signifying which list is to act as the master list index
+    __userKeys__ = "inFieldNames"
 
     def __call__(self, maps, griddef, outfilename, verbose):
         '''Write out a weighted-average file in netcdf format.'''
@@ -760,6 +765,7 @@ class wght_avg_netCDF(out_func):
             is safe to use both get and get_cm functions within this function -
             it is guaranteed to be called within a context manager.
     '''
+
     def __init__(self, parmDict=None):
         # call ancestor method
         out_func.__init__(self, parmDict)
@@ -1177,7 +1183,7 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                                      'decimal'),
                 'solZenAng' : ('The name of the field containing the solar' \
                                ' zenith angle in degrees.  { MOPITT - Solar ' \
-                               'Zenith Angle }', 'decimal'),
+                               'Zenith Angle }', None),
                 'dayTime' : ('Boolean variable that indicates ' \
 			     'whether the output file should contain ' \
 			     'values from day or night.  If set to ' \
@@ -1198,6 +1204,8 @@ class unweighted_filtered_MOPITT_avg_netCDF_out_func(wght_avg_netCDF):
                                   'values and std devs) of which we want the ' \
                                   'first slice.\n{ MOPITT - Retrieved CO Mixing '\
                                   'Ratio Profile }', None)}
+    # variable signifying which list is to act as the master list index 
+    __userKeys__ = "inFieldNames"
     def __init__(self, pDict):
         '''Convert input to format of parent input'''
 

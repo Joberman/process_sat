@@ -12,6 +12,8 @@ from itertools import izip
 import numpy
 import netCDF4
 
+import filetypes
+
 def wrap_lon_0_360(lon):
     '''Wrap a single longitude to the interval [0, 360)'''
     while lon < 0:
@@ -215,3 +217,32 @@ def parse_fromFile_input_file(inFileName, dryRun):
                       "correctly.\nCheck line '{0}' and try again".format(s))
     raise SyntaxError ("Invalid input file.  Check that the file matches the "\
                       "format described in the documentation and try again")
+
+
+def parse_filetype(namespace):
+    '''
+    Open and read the filetype file
+    to add associated parameters to namespace 
+    '''
+    filetype = getattr(filetypes, namespace.filetype + "_filetype")
+    print "Hey! I'm parsing your filetype\n"
+    
+    for attr in dir(filetype):
+        if attr == "parser":
+            setattr(namespace, "filetype", getattr(filetype, attr))
+        elif attr == "doutf":
+            setattr(namespace, "outFunc", getattr(filetype, attr))
+        elif attr[0] == "_":
+            pass
+        else:
+            try:
+                print "Warning: Value {0} supplied for attribute {1} " \
+                      "has been ignored. Filetype {2} does not support "\
+                      "custom values for this parameter.".format(\
+                      getattr(namespace, attr), attr, namespace.filetype)
+            except AttributeError:
+                pass
+            setattr(namespace, attr, getattr(filetype, attr))
+            print("Value for {0} provided by specific filetype machinery".format(attr))
+
+    return namespace

@@ -23,14 +23,12 @@ from process_sat import grid_geo
 from process_sat import map_geo
 from process_sat import out_geo
 from process_sat import utils
+from process_sat import filetypes
+
 '''
-Global dictionary mapping filetypes to their default output function
-Any new filetypes should be included in this dictionary to ensure
-proper AttributeHelp functionality and default output function selection
+VERSION NUMBER
 '''
-out_func_mapper = {"HDFknmiomil2":"OMNO2e_netCDF_avg",
-                   "HDFmopittl2":"unweighted_filtered_MOPITT_avg_netCDF",
-                   "HDFnasaomil2":"OMNO2e_netCDF_avg"}
+__version__ = "1.0.6"
 
 class NeedToParseInFileException(Exception):
     '''exception class for signaling the need to parse input file'''
@@ -114,17 +112,23 @@ class ListAttrsAction(argparse.Action):
 
         for string in values:
             if string in parse_geo.SupportedFileTypes():
-                print 'Using output function ' + out_func_mapper[string] + \
+                ftype = getattr(filetypes, string + '_filetype')
+                print 'Using output function ' + ftype.doutf + \
                       '\n   for filetype ' + string + '.'
-                string = out_func_mapper[string]
-            if string in out_geo.ValidOutfuncs():
+                list = getattr(out_geo, ftype.doutf + '_out_func').parm_list()
+                list = [el for el in list if el not in dir(ftype)] \
+                            + [el for el in ftype.parserParms]
+                rDict = dict(getattr(out_geo, ftype.doutf + \
+                               '_out_func').required_parms().items() + \
+                                ftype.parserParms.items())
+            elif string in out_geo.ValidOutfuncs():
                 #build list of attributes
                 list = getattr(out_geo, string + '_out_func').parm_list()
-                dict = getattr(out_geo, string + '_out_func').required_parms()
+                rDict = getattr(out_geo, string + '_out_func').required_parms()
             elif string in grid_geo.ValidProjections():
                 #build list of attributes
                 list = getattr(grid_geo, string + '_GridDef').parm_list()
-                dict = getattr(grid_geo, string + '_GridDef').requiredParms() 
+                rDict = getattr(grid_geo, string + '_GridDef').requiredParms() 
             else:
                 print string + ' is not a valid projection, output function,'\
                     'or filetype.'
@@ -140,7 +144,7 @@ class ListAttrsAction(argparse.Action):
                     print '  ' + key
                     formatter = textwrap.TextWrapper(initial_indent = indent,
                                 subsequent_indent = indent, width = 76)
-                text = dict[key][0].split('\n')
+                text = rDict[key][0].split('\n')
                 print '\n'.join(formatter.wrap(text[0]))
                 for line in text[1:]:
                     print '\n'.join(follow_up.wrap(line))
@@ -226,6 +230,10 @@ parser.add_argument('--inFromFile', nargs=1, help='Supply this flag, ' \
 # ---------------- #
 # Parse the inputs #
 # ---------------- #
+# Welcome screen
+print "\n\n           WISCONSIN HORIZONTAL INTERPOLATION PROGRAM " \
+      "FOR SATELLITES \n                                 Version " + \
+      __version__ + "\n"
 
 try:
     gnomespice = parser.parse_args()
@@ -236,6 +244,11 @@ except NeedToParseInFileException as fname:
                 " ".join(utils.parse_fromFile_input_file(fname[0], True))), 70))
     gnomespice = \
         parser.parse_args(utils.parse_fromFile_input_file(fname[0], False))
+
+# Parse filetype
+if gnomespice.filetype not in [el[:-5] for el in dir(parse_geo) 
+                                        if el.endswith("_File")]:
+    gnomespice = utils.parse_filetype(gnomespice)
 
 # Parse verbose flag
 verbose = gnomespice.verbose != 'False'
@@ -301,11 +314,6 @@ gridDef = getattr(grid_geo, gnomespice.gridProj + '_GridDef')
 gridDict = dict()
 
 # retrieve output function function from out_geo
-if gnomespice.outFunc not in locals():
-    if gnomespice.filetype == 'HDFmopitl2':
-        gnomespice.outFunc = 'unweighted_filtered_MOPITT_avg_netCDF'
-    else:
-        gnomespice.outFunc = 'OMNO2e_netCDF_avg'
 outFunc = getattr(out_geo, gnomespice.outFunc + '_out_func')
 if verbose: print('Using outfunc ' + gnomespice.outFunc)
 
@@ -368,11 +376,10 @@ for attr in parms:
         elif parms[attr][1] == 'list':
             gridDict[attr] = getattr(gnomespice, \
                                      attr).split(',')
-
         elif parms[attr][1] == 'bool':
-            if float(getattr(gnomespice, attr)) == 'True':
+            if getattr(gnomespice, attr) == 'True':
                 gridDict[attr] = True
-            elif float(getattr(gnomespice,attr)) == 'False':
+            elif getattr(gnomespice,attr) == 'False':
                 gridDict[attr] = False
             else:
                 unitParms = unitParms + formerrmsg(attr, 
@@ -385,67 +392,94 @@ for attr in parms:
 
 # Build the error message for output function parameters 
 parms = outFunc.required_parms()
-for attr in parms:
-    # Again, need to cast input to correct type, then add to dictionary
-    try:
-        if parms[attr][1] == 'int':
-            try:   
-                outParms[attr] = int(getattr(gnomespice, attr))
-            except ValueError:
-                unitParms = unitParms + formerrmsg(attr,"\bn integer")
-        elif parms[attr][1] == 'decimal':
-            try:
-                outParms[attr] = float(getattr(gnomespice, attr))
-            except ValueError:
-                unitParms = unitParms + formerrmsg(attr,"decimal")
-        elif parms[attr][1] == 'posint':
-            try:
-                outParms[attr] = int(getattr(gnomespice, attr))
-                if outParms[attr] <= 0:
-                    raise ValueError
-            except ValueError:
-                unitParms = unitParms + formerrmsg(attr, "a positive integer")
-        elif parms[attr][1] == 'posdecimal':
-            try:
-                gridDict[attr] = float(getattr(gnomespice, attr))
-                if gridDict[attr] <= 0:
-                    raise ValueError
-            except ValueError:
-                unitParms = unitParms + formerrmsg(attr, "a positive decimal")
-        elif parms[attr][1] == 'list':
-            outParms[attr] = getattr(gnomespice, \
-                                     attr).split(',')
-        elif parms[attr][1] == 'listoflists':
-            lists  = getattr(gnomespice, attr).split(';')
-            outParms[attr] = []
-            for list in lists:
-                if list == '':
-                    outParms[attr].append([])
+try:
+    # add coindexed list indexer to dictionary first
+    outParms[outFunc.__userKeys__] = getattr(gnomespice, 
+                                     outFunc.__userKeys__).split(',')
+    for attr in parms:
+        # Again, need to cast input to correct type, then add to dictionary
+        try:
+            if parms[attr][1] == 'int':
+                try:   
+                    outParms[attr] = int(getattr(gnomespice, attr))
+                except ValueError:
+                    unitParms = unitParms + formerrmsg(attr,"\bn integer")
+            elif parms[attr][1] == 'decimal':
+                try:
+                    outParms[attr] = float(getattr(gnomespice, attr))
+                except ValueError:
+                    unitParms = unitParms + formerrmsg(attr,"decimal")
+            elif parms[attr][1] == 'posint':
+                try:
+                    outParms[attr] = int(getattr(gnomespice, attr))
+                    if outParms[attr] <= 0:
+                        raise ValueError
+                except ValueError:
+                    unitParms = unitParms + formerrmsg(attr, \
+                                                       "a positive integer")
+            elif parms[attr][1] == 'posdecimal':
+                try:
+                    gridDict[attr] = float(getattr(gnomespice, attr))
+                    if gridDict[attr] <= 0:
+                        raise ValueError
+                except ValueError:
+                    unitParms = unitParms + formerrmsg(attr, \
+                                                       "a positive decimal")
+            elif parms[attr][1] == 'list':
+                try:
+                    outParms[attr] = getattr(gnomespice, attr).split(',')
+                except AttributeError:
+                    print "outFunc.__userKeys__ : {0}".format(outFunc.__userKeys__)
+                    outParms[attr] = [getattr(gnomespice, attr)[el] for \
+                                      el in outParms[outFunc.__userKeys__]]
+            elif parms[attr][1] == 'listoflists':
+                try:
+                    lists = getattr(gnomespice, attr).split(';')
+                    outParms[attr] = []
+                    for list in lists:
+                        if list == '':
+                            outParms[attr].append([])
+                        else:
+                            outParms[attr].append(list.split(','))
+                except AttributeError:
+                    print "messing with listsoflists"
+                    outParms[attr] = [getattr(gnomespice, attr)[el] for \
+                                      el in outParms[outFunc.__userKeys__]]
+            elif parms[attr][1] == 'bool':
+                if getattr(gnomespice, attr) == 'True':
+                    outParms[attr] = True
+                elif getattr(gnomespice,attr) == 'False':
+                    outParms[attr] = False
                 else:
-                    outParms[attr].append(list.split(','))
-        elif parms[attr][1] == 'bool':
-            if float(getattr(gnomespice, attr)) == 'True':
-                outParms[attr] = True
-            elif float(getattr(gnomespice,attr)) == 'False':
-                outParms[attr] = False
-            else:
-                unitParms = unitParms + formerrmsg(attr, 
-                                                  "either 'True' or 'False'")
-        elif parms[attr][1] == 'time':
-            epoch = '00:00:00_01-01-1993'
-            format = '%H:%M:%S_%m-%d-%Y'
-            try:
-                outParms[attr] = utils.timestr_to_nsecs(getattr
-                                       (gnomespice, attr), epoch, format)
-            except:
-                unitParms = unitParms + formerrmsg(attr, 
-                                                   "in the format " + format)
+                    unitParms = unitParms + formerrmsg(attr, 
+                                "either 'True' or 'False'")
+            elif parms[attr][1] == 'time':
+                epoch = '00:00:00_01-01-1993'
+                format = '%H:%M:%S_%m-%d-%Y'
+                try:
+                    outParms[attr] = utils.timestr_to_nsecs(getattr
+                                    (gnomespice, attr), epoch, format)
+                except:
+                    unitParms = unitParms + formerrmsg(attr, 
+                                "in the format " + format)
+                    
+                else:
+                    outParms[attr] = getattr(gnomespice, attr)
+        except AttributeError:
+            unitParms = unitParms + argerrmsg(attr, 'output function (' + \
+                                                  gnomespice.outFunc + ')') 
+except AttributeError:
+    unitParms = unitParms + argerrmsg(outFunc.__userKeys__, 'output function ('\
+                                          + gnomespice.outFunc + ')')
 
-        else:
-            outParms[attr] = getattr(gnomespice, attr)
-    except AttributeError:
-        unitParms = unitParms + argerrmsg(attr, 'output function (' + \
-                                gnomespice.outFunc + ')') 
+#Build the error message for any parser-specific parameters
+parserParms = {}
+try:
+    for attr in gnomespice.parserParms:
+        parserParms[attr] = getattr(gnomespice, attr)
+except AttributeError:
+    unitParms = unitParms + argerrmsg(attr, 'filetype')
+
 # Unless everything checked out, print those messages and quit
 if unitParms != []:
     print '\n'.join(unitParms)
@@ -455,36 +489,30 @@ if verbose: print('                                    Done.')
 # ---------------------- #
 # Initialize the parsers #
 # ---------------------- #
-if parserList:
-    # Note: This functionality is not implemented
-    # and is probably not worth implementing anyway
-    if verbose: print 'Ignoring filelist, using parserList'
-    parsers = parserList
-else:
-    if verbose: print('building filelist '+str(datetime.datetime.now()))
-    filetype = gnomespice.filetype
-    # if a filelist was provided, use those files,
-    # otherwise, just use every file in the directory
-    files = [os.path.join(directory, f) for f in \
+if verbose: print('building filelist '+str(datetime.datetime.now()))
+filetype = gnomespice.filetype
+# if a filelist was provided, use those files,
+# otherwise, just use every file in the directory
+files = [os.path.join(directory, f) for f in \
              gnomespice.fileList or os.listdir(directory)]
-    parsers = []
-    if verbose: print('getting parsers '+str(datetime.datetime.now()))
-    badfile = gnomespice.interactive == 'True' and bad_file or bad_file_default
-    for f in files:
-        if verbose: print "Instantiating parser for file {0}".format(f)
-        try:
-            parser = parse_geo.get_parser(f, filetype)
-        except(IOError):
-            if verbose: print "there was an IOError when instantiating parser"
-            answer = badfile(f) # badfile() depends on --interactive
-            if answer is 1:
-                continue
-            elif answer is 2:
-                break
-            elif answer is 3:
-                raise SystemExit
-        if verbose: print "parser appended successfully."
-        parsers.append(parser)
+parsers = []
+if verbose: print('getting parsers '+str(datetime.datetime.now()))
+badfile = gnomespice.interactive == 'True' and bad_file or bad_file_default
+for f in files:
+    if verbose: print "Instantiating parser for file {0}".format(f)
+    try:
+        parser = parse_geo.get_parser(f, filetype, parserParms)
+    except(IOError):
+        if verbose: print "there was an IOError when instantiating parser"
+        answer = badfile(f) # badfile() depends on --interactive
+        if answer is 1:
+            continue
+        elif answer is 2:
+            break
+        elif answer is 3:
+            raise SystemExit
+    if verbose: print "parser appended successfully."
+    parsers.append(parser)
 
 # ----------------- #
 # Process the files #
