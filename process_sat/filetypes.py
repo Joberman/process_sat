@@ -3,7 +3,7 @@ List of supported filetypes and associated parameters
 
 Each class in this file has, at minimum, an attribute "parser"
 that specifies the associated parser for that class and an 
-attribute "doutf" that specifies the default ouptu function.
+attribute "doutf" that specifies the default output function.
 Each class may also contain any other variables that will be 
 used for output function attributes if the output function
 accepts those attributes
@@ -12,10 +12,14 @@ In some cases, output function attributes may consist of lists
 associated with field names for that particular filetype.  In 
 these cases, the variables for these attributes will be 
 dictionaries keyed off the field name strings.
+
+Some parsers require additional attributes (beyond the 
+filename, subtype, and extension).
 '''
 
 class OMI_NO2_KNMI_HDF_v2_0_preFeb2006():
     parser = 'HDFknmiomil2'
+    parserParms = []
     doutf = 'OMNO2e_netCDF_avg_out_func'
     overallQualFlag = 'TroposphericColumnFlag'
     cloudFrac = 'CloudFraction'
@@ -151,6 +155,7 @@ class OMI_NO2_KNMI_HDF_v2_0_preFeb2006():
 
 class OMI_NO2_KNMI_HDF_v2_0_postFeb2006():
     parser = 'HDFknmiomil2'
+    parserParms = []
     doutf = 'OMNO2e_netCDF_avg_out_func'
     overallQualFlag = 'TroposphericColumnFlag'
     cloudFrac = 'CloudFraction'
@@ -283,3 +288,4 @@ class OMI_NO2_KNMI_HDF_v2_0_postFeb2006():
                      'Time', 0,
                      'ViewingAzimuthAngle', 0,
                      'ViewingZenithAngle', 0 }
+

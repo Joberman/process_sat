@@ -88,7 +88,7 @@ def SupportedFileTypes():
     names = dir(currentModule)
     return [el[:-5] for el in names if el.endswith("_File")]
 
-def get_parser(file, filetype):
+def get_parser(file, filetype, parserParms):
     """Retrieve appropriate instantiated parser for a file"""
     # filename = os.path.split(file)[1]
     subclass = '{0}_File'.format(filetype)
@@ -102,7 +102,7 @@ def get_parser(file, filetype):
             extension += i
         else:
             subtype += i
-    return parserClass(file, subtype, extension)
+    return parserClass(file, subtype, extension, **parserParms)
 
 class GeoFile():
     """Provide interface to geofile."""
@@ -539,7 +539,7 @@ class HDFnasaomil2_File(HDFFile):
     Provide interface to NASA OMI L2 product, with pixel corners
     
     Pixel corners are retrieved from an extra file that must be passed
-    as the extra parameter pixCornerFname.  It is the user's 
+    as the extra parameter cornerFile.  It is the user's 
     responsibility to make sure that the pixel corner file matches the
     data file.  The corners retrieved are for the visible channel used
     by the NO2 algorithm- using this parser for other products may 
@@ -550,9 +550,12 @@ class HDFnasaomil2_File(HDFFile):
     files.  Note that the NASA product documentation has the wrong name for 
     the "SlantColumnAmountH20Std" variable due to a case typo.
     """
-    def __init__(self, filename, subtype='', extension=None, pixCornerFname=None):
+    def __init__(self, filename, subtype='', extension=None, cornerFile=None):
         HDFFile.__init__(self, filename, subtype, extension)
-        self.pixCorners = pixCornerFname
+        # check if the corner file exists
+        if not os.path.exists(cornerFile):
+            raise IOError("The spcecified corner file {0} did not exist".format(cornerFile))
+        self.pixCorners = cornerFile
         
     __dataPath = '/HDFEOS/SWATHS/ColumnAmountNO2/Data Fields/'
     __geoPath = '/HDFEOS/SWATHS/ColumnAmountNO2/Geolocation Fields/'
