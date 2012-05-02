@@ -17,7 +17,7 @@ Some parsers require additional attributes (beyond the
 filename, subtype, and extension).
 '''
 
-class OMI_NO2_KNMI_HDF_v2_0_preFeb2006():
+class OMI_NO2_KNMI_HDF_v2_0_preFeb2006_filetype():
     parser = 'HDFknmiomil2'
     parserParms = []
     doutf = 'OMNO2e_netCDF_avg_out_func'
@@ -146,14 +146,14 @@ class OMI_NO2_KNMI_HDF_v2_0_preFeb2006():
                      'Latitude' : 0,
                      'LatitudeCornerPoints' : 4,
                      'Longitude' : 0,
-                     'LongitudeCornerPoints', 4,
-                     'SolarAzimuthAngle', 0,
-                     'SolarZenithAngle', 0,
-                     'Time', 0,
-                     'ViewingAzimuthAngle', 0,
-                     'ViewingZenithAngle', 0 }
+                     'LongitudeCornerPoints' : 4,
+                     'SolarAzimuthAngle' : 0,
+                     'SolarZenithAngle' : 0,
+                     'Time' : 0,
+                     'ViewingAzimuthAngle' : 0,
+                     'ViewingZenithAngle' : 0 }
 
-class OMI_NO2_KNMI_HDF_v2_0_postFeb2006():
+class OMI_NO2_KNMI_HDF_v2_0_postFeb2006_filetype():
     parser = 'HDFknmiomil2'
     parserParms = []
     doutf = 'OMNO2e_netCDF_avg_out_func'
@@ -238,7 +238,7 @@ class OMI_NO2_KNMI_HDF_v2_0_postFeb2006():
                       'VCDTropErrorUsingAvKernel' : 'none',
                       'GroundPixelQualityFlag' : 'none',
                       'Latitude' : 'none',
-                      'LatitudeCornerPoints', 'corner',
+                      'LatitudeCornerPoints' : 'corner',
                       'Longitude' : 'none',
                       'LongitudeCornerPoints' : 'corner',
                       'SolarAzimuthAngle' : 'none',
@@ -282,12 +282,12 @@ class OMI_NO2_KNMI_HDF_v2_0_postFeb2006():
                      'Latitude' : 0,
                      'LatitudeCornerPoints' : 4,
                      'Longitude' : 0,
-                     'LongitudeCornerPoints', 4,
-                     'SolarAzimuthAngle', 0,
-                     'SolarZenithAngle', 0,
-                     'Time', 0,
-                     'ViewingAzimuthAngle', 0,
-                     'ViewingZenithAngle', 0 }
+                     'LongitudeCornerPoints' : 4,
+                     'SolarAzimuthAngle' : 0,
+                     'SolarZenithAngle' : 0,
+                     'Time' : 0,
+                     'ViewingAzimuthAngle' : 0,
+                     'ViewingZenithAngle' : 0 }
 
 class HDFknmiomil2_generic_filetype():
     parser = "HDFknmiomil2"
