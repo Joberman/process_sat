@@ -102,7 +102,7 @@ class OMI_NO2_KNMI_HDF_v2_0_preFeb2006():
                       'VCDTropErrorUsingAvKernel' : 'none',
                       'GroundPixelQualityFlag' : 'none',
                       'Latitude' : 'none',
-                      'LatitudeCornerPoints', 'corner',
+                      'LatitudeCornerPoints': 'corner',
                       'Longitude' : 'none',
                       'LongitudeCornerPoints' : 'corner',
                       'SolarAzimuthAngle' : 'none',
