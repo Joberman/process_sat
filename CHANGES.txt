@@ -2,6 +2,6 @@ v<1.0.0>, <3/9/2012> -- Initial release.
 v<1.0.1>, <3/9/2012> -- Culled the reST file for website brevity.
 v<1.0.2>, <3/9/2012> -- Removed the last traces of scipy.
 v<1.0.3>, <3/14/2012> -- Updated licence and acknowledgement policy.
-v<1.0.4>,
-v<1.0.5>, <3/26/2012>
+v<1.0.4>, <3/23/2012> -- Fixed bug in OMI NO2 processing. WHIPS now supports running based on an input textfile.
+v<1.0.5>, <3/26/2012> -- Degenerate case (1x1 grid) was broken for one of the outFuncs.  Fixed.
 v<1.0.6>, <4/13/2012> -- Added Version flag, more specific filetype support
