@@ -419,8 +419,8 @@ try:
                                                        "a positive integer")
             elif parms[attr][1] == 'posdecimal':
                 try:
-                    gridDict[attr] = float(getattr(gnomespice, attr))
-                    if gridDict[attr] <= 0:
+                    outParms[attr] = float(getattr(gnomespice, attr))
+                    if outParms[attr] <= 0:
                         raise ValueError
                 except ValueError:
                     unitParms = unitParms + formerrmsg(attr, \
@@ -442,7 +442,6 @@ try:
                         else:
                             outParms[attr].append(list.split(','))
                 except AttributeError:
-                    print "messing with listsoflists"
                     outParms[attr] = [getattr(gnomespice, attr)[el] for \
                                       el in outParms[outFunc.__userKeys__]]
             elif parms[attr][1] == 'bool':
@@ -463,8 +462,8 @@ try:
                     unitParms = unitParms + formerrmsg(attr, 
                                 "in the format " + format)
                     
-                else:
-                    outParms[attr] = getattr(gnomespice, attr)
+            else:
+                outParms[attr] = getattr(gnomespice, attr)
         except AttributeError:
             unitParms = unitParms + argerrmsg(attr, 'output function (' + \
                                                   gnomespice.outFunc + ')') 
@@ -474,9 +473,83 @@ except AttributeError:
 
 #Build the error message for any parser-specific parameters
 parserParms = {}
+parms = gnomespice.parserParms
 try:
-    for attr in gnomespice.parserParms:
-        parserParms[attr] = getattr(gnomespice, attr)
+    for attr in parms:
+        # Again, need to cast input to correct type, then add to dictionary
+        try:
+            if parms[attr][1] == 'int':
+                try:   
+                    parserParms[attr] = int(getattr(gnomespice, attr))
+                except ValueError:
+                    unitParms = unitParms + formerrmsg(attr,"\bn integer")
+            elif parms[attr][1] == 'decimal':
+                try:
+                    parserParms[attr] = float(getattr(gnomespice, attr))
+                except ValueError:
+                    unitParms = unitParms + formerrmsg(attr,"decimal")
+            elif parms[attr][1] == 'posint':
+                try:
+                    parserParms[attr] = int(getattr(gnomespice, attr))
+                    if parserParms[attr] <= 0:
+                        raise ValueError
+                except ValueError:
+                    unitParms = unitParms + formerrmsg(attr, \
+                                                       "a positive integer")
+            elif parms[attr][1] == 'posdecimal':
+                try:
+                    parserParms[attr] = float(getattr(gnomespice, attr))
+                    if parserParms[attr] <= 0:
+                        raise ValueError
+                except ValueError:
+                    unitParms = unitParms + formerrmsg(attr, \
+                                                       "a positive decimal")
+            elif parms[attr][1] == 'list':
+                try:
+                    parserParms[attr] = getattr(gnomespice, attr).split(',')
+                except AttributeError:
+                    print "outFunc.__userKeys__ : {0}".format(outFunc.__userKeys__)
+                    parserParms[attr] = [getattr(gnomespice, attr)[el] for \
+                                      el in outParms[outFunc.__userKeys__]]
+            elif parms[attr][1] == 'listoflists':
+                try:
+                    lists = getattr(gnomespice, attr).split(';')
+                    parserParms[attr] = []
+                    for list in lists:
+                        if list == '':
+                            parserParms[attr].append([])
+                        else:
+                            parserParms[attr].append(list.split(','))
+                except AttributeError:
+                    unitParms = unitParms + formerrmsg(attr, \
+                                "a correctly formatted list of lists.  The list "\
+                                "should be delimited by semicolons, and each "\
+                                "sublist should be delimited by commas")
+            elif parms[attr][1] == 'bool':
+                if getattr(gnomespice, attr) == 'True':
+                    parserParms[attr] = True
+                elif getattr(gnomespice,attr) == 'False':
+                    parserParms[attr] = False
+                else:
+                    unitParms = unitParms + formerrmsg(attr, 
+                                "either 'True' or 'False'")
+            elif parms[attr][1] == 'time':
+                epoch = '00:00:00_01-01-1993'
+                format = '%H:%M:%S_%m-%d-%Y'
+                try:
+                    parserParms[attr] = utils.timestr_to_nsecs(getattr
+                                    (gnomespice, attr), epoch, format)
+                except:
+                    unitParms = unitParms + formerrmsg(attr, 
+                                "in the format " + format)
+                    
+            else:
+                parserParms[attr] = getattr(gnomespice, attr)
+        except AttributeError:
+            unitParms = unitParms + argerrmsg(attr, 'output function (' + \
+                                                  gnomespice.outFunc + ')') 
+
+
 except AttributeError:
     unitParms = unitParms + argerrmsg(attr, 'filetype')
 

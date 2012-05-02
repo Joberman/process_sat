@@ -1,9 +1,13 @@
 '''
 List of supported filetypes and associated parameters
+Whips.py will consider all classes in this module with names 
+ending in "_filetype" to be valid filetype definitions
 
 Each class in this file has, at minimum, an attribute "parser"
 that specifies the associated parser for that class and an 
 attribute "doutf" that specifies the default output function.
+(List the name of the output function, not including "_out_func")
+
 Each class may also contain any other variables that will be 
 used for output function attributes if the output function
 accepts those attributes
@@ -14,13 +18,21 @@ these cases, the variables for these attributes will be
 dictionaries keyed off the field name strings.
 
 Some parsers require additional attributes (beyond the 
-filename, subtype, and extension).
+filename, subtype, and extension). These attributes may be
+listed in the ParserParms dictionary, and whips.py will 
+require valid values for these arguments before processing
+files of this type. Entries in the ParserParms dictionary
+should follow the form
+   'RequiredAttrName':("AttrDescription",'AttrCastType')
+where AttrCastType is one of the cast types for OutFuncAttrs
+   [None, 'int', 'posint', 'decimal', 'posdecimal',
+    'time', 'bool', 'list', 'listoflists']
 '''
 
 class OMI_NO2_KNMI_HDF_v2_0_preFeb2006_filetype():
     parser = 'HDFknmiomil2'
-    parserParms = []
-    doutf = 'OMNO2e_netCDF_avg_out_func'
+    parserParms = {}
+    doutf = 'OMNO2e_netCDF_avg'
     overallQualFlag = 'TroposphericColumnFlag'
     cloudFrac = 'CloudFraction'
     solarZenithAngle = 'SolarZenithAngle'
@@ -155,8 +167,8 @@ class OMI_NO2_KNMI_HDF_v2_0_preFeb2006_filetype():
 
 class OMI_NO2_KNMI_HDF_v2_0_postFeb2006_filetype():
     parser = 'HDFknmiomil2'
-    parserParms = []
-    doutf = 'OMNO2e_netCDF_avg_out_func'
+    parserParms = {}
+    doutf = 'OMNO2e_netCDF_avg'
     overallQualFlag = 'TroposphericColumnFlag'
     cloudFrac = 'CloudFraction'
     solarZenithAngle = 'SolarZenithAngle'
