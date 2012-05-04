@@ -396,7 +396,7 @@ try:
     # add coindexed list indexer to dictionary first
     outParms[outFunc.__userKeys__] = getattr(gnomespice, 
                                      outFunc.__userKeys__).split(',')
-    print "The master key list is as follows:\n   {0}".format(outParms[outFunc.__userKeys__])
+    # print "The master key list is as follows:\n   {0}".format(outParms[outFunc.__userKeys__])
 
     for attr in parms:
         # Again, need to cast input to correct type, then add to dictionary
@@ -602,7 +602,7 @@ maps = [mapFunc(p, griddef, verbose) for p in parsers]
 
 # Construct output
 if verbose: print('creating outfiles '+str(datetime.datetime.now()))
-outputs = outFunc(outParms)(maps,griddef,outFileName, verbose)
+outputs = outFunc(outParms)(maps,griddef,outFileName,verbose,__version__)
 
 # eventually, we may want to do stuff to outputs, but for now...
 del(outputs)

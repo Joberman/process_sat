@@ -43,6 +43,9 @@ import netCDF4
 
 import utils
 
+def vsnmsg(version): 
+    return "This file was generated using WHIPS v{0}".format(version)
+
 def ValidOutfuncs():
     '''Return a list of valid output function names'''
     currentModule = sys.modules[__name__]
@@ -53,7 +56,7 @@ class out_func:
     '''Abstract class to for <>_out_geo classes'''
     def __init__(self, parmDict=None):
         self.parmDict = parmDict
-    def __call__(self, map_geo, griddef, outfilenames, verbose):
+    def __call__(self, map_geo, griddef, outfilenames, verbose, version):
         raise NotImplementedError
     @staticmethod
     def parm_list():
@@ -149,7 +152,7 @@ class OMONO2e_wght_avg_BORKED(out_func):
     # userKeys not necessary, so 'filler' field used instead
     __userKeys__ = "filetype"
 
-    def __call__(self, maps, griddef, outfilename, verbose):
+    def __call__(self, maps, griddef, outfilename, verbose, version):
 
         # function is broken until it can be refactored such that
         # _OMNO2e_func doesn't require totFlag.  Needs to have pixel
@@ -422,7 +425,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
     # variable signifying which list is to act as the master list index
     __userKeys__ = "inFieldNames"
 
-    def __call__(self, maps, griddef, outfilename, verbose):
+    def __call__(self, maps, griddef, outfilename, verbose, version):
         '''Write out a weighted-average file in netcdf format.'''
         #Make sure non-string parameters are in the correct format
         dimsizes = self.parmDict['extraDimSize']
@@ -573,6 +576,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
         outFid.createDimension('row', nRows)
         outFid.createDimension('col', nCols)
         # write global attributes
+        setattr(outFid, 'Version', vsnmsg(version))
         setattr(outFid, 'File_start_time', utils.nsecs_to_timestr(self.parmDict['timeStart'], '00:00:00 01-01-1993'))
         setattr(outFid, 'File_end_time', utils.nsecs_to_timestr(self.parmDict['timeStop'], '00:00:00 01-01-1993'))
         setattr(outFid, 'Max_valid_cloud_fraction', self.parmDict['cloudFractUpperCutoff'])
@@ -786,9 +790,9 @@ class wght_avg_netCDF(out_func):
         # confirm that each tuple is the same size
         tupsMatch = [len(l) == len(s) for (l,s) in izip(labelTups, sizeTups)]
         if not all(tupsMatch):
-            misMatch = [l+' does not match '+s for (l,s,m) in izip(labelTups,sizeTups,tupsMatch) if not m]
+            misMatch = [l + ' does not match ' + s for (l,s,m) in izip(labelTups,sizeTups,tupsMatch) if not m]
             msg = "All tuple-like strings must correspond to tuples of corresponding size. " \
-                "The following sets do not correspond: "+' '.join(misMatch)
+                "The following sets do not correspond: " + ' '.join(misMatch)
             raise ValueError(msg)
         # convert sizes to integers
         try:
@@ -824,7 +828,7 @@ class wght_avg_netCDF(out_func):
         for key in lists:
             self.parmDict[key] = dict(zip(inFnames, self.parmDict[key]))
         
-    def __call__(self, maps, griddef, outfilename, verbose):
+    def __call__(self, maps, griddef, outfilename, verbose, version):
         '''Write out a weighted-average file in netcdf format.'''
         
         # create a dictionary of numpy arrays that will hold the data for all 
@@ -911,7 +915,11 @@ class wght_avg_netCDF(out_func):
                         # create a slice object that will allow us to broadcast
                         # weights against the values
                         extraDims = self.parmDict['dimSizes'][field]
-                        nExtraDims = len(extraDims)
+                        # handle the special case where we put in 0 for extradims
+                        if len(extraDims) == 1 and extraDims == [0]:
+                            nExtraDims = 0
+                        else:
+                            nExtraDims = len(extraDims)
                         wghtSlice = [Ellipsis]+[numpy.newaxis]*nExtraDims
 
                         # handle special case where there were no pixels in
@@ -959,6 +967,7 @@ class wght_avg_netCDF(out_func):
         outFid.createDimension('col', nCols)
 
         # set global attributes
+        setattr(outFid, 'Version', vsnmsg(version))
         setattr(outFid, 'File_start_time', 
                 utils.nsecs_to_timestr(self.parmDict['timeStart'], 
                                        epoch='00:00:00 01-01-1993', 
