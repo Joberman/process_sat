@@ -396,6 +396,8 @@ try:
     # add coindexed list indexer to dictionary first
     outParms[outFunc.__userKeys__] = getattr(gnomespice, 
                                      outFunc.__userKeys__).split(',')
+    print "The master key list is as follows:\n   {0}".format(outParms[outFunc.__userKeys__])
+
     for attr in parms:
         # Again, need to cast input to correct type, then add to dictionary
         try:
@@ -429,9 +431,9 @@ try:
                 try:
                     outParms[attr] = getattr(gnomespice, attr).split(',')
                 except AttributeError:
-                    print "outFunc.__userKeys__ : {0}".format(outFunc.__userKeys__)
                     outParms[attr] = [getattr(gnomespice, attr)[el] for \
                                       el in outParms[outFunc.__userKeys__]]
+                    print "   {0}".format(outParms[attr])
             elif parms[attr][1] == 'listoflists':
                 try:
                     lists = getattr(gnomespice, attr).split(';')
@@ -505,12 +507,7 @@ try:
                     unitParms = unitParms + formerrmsg(attr, \
                                                        "a positive decimal")
             elif parms[attr][1] == 'list':
-                try:
-                    parserParms[attr] = getattr(gnomespice, attr).split(',')
-                except AttributeError:
-                    print "outFunc.__userKeys__ : {0}".format(outFunc.__userKeys__)
-                    parserParms[attr] = [getattr(gnomespice, attr)[el] for \
-                                      el in outParms[outFunc.__userKeys__]]
+                parserParms[attr] = getattr(gnomespice, attr).split(',')
             elif parms[attr][1] == 'listoflists':
                 try:
                     lists = getattr(gnomespice, attr).split(';')
