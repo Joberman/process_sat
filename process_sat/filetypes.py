@@ -23,8 +23,11 @@ listed in the ParserParms dictionary, and whips.py will
 require valid values for these arguments before processing
 files of this type. Entries in the ParserParms dictionary
 should follow the form
+
    'RequiredAttrName':("AttrDescription",'AttrCastType')
+
 where AttrCastType is one of the cast types for OutFuncAttrs
+
    [None, 'int', 'posint', 'decimal', 'posdecimal',
     'time', 'bool', 'list', 'listoflists']
 '''
@@ -38,7 +41,7 @@ class OMI_NO2_KNMI_HDF_v2_0_preFeb2006_filetype():
     solarZenithAngle = 'SolarZenithAngle'
     time = 'Time'
     longitude = 'Longitude'
-    pixIndXtrackAxis = '1'
+    pixIndXtrackAxis = 1
     outUnits = { 'AirMassFactor' : 'Unitless',
                  'AirMassFactorGeometric' : 'Unitless',
                  'AirMassFactorTropospheric' : 'Unitless',
@@ -174,7 +177,7 @@ class OMI_NO2_KNMI_HDF_v2_0_postFeb2006_filetype():
     solarZenithAngle = 'SolarZenithAngle'
     time = 'Time'
     longitude = 'Longitude'
-    pixIndXtrackAxis = '1'
+    pixIndXtrackAxis = 1
     outUnits = { 'AirMassFactor' : 'Unitless',
                  'AirMassFactorGeometric' : 'Unitless',
                  'AirMassFactorTropospheric' : 'Unitless',
