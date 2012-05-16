@@ -539,7 +539,17 @@ try:
                 except:
                     unitParms = unitParms + formerrmsg(attr, 
                                 "in the format " + format)
-                    
+            elif parms[attr][1] == "dirPath":
+                if getattr(gnomespice,attr) == 'none':
+                    parserParms[attr] = None
+                    continue
+                if not os.path.isdir(getattr(gnomespice,attr)):
+                    print "WARNING: {0} is not a valid directory for corner file "\
+                          "input.  If you are using regional intersect mapping, "\
+                          "this run may terminate unexpectedly".format(getattr(gnomespice, attr))
+                    parserParms[attr] = None
+                else:
+                    parserParms[attr] = getattr(gnomespice, attr)
             else:
                 parserParms[attr] = getattr(gnomespice, attr)
         except AttributeError:
@@ -568,11 +578,13 @@ files = [os.path.join(directory, f) for f in \
 parsers = []
 if verbose: print('getting parsers '+str(datetime.datetime.now()))
 badfile = gnomespice.interactive == 'True' and bad_file or bad_file_default
+
 for f in files:
     if verbose: print "Instantiating parser for file {0}".format(f)
     try:
         parser = parse_geo.get_parser(f, filetype, parserParms)
-    except(IOError):
+    except IOError as inst:
+        #        print "==\n{0}\n==".format(inst.args[0])
         if verbose: print "there was an IOError when instantiating parser"
         answer = badfile(f) # badfile() depends on --interactive
         if answer is 1:
@@ -581,6 +593,9 @@ for f in files:
             break
         elif answer is 3:
             raise SystemExit
+    except Exception as inst:
+        if verbose: print inst.args[0]
+        continue
     if verbose: print "parser appended successfully."
     parsers.append(parser)
 

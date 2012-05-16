@@ -312,24 +312,34 @@ class HDFknmiomil2_generic_filetype():
 class HDFnasaomil2_generic_filetype():
     parser = "HDFnasaomil2"
     doutf = "OMNO2e_netCDF_avg"
-    parserParms = {"cornerFile":("Absolute path to the file containing "\
-                                 "geolocation information for the four "\
-                                 "corners (OMPIXCOR).  Must be matched "\
-                                 "to the input file.  If you do not "   \
-                                 "want to use corners, set to any "     \
-                                 "string and use nearest neighbor "     \
-                                 "mapping.", "filePath")}
+    parserParms = {"cornerFileList":("To expedite file parsing time, the "   \
+                                     "list of files containing geolocation " \
+                                     "information for the four corners "     \
+                                     "(OMPIXCOR) may be passed in .  There " \
+                                     "must be one corner file for each of "  \
+                                     "the input files.", "list"),
+                   "cornerDir":("Path to the directory containing corner "\
+                                    "files with geolocation information for " \
+                                    "the four corners (OMPIXCOR). If you do " \
+                                    "not want to use corners, set to 'none'," \
+                                    "and use nearest neighbor mapping.",
+                                    "dirPath")}
 
-class OMI_NO2_NASA_HDF_V12_filetype():
+class OMI_NO2_NASA_HDF_v1_2_filetype():
     parser = "HDFnasaomil2"
     doutf = "OMNO2e_netCDF_avg"
-    parserParms = {"cornerFile":("Absolute path to the file containing "\
-                                 "geolocation information for the four "\
-                                 "corners (OMPIXCOR).  Must be matched "\
-                                 "to the input file.  If you do not "   \
-                                 "want to use corners, set to any "     \
-                                 "string and use nearest neighbor "     \
-                                 "mapping.", "filePath")}
+    parserParms = {"cornerFileList":("To expedite file parsing time, the "   \
+                                     "list of files containing geolocation " \
+                                     "information for the four corners "     \
+                                     "(OMPIXCOR) may be passed in .  There " \
+                                     "must be one corner file for each of "  \
+                                     "the input files.", "list"),
+                   "cornerDir":("Path to the directory containing corner "\
+                                    "files with geolocation information for " \
+                                    "the four corners (OMPIXCOR). If you do " \
+                                    "not want to use corners, set to 'none'," \
+                                    "and use nearest neighbor mapping.", 
+                                    "dirPath")}
     overallQualFlag = 'vcdQualityFlags'
     cloudFrac = 'CloudFraction'
     solarZenithAngle = 'SolarZenithAngle'
