@@ -547,12 +547,14 @@ class HDFnasaomil2_File(HDFFile):
     The keys to retrieve variables are the names of the variables within actual
     files.  Note that the NASA product documentation has the wrong name for 
     the "SlantColumnAmountH20Std" variable due to a case typo.
+
+    Does not support the fields "UnpolFldCoefficients" or "SmallPixelRadiance"
+    because the dimensionality of these fields changes between files and there
+    is no way to deal with fields with variable dimension size in the current 
+    framework.
     """
     def __init__(self, filename, subtype='', extension=None, cornerFile=None):
         HDFFile.__init__(self, filename, subtype, extension)
-        # check if the corner file exists
-        if not os.path.exists(cornerFile):
-            raise IOError("The spcecified corner file {0} did not exist".format(cornerFile))
         self.pixCorners = cornerFile
         
     __dataPath = '/HDFEOS/SWATHS/ColumnAmountNO2/Data Fields/'
@@ -620,7 +622,6 @@ class HDFnasaomil2_File(HDFFile):
                     'TerrainReflectivity' : __dataPath+'TerrainReflectivity',
                     'TropFractionUnpolluted' : __dataPath+'TropFractionUnpolluted',
                     'TropFractionUnpollutedStd' : __dataPath+'TropFractionUnpollutedStd',
-                    'UnpolFldCoefficients' : __dataPath+'UnpolFldCoefficients',
                     'UnpolFldLatBandQualityFlags' : __dataPath+'UnpolFldLatBandQualityFlags',
                     'WavelengthRegistrationCheck' : __dataPath+'WavelengthRegistrationCheck',
                     'WavelengthRegistrationCheckStd' : __dataPath+'WavelengthRegistrationCheckStd',
@@ -645,7 +646,6 @@ class HDFnasaomil2_File(HDFFile):
                   'MeasurementQualityFlags' : lambda var, ind: var[ind[0]],
                   'WavelengthRegistrationCheck' : lambda var, ind: var[ind[0], :],
                   'WavelengthRegistrationCheckStd' : lambda var, ind: var[ind[0], :],
-                  'UnpolFldCoefficients' : lambda var, ind: var[:],
                   'UnpolFldLatBandQualityFlags' : lambda var, ind: var[:],
                   'Time' : lambda var, ind: var[ind[0]],
                   'SpacecraftLatitude' : lambda var, ind: var[ind[0]],
