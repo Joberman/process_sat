@@ -27,6 +27,7 @@ The returned dictionary must be formatted as follows:
 import sys
 from itertools import izip
 import datetime
+import pdb
 
 import map_helpers
 
@@ -40,7 +41,7 @@ def ValidMaps():
     names = dir(currentModule)
     return [el[:-8] for el in names if el.endswith("_map_geo")]
 
-def global_intersect_UNTESTED_map_geo(parser, griddef, verbose=True):
+def global_intersect_map_geo(parser, griddef, verbose=True):
     '''
     For each pixel, find all gridcells that it intersects
 
@@ -50,6 +51,12 @@ def global_intersect_UNTESTED_map_geo(parser, griddef, verbose=True):
     This function is designed to handle grids that span 
     the entire globe, with the cyclic point (the point 
     where longitude "wraps") ocurring at index [*,0]
+
+    The function assumes that the projection performs the wrapping.  
+    IE any pixels east of the far east edge of the domain will be
+    on the west side of the projection.  The function will NOT
+    automatically wrap pixels that fall off the east/west edges
+    of the projection.
 
     Assumptions:
         - Straight lines in projected space adequately 
@@ -85,15 +92,13 @@ def global_intersect_UNTESTED_map_geo(parser, griddef, verbose=True):
     if verbose: print('Intersecting pixels')
     # create the appropriate pixel(s) depending on whether
     # the pixels span the cyclic point
-    minRow = griddef.indLims()[0]
-    maxRow = griddef.indLims()[1]
     minCol = griddef.indLims()[2]
-    maxCol = griddef.indLims()[3]
+    maxCol = griddef.indLims()[3] + 1
     midCol = (minCol+maxCol)/2.0
     for (pxrow, pxcol, pxind) in izip(row, col, ind):
         pointsTup = zip(pxrow, pxcol)
         prelimPoly = geom.MultiPoint(pointsTup).convex_hull
-        (bbLeft, bbBot, bbRight, bbTop) = prelimPoly.bounds
+        (bbBot, bbLeft, bbTop, bbRight) = prelimPoly.bounds
         if bbLeft < midCol and bbRight > midCol:
             pointsLeft = [ (r,c) for (r,c) in pointsTup if c < midCol]
             pointsRight = [ (r,c) for (r,c) in pointsTup if c >= midCol]
@@ -113,9 +118,9 @@ def global_intersect_UNTESTED_map_geo(parser, griddef, verbose=True):
         for poly in pixPolys:
             for key in gridPolys.iterkeys():
                 if prepPolys[key].intersects(poly) and not gridPolys[key].touches(poly):
-                    map[key].append((tuple(pxInd), None))
-        if verbose: print('Done intersecting.')
-        return map
+                    map[key].append((tuple(pxind), None))
+    if verbose: print('Done intersecting.')
+    return map
 
     
 def regional_intersect_map_geo(parser, griddef, verbose=True):

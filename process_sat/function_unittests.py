@@ -783,10 +783,10 @@ class TestNASAOmiL2Parser(TestParser):
                           'AMFPollutedToGroundStd', 'CloudFraction', 'CloudFractionStd', 
                           'CloudRadianceFraction', 'CloudPressure', 'CloudPressureStd',
                           'TerrainReflectivity', 'TerrainPressure', 'TerrainHeight', 
-                          'SmallPixelRadiance', 'SmallPixelRadiancePointer', 'InstrumentConfigurationId',
+                          'SmallPixelRadiancePointer', 'InstrumentConfigurationId',
                           'MeasurementQualityFlags', 'FitQualityFlags', 'AMFQualityFlags', 
                           'WavelengthRegistrationCheck', 'WavelengthRegistrationCheckStd', 
-                          'UnpolFldCoefficients', 'UnpolFldLatBandQualityFlags', 'vcdQualityFlags',
+                          'UnpolFldLatBandQualityFlags', 'vcdQualityFlags',
                           'Time', 'Latitude', 'Longitude', 'SpacecraftLatitude',
                           'SpacecraftLongitude', 'SpacecraftAltitude', 'SolarZenithAngle',
                           'SolarAzimuthAngle', 'ViewingZenithAngle', 'ViewingAzimuthAngle',
@@ -932,7 +932,7 @@ class TestNASAOmiL2GetGeoCorners(unittest.TestCase):
         dir = os.path.dirname(__file__)
         self.fname = os.path.join(dir, 'sample_data', 'ominasal2sample.hdf')
         self.cornerName = os.path.join(dir, 'sample_data', 'ominasacornersample.hdf')
-        parser = parse_geo.HDFnasaomil2_File(self.fname, pixCornerFname=self.cornerName)
+        parser = parse_geo.HDFnasaomil2_File(self.fname, cornerFile=self.cornerName)
         self.geoarray = parser.get_geo_corners()
         
     def test_corners_have_correct_fields(self):
@@ -986,9 +986,13 @@ class TestNASAOmiL2GetGeoCorners(unittest.TestCase):
         self.assertRaises(IOError, newParser.get_geo_corners)
         
     def test_closes_cornerfile_when_done(self):
+        # The behavior of pytables is consistent within each
+        # version but varies from version to version.  Therefore
+        # we test above ane ensure we are getting the desired
+        # behavior
         closes_all = does_pytables_close_all(self.fname)
         fid = tables.openFile(self.cornerName, 'r')
-        parser = parse_geo.HDFnasaomil2_File(self.fname, pixCornerFname=self.cornerName)
+        parser = parse_geo.HDFnasaomil2_File(self.fname, cornerFile=self.cornerName)
         unused_geoarray = parser.get_geo_corners()
         if closes_all:
             self.assertFalse(fid.isopen)
@@ -1950,8 +1954,165 @@ class Test_point_in_cell(TestMapGeo):
         self.testMapDict[(3,4)] = [((1,0), None)]
         self.testMapDict[(4,2)] = [((1,1), None)]
         self.assertMapsEqual(self.mapper)
-        
-        
+
+class Test_global_intersect(TestMapGeo):
+
+    def setUp(self):
+        TestMapGeo.setUp(self)
+        self.mapper = getattr(map_geo, 'global_intersect_map_geo')
+
+    def test_single_pix_inside_cell(self):
+        lat = numpy.array([[1.1, 1.1, 1.8, 1.8]])
+        lon = numpy.array([[2.1, 2.8, 2.8, 2.1]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(1,2)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+
+    def test_mult_pix_inside_multiple_cells(self):
+        lat = numpy.array([[1.1, 1.1, 1.8, 1.8],
+                           [2.1, 2.1, 2.8, 2.8]])
+        lon = numpy.array([[2.1, 2.8, 2.8, 2.1],
+                           [7.1, 7.8, 7.8, 7.1]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(1,2)] = [((0,), None)]
+        self.testMapDict[(2,7)] = [((1,), None)]
+        self.maxDiff = None
+        self.assertMapsEqual(self.mapper)
+
+    def test_mult_pix_inside_single_cell(self):
+        lat = numpy.array([[1.1, 1.1, 1.8, 1.8],
+                           [1.2, 1.2, 1.7, 1.7]])
+        lon = numpy.array([[2.1, 2.8, 2.8, 2.1],
+                           [2.2, 2.7, 2.7, 2.2]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(1,2)] = [((0,), None), ((1,), None)]
+        self.maxDiff = None
+        self.assertMapsEqual(self.mapper)
+
+    def test_pixel_in_multiple_cells(self):
+        lat = numpy.array([[2.5, 2.5, 3.5, 3.5]])
+        lon = numpy.array([[1.5, 2.5, 2.5, 1.5]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(2,1)] = [((0,), None)]
+        self.testMapDict[(2,2)] = [((0,), None)]
+        self.testMapDict[(3,1)] = [((0,), None)]
+        self.testMapDict[(3,2)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+
+    def test_pixel_on_lower_edge(self):
+        lat = numpy.array([[-0.5, -0.5, 0.5, 0.5]])
+        lon = numpy.array([[5.1, 5.5, 5.5, 5.1]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(0, 5)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+
+    def test_pixel_on_upper_edge(self):
+        lat = numpy.array([[4.5, 4.5, 5.5, 5.5]])
+        lon = numpy.array([[7.1, 7.6, 7.6, 7.1]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(4,7)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+
+    def test_rejects_exterior_pixels(self):
+        lat = numpy.array([[5.5, 5.5, 6.5, 6.5],
+                           [2.5, 2.5, 3.5, 3.5],
+                           [-1.5, -1.5, -0.5, -0.5],
+                           [2.5, 2.5, 3.5, 3.5],
+                           [-1.5, -1.5, -0.5, -0.5]])
+        lon = numpy.array([[3.5, 4.5, 4.5, 3.5],
+                           [11.5, 12.5, 12.5, 11.5],
+                           [3.5, 4.5, 4.5, 3.5],
+                           [-1.5, -0.5, -0.5, -1.5],
+                           [-1.5, -0.5, -0.5, -1.5]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.assertMapsEqual(self.mapper)
+
+    def test_pixel_on_right_edge(self):
+        lat = numpy.array([[3.3, 3.3, 3.6, 3.6]])
+        lon = numpy.array([[9.1, 10.0, 10.0, 9.1]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(3,9)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+
+    def test_pixel_on_left_edge(self):
+        lat = numpy.array([[3.3, 3.3, 3.6, 3.6]])
+        lon = numpy.array([[0.0, 0.4, 0.4, 0.0]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(3,0)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+
+    def test_continuous_pixel_spanning_mid(self):
+        lat = numpy.array([[1.1, 1.1, 1.7, 1.7]])
+        lon = numpy.array([[4.8, 5.3, 5.3, 4.8]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(1,4)] = [((0,), None)]
+        self.testMapDict[(1,5)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+
+    def test_discontinuous_pixel_2_cells(self):
+        lat = numpy.array([[0.2, 0.2, 0.8, 0.8]])
+        lon = numpy.array([[9.8, 0.2, 0.2, 9.8]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(0,9)] = [((0,), None)]
+        self.testMapDict[(0,0)] = [((0,), None)]
+        self.maxDiff = None
+        self.assertMapsEqual(self.mapper)
+
+    def test_discontinuous_pixel_vertical_slant(self):
+        lat = numpy.array([[3.1, 3.6, 2.9, 2.4]])
+        lon = numpy.array([[9.3, 9.3, 0.7, 0.7]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(2,9)] = [((0,), None)]
+        self.testMapDict[(3,9)] = [((0,), None)]
+        self.testMapDict[(2,0)] = [((0,), None)]
+        self.testMapDict[(3,0)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+
+    def test_discontinuous_pixel_3_1_split(self):
+        lat = numpy.array([[1.1, 1.5, 1.9, 1.5]])
+        lon = numpy.array([[0.2, 0.7, 0.2, 9.7]])
+        ind = numpy.array([[ind] for ind in range(lat.shape[0])])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(1,0)] = [((0,), None)]
+        self.testMapDict[(1,9)] = [((0,), None)]
+        self.assertMapsEqual(self.mapper)
+
+    def test_2D_index(self):
+        lat = numpy.array([[2.1, 2.1, 2.4, 2.4]])
+        lon = numpy.array([[7.1, 7.4, 7.4, 7.1]])
+        ind = numpy.array([[3,2,1]])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(2,7)] = [((3,2,1), None)]
+        self.assertMapsEqual(self.mapper)
+
+    def test_3D_array_of_pixels(self):
+        lat = numpy.array([[[1.4, 1.4, 1.6, 1.6], [1.4, 1.4, 1.6, 1.6], [1.4, 1.4, 1.6, 1.6]], 
+                           [[0.4, 0.4, 0.6, 0.6], [0.4, 0.4, 0.6, 0.6], [0.4, 0.4, 0.6, 0.6]]])
+        lon = numpy.array([[[0.3, 0.7, 0.7, 0.3], [1.3, 1.7, 1.7, 1.3], [2.3, 2.7, 2.7, 2.3]], 
+                           [[0.3, 0.7, 0.7, 0.3], [1.3, 1.7, 1.7, 1.3], [2.3, 2.7, 2.7, 2.3]]])
+        ind = numpy.array([[[1], [2], [3]],
+                           [[4], [5], [6]]])
+        self.parser.prime_corners(lat, lon, ind)
+        self.testMapDict[(0,0)] = [((4,), None)]
+        self.testMapDict[(1,0)] = [((1,), None)]
+        self.testMapDict[(0,1)] = [((5,), None)]
+        self.testMapDict[(0,2)] = [((6,), None)]
+        self.testMapDict[(1,1)] = [((2,), None)]
+        self.testMapDict[(1,2)] = [((3,), None)]
+        self.assertMapsEqual(self.mapper)
+
 class TestUtils(unittest.TestCase):
     
     
@@ -4173,9 +4334,10 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
         expected[2] = self.pDict['fillVal']
         numpy.testing.assert_array_almost_equal(self.fid.variables['threeDnorm'][1,2,:].filled(), expected)
 
+
 '''
 if __name__ == '__main__':
-    foo = '__main__.TestKnmiOmiL2GetGeoCenters.test_get_cm_closes_when_done'
+    foo = '__main__.Test_global_intersect.test_mult_pix_inside_multiple_cells'
     suite = unittest.defaultTestLoader.loadTestsFromName(foo)
     unittest.TextTestRunner(verbosity=2).run(suite)
 '''
