@@ -71,8 +71,8 @@ operators at http://nco.sourceforge.net/ if you're using a netCDF
 output format) and carry on!  
 
 
-EXAMPLE/TEMPLATE INVOCATIONS
-============================
+CALLING WHIPS DIRECTLY FROM THE COMMAND LINE
+============================================
 
 For clarity and readability, line continuation characters are used to
 place each attribute on a separate line.  It is not required to break
@@ -83,70 +83,61 @@ multple lines you must use line-continuation characters.
 1. Process MOPITT level 2 CO data, (Version 5) 
 ----------------------------------------------
 
-     - Processes a single file
      - Uses a 36km lambert conic conformal grid centered over North
      America
      - Writes out a 2D, 3D, and 4D parameter from the file
 
-
-     whips.py \
-     --directory /path/to/input/files/ \
-     --filetype HDFmopittl2 \
-     --fileList MOP02T-20050106-L2V10.1.1.prov.hdf \
-     --gridProj lcc2par \
-     --projAttrs xOrig:-2916000 yCell:36000 refLon:-97 refLat:40 \
-     nCols:162 nRows:126 stdPar2:45 stdPar1:33 xCell:36000 \
-     earthRadius:6370000 yOrig:-2268000\
-     --mapFunc point_in_cell \
-     --outFuncAttrs time:Time longitude:Longitude \
-     "inFieldNames:Time,Retrieved CO Mixing Ratio Profile,Retrieved CO Surface Mixing Ratio" \
-     outFieldNames:time,COprof,COsurf outUnits:TAI93,ppbv,ppbv \
-     logNormal:False,True,True "dimLabels:;layer,valOrStdDev;valOrStdDev" \
-     "dimSizes:;9,2;2" "timeStart:00:00:00_01-06-2005" \
-     "timeStop:23:59:59_01-06-2005" timeComparison:UTC \
-     fillVal:-9999.0 \
-     solZenAngCutoff:85 \
-     "solZenAng:Solar Zenith Angle" dayTime:True \
-     "surfTypeField:Surface Index" \
-     "colMeasField:Retrieved CO Mixing Ratio Profile" \
-     --outDirectory /path/to/output/directory/ \
-     --outFileName MOPITT_v5_20050106_daytime_CONUS36km_test.nc \
-     --verbose True \
-     --interactive True
+       whips.py --directory /where/you/have/input/files \
+         --fileList MOP02T-20050101-L2V10.1.1.prov.hdf \
+	 --filetype MOPITT_CO_NASA_HDF_V5 
+	 --gridProj lcc2par \
+	 --mapFunc point_in_cell \
+    	 --outDirectory /where/you/want/output \
+    	 --outFileName descriptive_name.nc \
+	 --verbose True \
+	 --interactive True \
+	 --projAttrs xOrig:-2916000 yCell:36000 \
+	 refLon:-97 refLat:40 nCols:162 nRows:126 stdPar2:45 \
+	 stdPar1:33 xCell:36000 earthRadius:6370000 yOrig:-2268000 \
+	 "inFieldNames:Time,Retrieved CO Mixing Ratio Profile,Retrieved CO Surface Mixing Ratio" \
+	 outFieldNames:time,COprof,COsurf logNormal:False,True,True \
+	 timeStart:00:00:00_01-01-2005 timeStop:23:59:59_01-01-2005 \
+	 timeComparison:UTC fillVal:-9999.0 \
+	 solZenAngCutoff:85 dayTime:True 
 
 2. Process OMI level 2 DOMINO NO2 data, (Version 2) 
 ---------------------------------------------------
 
-     - Processes any number of files
      - Uses a 36km lambert conic conformal grid centered over North
      America
      - Writes out a 2D, and 3D parameter from the file
 
+       whips.py \
+       	--directory /where/you/have/input/files \
+    	--filetype OMI_NO2_KNMI_HDF_v2_0_postFeb2006 \
+	--fileList OMI-Aura_L2-OMDOMINO_2011m0901t1502-o37926_v003-2011m1012t121342.he5 \
+	OMI-Aura_L2-OMDOMINO_2011m0901t1641-o37927_v003-2011m1012t121458.he5 \
+	OMI-Aura_L2-OMDOMINO_2011m0901t1820-o37928_v003-2011m1012t121613.he5 \
+    	--gridProj lcc2par \
+	--mapFunc regional_intersect \
+	--outDirectory /where/you/want/output
+    	--outFileName some_descriptive_name.nc 
+	--verbose True \
+	--interactive False \
+	--projAttrs xOrig:-48 yCell:36 refLon:-97 refLat:40 \
+	nCols:30 nRows:32 stdPar2:45 stdPar1:33 xCell:36 \
+	earthRadius:6370 yOrig:-552 
+	inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
+	outFieldNames:time,avKern,tropVCD \
+	timeStart:00:00:00_09-01-2011 \
+	timeStop:23:59:59_09-01-2011 timeComparison:UTC \
+	fillVal:-9999 cloudFractUpperCutoff:0.3 \
+	solarZenAngUpperCutoff:85 
 
-     whips.py \
-     --directory /where/you/keep/the/files/ \
-     --filetype HDFknmiomil2 \
-     --fileList OMI-Aura_L2-OMDOMINO_2006m0701t0023-o10423_v003-2010m1008t224420.he5 \
-       OMI-Aura_L2-OMDOMINO_2006m0701t0112-o10424_v003-20120m1008t224845.he5 \
-     --gridProj lcc2par \
-     --projAttrs xOrig:-2916000 yCell:36000 refLon:-97 refLat:40 \
-       nCols:162 nRows:126 stdPar2:45 stdPar1:33 xCell:36000 \
-       earthRadius:6370000 yOrig:-2268000 \
-     --mapFunc regional_intersect \
-     --outFuncAttrs overallQualFlag:TroposphericColumnFlag cloudFrac:CloudFraction \
-       solarZenithAngle:SolarZenithAngle time:Time longitude:Longitude \
-       inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
-       outFieldNames:time,avKern,tropVCD \
-       "outUnits:TAI93,unitless x 1000,molec/cm^2x1^-15" extraDimLabel:none,Layers,none \
-       extraDimSize:0,34,0 timeStart:00:00:00_07-01-2006 timeStop:23:59:59_07-01-2006 \
-       timeComparison:UTC fillVal:-9999 cloudFractUpperCutoff:0.3 \
-       solarZenAngUpperCutoff:85 pixIndXtrackAxis:1 \
-     --outDirectory /where/you/want/output \
-     --outFileName OMI_DOMINO_20060701_test.nc \
-     --includeGrid OMI_DOMINO_GridFileName.nc \
-     --verbose True \
-     --interactive True
-     
+3. Process OMI level 2 NASA NO2 data (Version 1.2)
+--------------------------------------------------
+
+	
 
 PARAMETER DETAILS
 =================

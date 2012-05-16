@@ -553,9 +553,9 @@ class HDFnasaomil2_File(HDFFile):
     is no way to deal with fields with variable dimension size in the current 
     framework.
     """
-    def __init__(self, filename, subtype='', extension=None, cornerFile=None):
+    def __init__(self, filename, subtype='', extension=None, cornerFile=None, cornerDir=None):
         HDFFile.__init__(self, filename, subtype, extension)
-        self.pixCorners = cornerFile
+        self.pixCorners = os.path.join(cornerDir, cornerFile)
         
     __dataPath = '/HDFEOS/SWATHS/ColumnAmountNO2/Data Fields/'
     __geoPath = '/HDFEOS/SWATHS/ColumnAmountNO2/Geolocation Fields/'
