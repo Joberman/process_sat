@@ -225,6 +225,7 @@ def parse_filetype(namespace):
     to add associated parameters to namespace 
     '''
     filetype = getattr(filetypes, namespace.filetype + "_filetype")
+    printfiletype = namespace.filetype
     wng = ""
 
     for attr in dir(filetype):
@@ -239,7 +240,7 @@ def parse_filetype(namespace):
                 wng += "Warning: Value {0} supplied for attribute {1} " \
                       "has been ignored. Filetype {2} does not support "\
                       "custom values for this parameter.\n".format(\
-                      getattr(namespace, attr), attr, namespace.filetype)
+                      getattr(namespace, attr), attr, printfiletype)
             except AttributeError:
                 pass
             setattr(namespace, attr, getattr(filetype, attr))
