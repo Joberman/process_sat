@@ -728,7 +728,7 @@ function you want to use.
 			  - grid is rectilinear in projected space
 			  - Pixels are convex polygons
 		
-  --outFunc {OMNO2e_netCDF_avg,OMNO2e_wght_avg,unweighted_filtered_MOPITT_avg_netCDF}
+  --outFunc {OMNO2e_netCDF_avg,unweighted_filtered_MOPITT_avg_netCDF}
   	REQUIRED: NO
 	DEFAULT: Depends on the value chose for --filetype
 	- The function that computes the output and writes the output
@@ -774,35 +774,6 @@ function you want to use.
 			  - Invalid pixels are marked with an overall
 		 	  quality flag.
 			  - Timestamps are in the TAI93 format.
-			
-			
-		 OMNO2e_wght_avg - Weighted averaging algorithm based
-		 	on the NASA algorithm used to process OMI from
-		 	level 2 to level 3.  Designed for the OMI
-		 	level 2 filetypes (currently HDFnasaomil2 and
-		 	HDFknmiomil2) but is NOT the default for those
-			filetypes.  Use with other filetypes is of
-		 	questionable utility.
-
-			Outputs results to a CSV file.  Does
-			not filter based on time as OMNO2e_netcdf_avg
-			does.
-
-			CSV file is designed such that if it is put
-			into an array from top left to bottom right,
-			the indices of the values will be correct.
-
-			Further details available in the official NASA
-			documentation located at
-			<http://disc.sci.gsfc.nasa.gov/Aura/data-holdings/OMI/omno2e_v003.shtml>
-			
-			Assumptions:
-			- Data is 2 dimensional
-			- Invalid pixels are marked with an overall
-			quality flag
-			- Timestamps within the file should be in the
-			TAI-93 standard
-			
 
 		 unweighted_filtered_MOPITT_avg_netCDF - Averaging
 		 	algorithm based on the NASA algorithm for
@@ -832,6 +803,7 @@ function you want to use.
 			  specified column field.  Including 2D
 			  fields.
 			  - Timestamps are in the TAI93 format.
+
 
 
   --outFuncAttrs name1:value1 name2:value2
@@ -957,42 +929,6 @@ function you want to use.
 				construction of the parser function.  
 				If you rewrite the parser, check 
 				this).
-			fillVal - The value to use as a fill value in
-				the output netCDF file.  This value
-				will replace any missing or invalid
-				output values.
-			
-		OMNO2e_wght_avg -
-			toAvg - The name of the field to be averaged
-			overallQualFlag - The name of the field
-				containing the overall quality flag
-				for the pixels.  Flag should be true (1)
-				for invalid pixels and false (0) for
-				valid pixels.
-				{ OMI KNMI - TroposphericColumnFlag
-				  OMI NASA - vcdQualityFlags }
-			cloudFrac - The name of the field containing
-				the cloud fraction.
-				{ OMI KNMI - CloudFraction
-				  OMI NASA - CloudFraction }
-			solarZenithAngle - The name of the field
-				containing the solar zenith angles.
-				{ OMI KNMI - SolarZenithAngle
-				  OMI NASA - SolarZenithAngle }
-			cloudFractUpperCutoff - The maximum cloud
-				fraction to allow before excluding
-				pixel from average.  Suggested value
-				from NASA is 0.3
-			solarZenAngUpperCutoff - The maximum solar
-				zenith angle to allow before excluding
-				pixel from average.  Suggested value
-				from NASA is 85.  Must be in degrees.
-			pixIndXtrackAxis - The dimension order (0
-				based) of the "cross-track" dimension
-				(whichever dimension has size 60).
-				For all currently known cases should
-				be 1 (may change in future versions of
-				OMI products).
 			fillVal - The value to use as a fill value in
 				the output netCDF file.  This value
 				will replace any missing or invalid

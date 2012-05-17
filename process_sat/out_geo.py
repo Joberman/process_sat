@@ -76,8 +76,9 @@ class invalidPixCeption(Exception):
 tai93conv = lambda(timestring):utils.timestr_to_nsecs(timestring, 
                                '00:00:00_01-01-1993', '%H:%M:%S_%m-%d-%Y')
 
+# currently borked.  No immediate plans to fix
 #class OMNO2e_wght_avg_out_func(out_func):
-class OMONO2e_wght_avg_BORKED(out_func): 
+class OMNO2e_wght_avg_BORKED(out_func): 
     '''
     Weighted avg based on OMNO2e algorithm
 
