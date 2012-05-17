@@ -5,3 +5,4 @@ v<1.0.3>, <3/14/2012> -- Updated licence and acknowledgement policy.
 v<1.0.4>, <3/23/2012> -- Fixed bug in OMI NO2 processing. WHIPS now supports running based on an input textfile.
 v<1.0.5>, <3/26/2012> -- Degenerate case (1x1 grid) was broken for one of the outFuncs.  Fixed.
 v<1.0.6>, <4/13/2012> -- Added Version flag, more specific filetype support
+v<1.1.0>, <5/17/2012> -- New filetypes interface implemented and tested. 

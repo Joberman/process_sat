@@ -1,7 +1,7 @@
 PROJECT TITLE: WHIPS
 PURPOSE OF PROJECT: Provide a well-documented, easy-to-use general-purpose
                     processing module for processing satellite data
-VERSION: 1.0.5 (3/26/2012)
+VERSION: 1.1.0 (05/17/12)
 AUTHORS: oberman, maki, strom
 CONTACT: oberman@wisc.edu
 
@@ -42,7 +42,6 @@ folder where your python packages live.  Invoke it as:
      
      whips.py --help
 
-
 4. Follow the on-screen instructions, adding each of the required
 parameters.  If you need help with the projection attributes or the
 output function attributes, invoke the built-in help as:
@@ -71,8 +70,16 @@ operators at http://nco.sourceforge.net/ if you're using a netCDF
 output format) and carry on!  
 
 
-CALLING WHIPS DIRECTLY FROM THE COMMAND LINE
+INVOKING WHIPS - METHOD 1
 ============================================
+Calling directly from the command line
+--------------------------------------------
+
+There are two primary methods of running whips.  The first method
+is to give whips all the information and settings it needs as flags
+in a single command line call.  The calls become very long; typing
+them in by hand is therefore inadvisible.  The script can easily
+be batch run by building the call in a script.
 
 For clarity and readability, line continuation characters are used to
 place each attribute on a separate line.  It is not required to break
@@ -80,7 +87,7 @@ up attributes like this, but the command line needs to see the
 invocation as a single command, so if you want to break it onto
 multple lines you must use line-continuation characters.
 
-1. Process MOPITT level 2 CO data, (Version 5) 
+1A. Process MOPITT level 2 CO data, (Version 5) 
 ----------------------------------------------
 
      - Uses a 36km lambert conic conformal grid centered over North
@@ -105,7 +112,7 @@ multple lines you must use line-continuation characters.
 	 timeComparison:UTC fillVal:-9999.0 \
 	 solZenAngCutoff:85 dayTime:True 
 
-2. Process OMI level 2 DOMINO NO2 data, (Version 2) 
+2A. Process OMI level 2 DOMINO NO2 data, (Version 2) 
 ---------------------------------------------------
 
      - Uses a 36km lambert conic conformal grid centered over North
@@ -134,10 +141,239 @@ multple lines you must use line-continuation characters.
 	fillVal:-9999 cloudFractUpperCutoff:0.3 \
 	solarZenAngUpperCutoff:85 
 
-3. Process OMI level 2 NASA NO2 data (Version 1.2)
+3A. Process OMI level 2 NASA NO2 data (Version 1.2)
 --------------------------------------------------
 
-	
+      - uses a 36 km lambert conic conformal grid
+      - writes out 2 fields to an output file
+      - looks at all the cornerfiles in the directory
+
+      whips.py \
+        --directory /where/you/have/input/files \
+        --filetype HDFnasaomil2_generic \
+	--gridProj lcc2par \
+	--mapFunc regional_intersect \
+    	--outDirectory /where/you/want/output \ 
+	--outFileName nasaout 
+	--verbose True 
+	--interactive False 
+	--projAttrs cornerDir:/directery/where/you/keep/cornerfiles \
+	  cornerFile: \
+	  stdPar1:33 stdPar2:45 refLat:40 refLon:-97 xOrig:-2916000
+	  yOrig:-2268000 xCell:36000 yCell:36000 \
+	  nRows:126 nCols:162 earthRadius:6370000 \
+	  inFieldNames:ColumnAmountNO2Trop,Time \
+    	  outFieldNames:tropVCD,time \
+	  timeComparison:local timeStart:00:00:00_04-30-2011 \
+	  timeStop:23:59:59_04-30-2011 cloudFractUpperCutoff:.3 \
+	  solarZenAngUpperCutoff:85 fillVal:-9999.0 
+
+
+INVOKING WHIPS - METHOD 2
+============================================
+Using a formatted input file
+--------------------------------------------
+
+The second method of running WHIPS is to specify all the options
+and information it needs in a specially-formatted input file.  The
+command line call then consists only of specifying the location of
+the input file WHIPS should read from.  
+
+Below is an explanatory example of the format:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+FAKE INPUT FILE
+
+BEGIN
+
+. This line begins with a period.  That means it is a comment
+. Comments will be ignored by WHIPS when processing the file
+
+. All required flags must be specified with the flag name
+. and the desired value.  These flags must be in capital case.
+. All possible flags (including optional flags) shown below:
+
+DIRECTORY = /where/you/had/your/input/files
+FILETYPE = some_file_type
+GRIDPROJ = some_grid_projection
+MAPFUNC = some_map_function
+OUTDIRECTORY = /where/you/want/output/files
+OUTFILENAME = name_of_output_file
+VERBOSE = True_or_False
+INTERACTIVE = True_or_False
+OUTFUNC = some_output_function
+
+. Projection and output function attributes are specified
+. the same as flags.  Just as with the command line call, 
+. the correct attributes must be present or the program
+. will exit.
+
+stdPar1 = 33
+
+inFieldNames = ColumnAmountNO2Trop,Time
+
+. Note that unlike with the command line call, quotations are
+. not needed when whitespace is part of an attribute value
+
+outUnits = Molecules cm^-2,seconds since epoch
+
+. You can specify parameters in any order. This includes 
+. intermixing attributes and flags
+
+time = Time
+OUTFILENAME = whatever_we_want
+
+. Files must begin with BEGIN and end with END
+
+END
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The examples below are equivalent to their counterparts 
+above in the section on method 1.
+
+1B. Process MOPITT level 2 CO data, (Version 5) 
+----------------------------------------------
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+BEGIN
+
+DIRECTORY = /where/you/have/input/files
+FILELIST =  MOP02T-20050101-L2V10.1.1.prov.hdf 
+FILETYPE = MOPITT_CO_NASA_HDF_V5 
+GRIDPROJ = lcc2par 
+MAPFUNC =  point_in_cell 
+VERBOSE = True 
+INTERACTIVE = True
+
+. Projection Attributes 
+xOrig = -2916000
+yCell = 36000 
+refLon = -97 
+refLat = 40 
+nCols = 162 
+nRows = 126 
+stdPar2 = 45 
+stdPar1 = 33 
+xCell = 36000 
+earthRadius = 6370000 
+yOrig = -2268000 
+
+. output function attributes
+inFieldNames = Time,Retrieved CO Mixing Ratio Profile,Retrieved CO Surface Mixing Ratio
+outFieldNames = time,COprof,COsurf 
+logNormal = False,True,True 
+timeStart = 00:00:00_01-01-2005 
+timeStop = 23:59:59_01-01-2005 
+timeComparison = UTC 
+fillVal = -9999.0
+solZenAngCutoff = 85 
+dayTime = True 
+
+OUTDIRECTORY =  /where/you/want/output 
+OUTFILENAME = descriptive_name.nc 
+
+END
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+whips.py --inFromFile nameOfAboveFile.txt
+
+
+2B. Process OMI level 2 DOMINO NO2 data, (Version 2) 
+---------------------------------------------------
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+BEGIN
+
+DIRECTORY = /where/you/have/input/files 
+FILETYPE =  OMI_NO2_KNMI_HDF_v2_0_postFeb2006 
+FILELIST =  OMI-Aura_L2-OMDOMINO_2011m0901t1502-o37926_v003-2011m1012t121342.he5,OMI-Aura_L2-OMDOMINO_2011m0901t1641-o37927_v003-2011m1012t121458.he5,OMI-Aura_L2-OMDOMINO_2011m0901t1820-o37928_v003-2011m1012t121613.he5 
+GRIDPROJ = lcc2par
+MAPFUNC = regional_intersect
+VERBOSE = True 
+INTERACTIVE = False
+
+OUTDIRECTORY = /where/you/want/output
+OUTFILENAME = some_descriptive_name.nc
+
+. Proj attrs
+xOrig = -48 
+yCell = 36 
+refLon = -97 
+refLat = 40 
+nCols = 30 
+nRows = 32
+stdPar2 = 45 
+stdPar1 = 33 
+xCell = 36 
+earthRadius = 6370 
+yOrig = -552 
+
+. Output attrs
+inFieldNames = Time,AveragingKernel,TroposphericVerticalColumn 
+outFieldNames = time,avKern,tropVCD 
+timeStart = 00:00:00_09-01-2011 
+timeStop = 23:59:59_09-01-2011 
+timeComparison = UTC 
+fillVal = -9999 
+cloudFractUpperCutoff = 0.3 
+solarZenAngUpperCutoff = 85 
+
+END
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+whips.py --inFromFile aboveFileName.txt
+
+
+3B. Process OMI level 2 NASA NO2 data (Version 1.2)
+--------------------------------------------------
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+. somefilename.txt
+. Input file for whips.py
+
+BEGIN
+
+. Flags
+DIRECTORY = /where/you/have/input/files
+FILETYPE = HDFnasaomil2_generic
+GRIDPROJ = lcc2par
+MAPFUNC = regional_intersect
+OUTDIRECTORY = /where/you/want/output
+OUTFILENAME = nasaout 
+VERBOSE = True 
+INTERACTIVE = False 
+
+. Parser attributes
+cornerDir = /directery/where/you/keep/cornerfiles 
+cornerFile =  
+
+. Grid attributes
+stdPar1 = 33 
+stdPar2 = 45 
+refLat = 40 
+refLon = -97 
+xOrig = -2916000
+yOrig = -2268000 
+xCell = 36000 
+yCell = 36000
+nRows = 126 
+nCols = 162 
+earthRadius = 6370000
+
+. Output function attributes
+inFieldNames = ColumnAmountNO2Trop,Time
+outFieldNames = tropVCD,time 
+timeComparison = local 
+timeStart = 00:00:00_04-30-2011 
+timeStop = 23:59:59_04-30-2011 
+cloudFractUpperCutoff = .3
+solarZenAngUpperCutoff = 85 
+fillVal = -9999.0 
+
+END
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+whips.py --inFromFile aboveFileName.txt
+
 
 PARAMETER DETAILS
 =================
@@ -152,6 +388,36 @@ function you want to use.
 	REQUIRED: NO
 	DEFAULT: N/A
 	- Display the onscreen help message and exit the program.
+
+  --inFromFile /complete/path/to/input_file.txt
+  	REQUIRED: NO
+	DEFAULT: N/A
+	- An input file specifying the input options and information
+	  for WHIPS.  The input file is an alternate interface - 
+	  everything that can be done with a command line call can
+	  also be done by specifying the input file and calling the
+	  input file using this flag.
+	- The input file syntax rules are as follows.
+
+	    1) The file must have "BEGIN" at the top before specifying
+	       anything else.  Anything above the BEGIN line will be
+	       ignored.
+	    2) Comments are denoted by putting "." at the beginning of
+	       a line.  Comments are ignored when the input file is 
+	       parsed.
+	    3) All required flags must be included.  Values are assigned
+	       using the following syntax:
+	           FOO = bar
+	       All flags must be in caps case.  Optional flags may
+	       be specified in this fashion as well. 
+	    4) All attributes for the projection, map and possibly
+	       parser (right now only MOPITT requires parser attributes)
+	       must be specified in the same syntax used for flags. 
+	       Case-sensitive, so the case of the attribute names must
+	       exactly match that specified below
+
+	See above for both an illustrative example input file as well
+	as complete input files for the test cases. 
 
   --directory /path/to/input/directory
   	REQUIRED: NO
@@ -179,17 +445,126 @@ function you want to use.
 		NASA OMI - <http://mirador.gsfc.nasa.gov/cgi-bin/mirador/collectionlist.pl?keyword=omno2>
 		KNMI OMI - <http://www.temis.nl/airpollution/no2col/data/omi/data_v2/>
 
-  --filetype {HDFknmiomil2, HDFmopittl2, HDFnasaomil2}
+  --filetype { HDFknmiomil2_generic, OMI_NO2_KNMI_HDF_v2_0_preFeb2006,
+  	       OMI_NO2_KNMI_v2_0_postFeb2006,
+	       HDFnasaomil2_generic, OMI_NO2_NASA_HDF_v1_2,
+	       HDFmopittl2_generic, MOPITT_CO_NASA_HDF_V5 }
   	REQUIRED: YES
 	DEFAULT: N/A
 	- The type of file we're attempting to read in.  Must be one
-  	of the options listed above.  This must match the format of
-  	the file (currently only the standard level 2 files for each
-  	of the above listed instruments/retrievals are supported).
-  	- This is probably the easiest part of the program to extend,
-  	so if you're looking to use a particular filetype that isn't
-  	supported have a look at parse_geo.py and look at possibly
-  	extending it to include your filetype.
+  	  of the options listed above.
+	- Filetypes have two primary roles.  The first is to specify
+	  the correct parser so that the file may be read by the
+	  program.  The second is to provide default values for the
+	  attributes of the output function.
+	- Each filetype has a default output function considered most 
+	  appropriate for that filetype.  Default attributes specified
+	  will generally be targeted at this particular output function.
+	  The default output function can always be overridden with 
+	  the --outFunc flag.
+	- Each parser has an associated filetype that ends in "_generic"
+	  These filetypes still specify a default output function but do
+	  not provide default values for any of the output function 
+	  parameters.
+
+	      HDFknmiomil2_generic:
+	          Parser: HDFknmiomil2
+		  Default output function: OMNO2e_netCDF_avg
+		  Description: The generic filetype for
+		    the OMI NO2 data as processed by KNMI (the
+		    DOMINO retrieval)
+		  Output attributes supplied: None
+
+	      OMI_NO2_KNMI_HDF_v2_0_preFeb2006
+		  Parser: HDFknmiomil2
+		  Default output function: OMNO2e_netCDF_avg
+		  Description: The filetype for OMI NO2 as 
+		    processed by KNMI (version 2.0 of the DOMINO
+		    retrieval).  All input files should be before
+		    Feb 2006 (when the vertical grid of the 
+		    meteorology model used in the retrieval changed).
+		    Would probably work but has not been tested 
+		    for previous versions of the product.
+		  Output attributes supplied: 
+		  	 overallQualFlag
+			 cloudFrac
+			 solarZenithAngle
+			 time
+			 longitude
+			 pixIndXtrackAxis
+			 outUnits
+			 extraDimLabel
+			 extraDimSize
+
+	      OMI_NO2_KNMI_HDF_v2_0_postFeb2006
+		  Parser: HDFknmiomil2
+		  Default output function: OMNO2e_netCDF_avg
+		  Description: The filetype for OMI NO2 as 
+		    processed by KNMI (version 2.0 of the DOMINO
+		    retrieval).  All input files should be after
+		    Feb 2006 (when the vertical grid of the 
+		    meteorology model used in the retrieval changed).
+		    Would probably work but has not been tested 
+		    for previous versions of the product.
+		  Output attributes supplied: 
+		  	 overallQualFlag
+			 cloudFrac
+			 solarZenithAngle
+			 time
+			 longitude
+			 pixIndXtrackAxis
+			 outUnits
+			 extraDimLabel
+			 extraDimSize
+
+	      HDFnasaomil2_generic
+	          Parser: HDFnasaomil2
+		  Default output function: OMNO2e_netCDF_avg
+		  Description: The generic filetype for the OMI NO2
+		    data as processed by NASA (the OMNO2 product).
+		  Output attributes supplied: None
+
+	      OMI_NO2_NASA_HDF_v1_2
+		  Parser: HDFnasaomil2
+		  Default output function: OMNO2e_netCDF_avg
+		  Description: The filetype for OMI NO2 as 
+		    processed by NASA (v1.2 of the OMNO2 product).
+		    Would probably work but has not been tested 
+		    for previous versions of the product.
+		  Output attributes supplied:
+		  	 overallQualFlag
+			 cloudFrac
+			 solarZenithAngle
+			 time
+			 longitude
+			 pixIndXtrackAxis
+			 outUnits
+			 extraDimLabel
+			 extraDimSize
+
+              HDFmopittl2_generic
+	          Parser: HDFmopittl2
+		  Default output function: unweighted_filtered_MOPITT_avg_netCDF
+		  Description: The filetype for MOPITT CO 
+		    as processed by NASA.
+		  Output attributes supplied: None
+
+	      MOPITT_CO_NASA_HDF_V5
+	          Parser: HDFmopittl2
+		  Default output function: unweighted_filtered_MOPITT_avg_netCDF
+		  Description: The filetype for version 5 of the 
+		    MOPITT CO retrieval as processed by NASA. 
+		    May work with previous versions of the product
+		    but has not been tested.
+		  Output attributes supplied:
+		  	 time
+			 longitude
+			 solZenAng
+			 surfTypeField
+			 colMeasField
+			 outUnits
+			 dimLabels
+			 dimSizes
 
   --gridProj {latlon, lcc2par}
   	REQUIRED: YES
@@ -312,11 +687,46 @@ function you want to use.
 			intersected.  No geometric weights are
 			calculated.  This function is currently
 			supported by HDFnasaomil2 and HDFknmiomil2
-			filetypes only.  Makes several assumptions:
+			filetypes only.  
+
+			NOTE: regional intersect should NOT be
+			used for grids that wrap all the way 
+			around the world longitudinally (IE the
+			east and west edges are the same meridian).
+			Such grids may give unexpected results, 
+			especially if any pixels span the
+			discontinuity.
+
+			Makes several assumptions:
 			  - Polar discontinuities not encountered
 			  - Projection is NOT global
 			  - grid is rectilinear in projected space.
 			  - Pixels are convex polygons.
+
+	        global_intersect - Maps pixels (as defined by
+	      	        n pairs of geocoordinates that nominally
+			correspond to the n corners of the 
+			pixel) to ALL gridcells intersected.
+			No geometric weights are calculated.
+			
+			This is roughly the same as 
+			the regional_intersect approach
+			save that it is slightly slower and 
+			assumes that the grid wraps around the 
+			world longitudinally. 
+
+			NOTE: using this function with
+			grids where the east and west boundary
+			are NOT the same meridian is not
+			supported and may lead to unexpected
+			results.
+
+			Makes several assumptions:
+			  - polar discontinuities not encountered
+			  - Projection is global and cyclizes
+			    along the east and west edges
+			  - grid is rectilinear in projected space
+			  - Pixels are convex polygons
 		
   --outFunc {OMNO2e_netCDF_avg,OMNO2e_wght_avg,unweighted_filtered_MOPITT_avg_netCDF}
   	REQUIRED: NO
@@ -333,10 +743,8 @@ function you want to use.
 	  end, the associated function will be chosen by default for 
 	  all filetypes, though it can always be overridden with this 
 	  command.
-	- Currently, functions are assigned to filetypes as follows:
-	     HDFknmiomil2 --> OMNO2e_netCDF_avg
-	     HDFnasaomil2 --> OMNO2e_netCDF_avg
-	     HDFmopittl2  --> unweighted_filtered_MOPITT_avg_netCDF
+	- See the documentaiton for the --filetypes flag to see what
+	  the default output function for each filetype is.
 	- In all cases where a fieldname must be given for a
    	  parameter it is the short name (the name used to access the
   	  field through the parser) that must be given.  The 
@@ -429,10 +837,15 @@ function you want to use.
   --outFuncAttrs name1:value1 name2:value2
   	REQUIRED: YES
 	DEFAULT: N/A
-	- The attributes required for the chosen output function.
-	  Must have all required attributes for that output function.
-  	  The required parameters for each projection are listed
-	  above.
+	- The attributes required for the chosen output function 
+	  specified somehow.  Can be either supplied by the filetype
+	  or specified by the user.  When the user and filetype both
+	  supply output function attributes, the filetype takes 
+	  precedence.  The "_generic" filetypes are supplied to
+	  allow complete control of all output function attributes
+	  if desired.
+	- To see which attributes are supplied by which filetypes,
+	  see the documentation for the --filetype flag above
 	- If one of the "value" elements contains whitespace, enclose
 	  the entire name:value pair in double quotes.  For example:
 	      the:full_monty  	     <- okay
@@ -763,143 +1176,3 @@ function you want to use.
 	  program.
 	- Inputting a filetype outputs the required attributes for
 	  the default output function associated with that filetype.
-
-  --inFromFile FileName
-  	REQUIRED: NO
-	DEFAULT: N/A
-	- Optionally, instead of parsing the command line for input,
-	  WHIPS can read in an input file which specifies the desired
-	  parameters.
-
-The remainder of this readme will cover the format of this parameter input file.
-The input file should be an ascii text file containing a 'BEGIN' statement,
-followed by a list of assignment statements ('PARAM = value') for each of 
-the desired parameters, separated by newlines.  Sample input file templates 
-will be released on the SAGE website at a later date.  Comments (which will 
-be ignored by the parser) are indicated by a period at the start of the line.  
-Each output function attribute and each projection attribute should be given 
-its own assignment statement, separated from the others by newlines.  Anything
-before BEGIN or after END will be ignored, as will quotation mark characters ".
-
-By way of example, the two sample WHIPS commands given above are expressed
-here in input file form.  Either of these cases, if saved in a text file,
-(e.g. "in.txt") can be run using the simple command 
-
-    whips.py --inFromFile in.txt
-
-1. Process MOPITT level 2 CO data, (Version 5) 
-----------------------------------------------
-- Processes a single file
-- Uses a 36km lambert conic conformal grid centered over North
-  America
-- Writes out a 2D, 3D, and 4D parameter from the file
-
-WHIPS INPUT FILE
-BEGIN
-
-DIRECTORY = /path/to/input/files/
-FILETYPE = HDFmopittl2
-FILELIST = MOP02T-20050106-L2V10.1.1.prov.hdf
-GRIDPROJ = lcc2par
-
-.PROJATTRS
-xOrig = -2916000
-yCell = 36000
-refLon = -97
-refLat = 40
-nCols = 162
-nRows = 126
-stdPar2 = 45
-stdPar1 = 33
-xCell = 36000
-earthRadius = 6370000
-yOrig = -2268000
-
-MAPFUNC = point_in_cell
-
-.OUTFUNCATTRS
-time = Time
-longitude = Longitude
-inFieldNames = Time,Retrieved CO Mixing Ratio Profile,Retrieved CO Surface Mixing Ratio
-outFieldNames = time,COprof,COsurf
-outUnits = TAI93,ppbv,ppbv
-logNormal = False,True,True
-dimLabels = ;layer,valOrStdDev;valOrStdDev
-dimSizes = ;9,2;2
-timeStart = 00:00:00_01-06-2005
-timeStop = 23:59:59_01-06-2005
-timeComparison = UTC
-fillVal = -9999.0
-solZenAngCutoff = 85
-solZenAng = Solar Zenith Angle
-dayTime = True
-surfTypeField = Surface Index
-colMeasField = Retrieved CO Mixing Ratio Profile
-
-OUTDIRECTORY = /path/to/output/directory/
-OUTFILENAME = MOPITT_v5_20050106_daytime_CONUS36km_test.nc
-VERBOSE = True
-INTERACTIVE = True
-
-END
-			
-
-2. Process OMI level 2 DOMINO NO2 data, (Version 2) 
----------------------------------------------------
-
-- Processes any number of files
-- Uses a 36km lambert conic conformal grid centered over North
-  America
-- Writes out a 2D, and 3D parameter from the file
-
-WHIPS INPUT FILE
-BEGIN
-
-DIRECTORY = /where/you/keep/the/files/
-FILETYPE = HDFknmiomil2 \
-FILELIST = OMI-Aura_L2-OMDOMINO_2006m0701t0023-o10423_v003-2010m1008t224420.he5 OMI-Aura_L2-OMDOMINO_2006m0701t0112-o10424_v003-20120m1008t224845.he5
-GRIDPROJ = lcc2par
-
-.PROJATTRS
-xOrig = -2916000
-yCell = 36000
-refLon = -97
-refLat = 40
-nCols = 162
-nRows = 126
-stdPar2 = 45
-stdPar1 = 33
-xCell = 36000
-earthRadius = 6370000
-yOrig = -2268000
-
-MAPFUNC = regional_intersect
-
-.OUTFUNCATTRS
-overallQualFlag = TroposphericColumnFlag
-cloudFrac = CloudFraction
-solarZenithAngle = SolarZenithAngle
-time = Time
-longitude = Longitude
-inFieldNames = Time,AveragingKernel,TroposphericVerticalColumn
-outFieldNames = time,avKern,tropVCD
-outUnits = TAI93,unitless x 1000,molec/cm^2x1^-15
-extraDimLabel = none,Layers,none
-extraDimSize = 0,34,0
-timeStart = 00:00:00_07-01-2006
-timeStop = 23:59:59_07-01-2006
-timeComparison = UTC
-fillVal = -9999
-cloudFractUpperCutoff = 0.3
-solarZenAngUpperCutoff = 85
-pixIndXtrackAxis = 1
-
-OUTDIRECTORY = /where/you/want/output
-OUTFILENAME = OMI_DOMINO_20060701_test.nc
-INCLUDEGRID = OMI_DOMINO_GridFileName.nc
-VERBOSE = True
-INTERACTIVE = True
-
-END
-										
-			
