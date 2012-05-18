@@ -96,10 +96,10 @@ multple lines you must use line-continuation characters.
 
        whips.py --directory /where/you/have/input/files \
          --fileList MOP02T-20050101-L2V10.1.1.prov.hdf \
-	 --filetype MOPITT_CO_NASA_HDF_V5 
+	 --filetype MOPITT_CO_NASA_HDF_V5 \
 	 --gridProj lcc2par \
 	 --mapFunc point_in_cell \
-    	 --outDirectory /where/you/want/output \
+    	 --outDirectory where/you/want/output \
     	 --outFileName descriptive_name.nc \
 	 --verbose True \
 	 --interactive True \
@@ -158,7 +158,7 @@ multple lines you must use line-continuation characters.
 	--verbose True 
 	--interactive False 
 	--projAttrs cornerDir:/directery/where/you/keep/cornerfiles \
-	  cornerFile: \
+	  cornerFile:list,of,corner,files \
 	  stdPar1:33 stdPar2:45 refLat:40 refLon:-97 xOrig:-2916000
 	  yOrig:-2268000 xCell:36000 yCell:36000 \
 	  nRows:126 nCols:162 earthRadius:6370000 \
@@ -344,7 +344,7 @@ INTERACTIVE = False
 
 . Parser attributes
 cornerDir = /directery/where/you/keep/cornerfiles 
-cornerFile =  
+cornerFile = list,of,corner,files
 
 . Grid attributes
 stdPar1 = 33 
@@ -466,6 +466,10 @@ function you want to use.
 	  These filetypes still specify a default output function but do
 	  not provide default values for any of the output function 
 	  parameters.
+	- Some filetypes require additional "parser parameters".  These 
+	  can be passed in at the command line under the --projAttrs flag
+	  and should be formatted just like any projection attribute
+	  or output function attribute if using an input text file.
 
 	      HDFknmiomil2_generic:
 	          Parser: HDFknmiomil2
@@ -474,6 +478,7 @@ function you want to use.
 		    the OMI NO2 data as processed by KNMI (the
 		    DOMINO retrieval)
 		  Output attributes supplied: None
+		  Parser attributes required: None
 
 	      OMI_NO2_KNMI_HDF_v2_0_preFeb2006
 		  Parser: HDFknmiomil2
@@ -495,6 +500,7 @@ function you want to use.
 			 outUnits
 			 extraDimLabel
 			 extraDimSize
+	          Parser attributes required: None
 
 	      OMI_NO2_KNMI_HDF_v2_0_postFeb2006
 		  Parser: HDFknmiomil2
@@ -516,6 +522,7 @@ function you want to use.
 			 outUnits
 			 extraDimLabel
 			 extraDimSize
+		  Parser attributes required: None
 
 	      HDFnasaomil2_generic
 	          Parser: HDFnasaomil2
@@ -523,6 +530,15 @@ function you want to use.
 		  Description: The generic filetype for the OMI NO2
 		    data as processed by NASA (the OMNO2 product).
 		  Output attributes supplied: None
+		  Parser attributes required:
+		  	 cornerDir      - the directory containing the 
+			 	     	  auxillary corner files that the
+				          parser needs if the selected map
+				          function makes use of them .
+		         cornerFileList - A list of the corner files in cornerDir
+			 		  that should be searched for corner files
+					  that match the input file.  Should be 
+					  comma-separated list of arbitrary length
 
 	      OMI_NO2_NASA_HDF_v1_2
 		  Parser: HDFnasaomil2
@@ -541,6 +557,15 @@ function you want to use.
 			 outUnits
 			 extraDimLabel
 			 extraDimSize
+		  Parser attributes required:
+		  	 cornerDir      - the directory containing the 
+			 	     	  auxillary corner files that the
+				          parser needs if the selected map
+				          function makes use of them .
+		         cornerFileList - A list of the corner files in cornerDir
+			 		  that should be searched for corner files
+					  that match the input file.  Should be 
+					  comma-separated list of arbitrary length
 
               HDFmopittl2_generic
 	          Parser: HDFmopittl2
@@ -548,6 +573,7 @@ function you want to use.
 		  Description: The filetype for MOPITT CO 
 		    as processed by NASA.
 		  Output attributes supplied: None
+		  Parser attributes required: None
 
 	      MOPITT_CO_NASA_HDF_V5
 	          Parser: HDFmopittl2
@@ -565,6 +591,7 @@ function you want to use.
 			 outUnits
 			 dimLabels
 			 dimSizes
+	          Parser attributes required: None
 
   --gridProj {latlon, lcc2par}
   	REQUIRED: YES
@@ -970,7 +997,7 @@ function you want to use.
 				inFieldNames
 			dimLabels - List of names of the extra
 				dimensions in the output file.  Must
-				be a semicolon-delimited list of
+				be a forward-slash-delimited list of
 				comma-delimited lists of labels.  
 				Fields with no extra dimensions may
 				be left blank.  For example, if
@@ -980,12 +1007,12 @@ function you want to use.
 				one ("foo"), and the fourth has two
 				("foo" and "bar"), the dimLabels
 				entry should look like this:
-				    ;foo;;foo,bar
-				The outer (semicolon-delimited) list
+				    /foo//foo,bar
+				The outer (slash-delimited) list
 				must be	co-indexed to inFieldNames.
 			dimSizes - List of the sizes of the extra
 				dimensions in the output file.  Must
-				be a semicolon-delimited list of
+				be a forward-slash-delimited list of
 				comma-delimited lists of integers.
 				Fields with no extra dimensions may
 				be left blank.  For example, if there
@@ -996,8 +1023,8 @@ function you want to use.
 				fourth has two (which have lengths 
 				four and five, respectively), the
 				dimSizes entry should look like this:
-				    ;4;;4,5
-				The outer (semicolon-delimited list
+				    /4//4,5
+				The outer (slash-delimited list
 				must be co-indexed to inFieldNames 
 				and each inner (comma-delimited) list 
 				should be the same size as the 

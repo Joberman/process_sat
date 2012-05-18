@@ -793,7 +793,7 @@ class wght_avg_netCDF(out_func):
         if not all(tupsMatch):
             misMatch = [l + ' does not match ' + s for (l,s,m) in izip(labelTups,sizeTups,tupsMatch) if not m]
             msg = "All tuple-like strings must correspond to tuples of corresponding size. " \
-                "The following sets do not correspond: " + ' '.join(misMatch)
+                "The following sets do not correspond: \n" + '\n'.join(misMatch)
             raise ValueError(msg)
         # convert sizes to integers
         try:

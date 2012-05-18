@@ -436,7 +436,7 @@ try:
                     print "   {0}".format(outParms[attr])
             elif parms[attr][1] == 'listoflists':
                 try:
-                    lists = getattr(gnomespice, attr).split(';')
+                    lists = getattr(gnomespice, attr).split('/')
                     outParms[attr] = []
                     for list in lists:
                         if list == '':
@@ -510,7 +510,7 @@ try:
                 parserParms[attr] = getattr(gnomespice, attr).split(',')
             elif parms[attr][1] == 'listoflists':
                 try:
-                    lists = getattr(gnomespice, attr).split(';')
+                    lists = getattr(gnomespice, attr).split('/')
                     parserParms[attr] = []
                     for list in lists:
                         if list == '':
@@ -520,7 +520,7 @@ try:
                 except AttributeError:
                     unitParms = unitParms + formerrmsg(attr, \
                                 "a correctly formatted list of lists.  The list "\
-                                "should be delimited by semicolons, and each "\
+                                "should be delimited by forward slashes, and each "\
                                 "sublist should be delimited by commas")
             elif parms[attr][1] == 'bool':
                 if getattr(gnomespice, attr) == 'True':
