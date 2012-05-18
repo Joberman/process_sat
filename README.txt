@@ -117,9 +117,12 @@ multple lines you must use line-continuation characters.
 
      - Uses a 36km lambert conic conformal grid centered over North
      America
+     - explicitly specifies 3 input files
+     - includes an output grid file (this would be possible in any example, 
+       but is only shown in this one)
      - Writes out a 2D, and 3D parameter from the file
 
-       whips.py \
+      whips.py \
        	--directory /where/you/have/input/files \
     	--filetype OMI_NO2_KNMI_HDF_v2_0_postFeb2006 \
 	--fileList OMI-Aura_L2-OMDOMINO_2011m0901t1502-o37926_v003-2011m1012t121342.he5 \
@@ -127,13 +130,14 @@ multple lines you must use line-continuation characters.
 	OMI-Aura_L2-OMDOMINO_2011m0901t1820-o37928_v003-2011m1012t121613.he5 \
     	--gridProj lcc2par \
 	--mapFunc regional_intersect \
-	--outDirectory /where/you/want/output
-    	--outFileName some_descriptive_name.nc 
+	--outDirectory /where/you/want/output \
+    	--outFileName some_descriptive_name.nc \
 	--verbose True \
 	--interactive False \
+	--includeGrid /where/you/want/gridfile/output \
 	--projAttrs xOrig:-48 yCell:36 refLon:-97 refLat:40 \
 	nCols:30 nRows:32 stdPar2:45 stdPar1:33 xCell:36 \
-	earthRadius:6370 yOrig:-552 
+	earthRadius:6370 yOrig:-552 \
 	inFieldNames:Time,AveragingKernel,TroposphericVerticalColumn \
 	outFieldNames:time,avKern,tropVCD \
 	timeStart:00:00:00_09-01-2011 \
@@ -146,20 +150,23 @@ multple lines you must use line-continuation characters.
 
       - uses a 36 km lambert conic conformal grid
       - writes out 2 fields to an output file
+      - considers 2 input files
       - looks at all the cornerfiles in the directory
 
       whips.py \
         --directory /where/you/have/input/files \
-        --filetype HDFnasaomil2_generic \
+	--fileList OMI-Aura_L2-OMNO2_2011m0430t1440-o36120_v003-2011m0501t043317.he5 \
+		   OMI-Aura_L2-OMNO2_2011m0430t1619-o36121_v003-2011m0501t061955.he5 \
+        --filetype OMI_NO2_NASA_HDF_v1_2 \
 	--gridProj lcc2par \
 	--mapFunc regional_intersect \
     	--outDirectory /where/you/want/output \ 
-	--outFileName nasaout 
-	--verbose True 
-	--interactive False 
+	--outFileName some_file_name.nc \
+	--verbose True \
+	--interactive False \
 	--projAttrs cornerDir:/directery/where/you/keep/cornerfiles \
-	  cornerFile:list,of,corner,files \
-	  stdPar1:33 stdPar2:45 refLat:40 refLon:-97 xOrig:-2916000
+	  cornerFileList: \
+	  stdPar1:33 stdPar2:45 refLat:40 refLon:-97 xOrig:-2916000 \
 	  yOrig:-2268000 xCell:36000 yCell:36000 \
 	  nRows:126 nCols:162 earthRadius:6370000 \
 	  inFieldNames:ColumnAmountNO2Trop,Time \
@@ -201,6 +208,11 @@ OUTFILENAME = name_of_output_file
 VERBOSE = True_or_False
 INTERACTIVE = True_or_False
 OUTFUNC = some_output_function
+INCLUDEGRID = /absolute/path/to/ouptut/file/for/grid
+
+. FILELIST is delimited by spaces.  Leave out to use all files
+. in DIRECTORY
+FILELIST = list of files
 
 . Projection and output function attributes are specified
 . the same as flags.  Just as with the command line call, 
@@ -285,7 +297,7 @@ BEGIN
 
 DIRECTORY = /where/you/have/input/files 
 FILETYPE =  OMI_NO2_KNMI_HDF_v2_0_postFeb2006 
-FILELIST =  OMI-Aura_L2-OMDOMINO_2011m0901t1502-o37926_v003-2011m1012t121342.he5,OMI-Aura_L2-OMDOMINO_2011m0901t1641-o37927_v003-2011m1012t121458.he5,OMI-Aura_L2-OMDOMINO_2011m0901t1820-o37928_v003-2011m1012t121613.he5 
+FILELIST =  OMI-Aura_L2-OMDOMINO_2011m0901t1502-o37926_v003-2011m1012t121342.he5 OMI-Aura_L2-OMDOMINO_2011m0901t1641-o37927_v003-2011m1012t121458.he5 OMI-Aura_L2-OMDOMINO_2011m0901t1820-o37928_v003-2011m1012t121613.he5 
 GRIDPROJ = lcc2par
 MAPFUNC = regional_intersect
 VERBOSE = True 
@@ -293,6 +305,7 @@ INTERACTIVE = False
 
 OUTDIRECTORY = /where/you/want/output
 OUTFILENAME = some_descriptive_name.nc
+INCLUDEGRID = /where/you/want/output/grid/full/path.nc
 
 . Proj attrs
 xOrig = -48 
@@ -334,17 +347,18 @@ BEGIN
 
 . Flags
 DIRECTORY = /where/you/have/input/files
-FILETYPE = HDFnasaomil2_generic
+FILETYPE = OMI_NO2_NASA_HDF_v1_2
+FILELIST = OMI-Aura_L2-OMNO2_2011m0430t1440-o36120_v003-2011m0501t043317.he5 OMI-Aura_L2-OMNO2_2011m0430t1619-o36121_v003-2011m0501t061955.he5
 GRIDPROJ = lcc2par
 MAPFUNC = regional_intersect
 OUTDIRECTORY = /where/you/want/output
-OUTFILENAME = nasaout 
+OUTFILENAME = some_file_name.nc
 VERBOSE = True 
 INTERACTIVE = False 
 
 . Parser attributes
-cornerDir = /directery/where/you/keep/cornerfiles 
-cornerFile = list,of,corner,files
+cornerDir = /directory/where/you/keep/cornerfiles 
+cornerFileList = 
 
 . Grid attributes
 stdPar1 = 33 
@@ -538,7 +552,13 @@ function you want to use.
 		         cornerFileList - A list of the corner files in cornerDir
 			 		  that should be searched for corner files
 					  that match the input file.  Should be 
-					  comma-separated list of arbitrary length
+					  comma-separated list of arbitrary length.
+					  Set to empty string (right hand side of 
+					  equals sign or colon blank for input file
+					  or command line, respectively) to use
+					  all files in the cornerdir.  Order does
+					  not matter, files will be matched based
+					  on orbit number.
 
 	      OMI_NO2_NASA_HDF_v1_2
 		  Parser: HDFnasaomil2

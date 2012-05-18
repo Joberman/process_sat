@@ -756,8 +756,11 @@ class TestNASAOmiL2Parser(TestParser):
 
     def setUp(self):
         dir = os.path.dirname(__file__)
-        self.fname = os.path.join(dir, 'sample_data', 'ominasal2sample.hdf')
-        self.parser = parse_geo.HDFnasaomil2_File(self.fname, subtype='knmiomil2')
+        sample_dir = os.path.join(dir, 'sample_data')
+        self.fname = os.path.join(sample_dir, 'ominasal2sample.hdf')
+        self.parser = parse_geo.HDFnasaomil2_File(self.fname, subtype='knmiomil2',
+                                                  cornerDir=sample_dir,
+                                                  cornerFileList=['ominasacornersample.hdf'])
         self.checkKeys = ['ColumnAmountNO2Trop', 'PolynomialCoefficients', 
                           'CloudFraction', 'InstrumentConfigurationId',
                           'FitQualityFlags', 'UnpolFldLatBandQualityFlags', 
@@ -822,7 +825,10 @@ class TestNASAOmiL2Parser(TestParser):
         self.assertEqual(self.parser.ext, 'hdf')
         
     def test_override_extension(self):
-        obj = parse_geo.HDFnasaomil2_File(self.fname, extension='foo')
+        dir = os.path.dirname(__file__)
+        obj = parse_geo.HDFnasaomil2_File(self.fname, extension='foo',
+                                          cornerDir=os.path.join(dir, 'sample_data'),
+                                          cornerFileList=['ominasacornersample.hdf'])
         self.assertEqual(obj.ext, 'foo')
         
     def test_override_subtype(self):
@@ -930,9 +936,11 @@ class TestNASAOmiL2GetGeoCorners(unittest.TestCase):
     
     def setUp(self):
         dir = os.path.dirname(__file__)
+        self.sample_dir = os.path.join(dir, 'sample_data')
         self.fname = os.path.join(dir, 'sample_data', 'ominasal2sample.hdf')
         self.cornerName = os.path.join(dir, 'sample_data', 'ominasacornersample.hdf')
-        parser = parse_geo.HDFnasaomil2_File(self.fname, cornerFile=self.cornerName)
+        parser = parse_geo.HDFnasaomil2_File(self.fname, cornerDir=self.sample_dir,
+                                             cornerFileList=['ominasacornersample.hdf'])
         self.geoarray = parser.get_geo_corners()
         
     def test_corners_have_correct_fields(self):
@@ -981,9 +989,18 @@ class TestNASAOmiL2GetGeoCorners(unittest.TestCase):
         fileLon = self.geoarray['lon'][lonInd].squeeze()
         numpy.testing.assert_allclose(knownLon, fileLon)
 
-    def test_raises_IO_if_no_corner_file(self):
-        newParser = parse_geo.HDFnasaomil2_File(self.fname)
+    def test_raises_IO_if_no_corner_file_valid_dir(self):
+        # we should be able to instantiate the parser with an 
+        # empty corner file, but not be able to get_geo_corners
+        dir = os.path.dirname(__file__)
+        newParser = parse_geo.HDFnasaomil2_File(self.fname, cornerDir=dir,
+                                                cornerFileList=[''])
         self.assertRaises(IOError, newParser.get_geo_corners)
+
+    def test_raises_IO_if_no_corner_file_invalid_dir(self):
+        dir = ''
+        newParser = parse_geo.HDFnasaomil2_File(self.fname, cornerDir=dir,
+                                                cornerFileList=[''])
         
     def test_closes_cornerfile_when_done(self):
         # The behavior of pytables is consistent within each
@@ -992,7 +1009,8 @@ class TestNASAOmiL2GetGeoCorners(unittest.TestCase):
         # behavior
         closes_all = does_pytables_close_all(self.fname)
         fid = tables.openFile(self.cornerName, 'r')
-        parser = parse_geo.HDFnasaomil2_File(self.fname, cornerFile=self.cornerName)
+        parser = parse_geo.HDFnasaomil2_File(self.fname, cornerDir=self.sample_dir,
+                                             cornerFileList=['ominasacornersample.hdf'])
         unused_geoarray = parser.get_geo_corners()
         if closes_all:
             self.assertFalse(fid.isopen)
@@ -4486,9 +4504,10 @@ class Test_unweighted_filtered_MOPITT_avg_netCDF_out_func(TestOutGeo):
 
 '''
 if __name__ == '__main__':
-    foo = '__main__.Test_global_intersect.test_mult_pix_inside_multiple_cells'
+    foo = '__main__.TestNASAOmiL2GetGeoCorners.test_raises_IO_if_no_corner_file_invalid_dir'
     suite = unittest.defaultTestLoader.loadTestsFromName(foo)
     unittest.TextTestRunner(verbosity=2).run(suite)
 '''
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+

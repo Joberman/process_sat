@@ -575,7 +575,9 @@ class HDFnasaomil2_File(HDFFile):
     in cornerDir.  The files listed in cornerFileList, if any, will be checked
     first, followed by any files in cornerDir. If no valid pixel corner file
     is found that matches the orbit number of the input file, the parser will
-    fail to be instantiated. The corners retrieved are for the visible channel
+    instantiage but get_geo_corners will fail with an IOError. 
+
+    The corners retrieved are for the visible channel
     used by the NO2 algorithm- using this parser for other products may 
     require altering the parser to use a different channel if 
     appropriate.
@@ -599,37 +601,51 @@ class HDFnasaomil2_File(HDFFile):
                  cornerFileList=None):
         HDFFile.__init__(self, filename, subtype, extension)
 
-        '''make sure filename is actually an input file'''
+        # make sure filename is actually an input file
         if getLongName(filename) != HDFnasaomil2_File.OMIAURANO2_FILE_NAME:
-            raise Exception("{0} is not actually an input file.  "\
-                            "File discarded.".format(filename))
+            raise IOError('Attempt to read non-NASA OMI L2 file as such.')
         
-        '''find the corner file''' 
+        # start by assuming we aren't going to find anything
         self.pixCorners = None
-        # check the corner files that were named specifically
-        forbitnumber = getOrbitNumber(filename)
-        for f in cornerFileList:
-            if self.pixCorners == None and f != '' and getLongName(f) == HDFnasaomil2_File.OMIAURANO2_CORNER_FILE_NAME:
-                try:
-                    if getOrbitNumber(os.path.join(cornerDir, f)) == forbitnumber:
-                        self.pixCorners = os.path.join(cornerDir, f)
-                except:
-                    pass
 
-        # if necessary, search entire corner file directory
-        for f in os.listdir(cornerDir):
-            if self.pixCorners == None:
-                try:
-                   if tables.isHDF5File(os.path.join(cornerDir,f)) \
-                         and getLongName(os.path.join(cornerDir,f)) == HDFnasaomil2_File.OMIAURANO2_CORNER_FILE_NAME \
-                         and getOrbitNumber(os.path.join(cornerDir, f)) == forbitnumber:
-                      self.pixCorners = os.path.join(cornerDir, f)
-                except:
-                    pass
+        # see if the corner directory even exists.  If it doesn't, we obviously can't 
+        # find a corner file
+        if os.path.isdir(cornerDir):
+
+            # convert the corner files into full pathnames
+            # unless we were given null string (signal to search directory)
+            if cornerFileList != ['']:
+                cornerFileList = [os.path.join(cornerDir, f) for f in cornerFileList]
+
+            # get orbit number of file for matching
+            forbitnumber = getOrbitNumber(filename)
+
+            # try using the list
+        
+            for f in cornerFileList:
+                if f != '' and getLongName(f) == HDFnasaomil2_File.OMIAURANO2_CORNER_FILE_NAME:
+                    try:
+                        if getOrbitNumber(f) == forbitnumber:
+                            self.pixCorners = f
+                            break
+                    except:
+                        pass
+
+            # if necessary, search entire corner file directory
+            if self.pixCorners == None:        
+                allPossible = [os.path.join(cornerDir, f) for f in os.listdir(cornerDir)]
+                for f in allPossible:
+                    try:
+                        if tables.isHDF5File(f) \
+                                and getLongName(f) == HDFnasaomil2_File.OMIAURANO2_CORNER_FILE_NAME \
+                                and getOrbitNumber(f) == forbitnumber:
+                            self.pixCorners = f
+                            break
+                    except:
+                        pass
                 
         if self.pixCorners == None:
-            raise Exception("No valid corner file found for {0}.  File "\
-                            "discarded".format(filename))
+            print "No valid corner file found for {0}.".format(filename)
             
     __dataPath = '/HDFEOS/SWATHS/ColumnAmountNO2/Data Fields/'
     __geoPath = '/HDFEOS/SWATHS/ColumnAmountNO2/Geolocation Fields/'
@@ -737,7 +753,7 @@ class HDFnasaomil2_File(HDFFile):
         try:
             pxFid = tables.openFile(self.pixCorners)
         except AttributeError:
-            raise IOError('Unable to open pixel corners file.  File may not have been specified.')
+            raise IOError('Unable to open pixel corners file.  Need pixel corners file to use corners')
         try:
             latNode = pxFid.getNode('/', latNodeName)
             lonNode = pxFid.getNode('/', lonNodeName)
