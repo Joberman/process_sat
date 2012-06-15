@@ -208,7 +208,7 @@ OUTFILENAME = name_of_output_file
 VERBOSE = True_or_False
 INTERACTIVE = True_or_False
 OUTFUNC = some_output_function
-INCLUDEGRID = /absolute/path/to/ouptut/file/for/grid
+INCLUDEGRID = /absolute/path/to/output/file/for/grid
 
 . FILELIST is delimited by spaces.  Leave out to use all files
 . in DIRECTORY
@@ -234,7 +234,7 @@ outUnits = Molecules cm^-2,seconds since epoch
 time = Time
 OUTFILENAME = whatever_we_want
 
-. Files must begin with BEGIN and end with END
+. WHIPS input files must begin with BEGIN and end with END
 
 END
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1127,7 +1127,7 @@ function you want to use.
   --includeGrid GridFileName
         REQUIRED: NO
         DEFAULT: N/A
-        - Supply this flag along with the name of a file (in the output directory)
+        - Supply this flag along with the absolute path to a filename
           to which to write out the latitudes and longitudes of the gridcells
           defined by the selected projection.
 

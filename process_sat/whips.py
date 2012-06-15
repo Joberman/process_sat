@@ -295,16 +295,6 @@ if not os.access(outDirectory, os.W_OK) or (os.path.isfile(outFileName)\
                         outDirectory, gnomespice.outFileName), 75)
     sys.exit(0)
 
-gridFileName = (gnomespice.includeGrid and \
-                        os.path.join(outDirectory,gnomespice.includeGrid[0]))
-if gridFileName and not os.access(gridFileName, os.W_OK):
-    print textwrap.wrap("Error: Unable to write output to file {1} in "\
-                        "directory {0}.  That directory may already "\
-                        "contain an existing file of that name, for which "\
-                        "you do not have write permissions.  Check the "\
-                        "output directory and try again.".format(\
-                        outDirectory, gnomespice.includeGrid), 75)
-
 # To be implemented later (maybe)
 parserList = None                        
 
@@ -606,9 +596,18 @@ for f in files:
 # Construct the grid definition
 if verbose: print('constructing grid '+str(datetime.datetime.now()))
 griddef = gridDef(gridDict)
+
+gridFileName = gnomespice.includeGrid
 if gridFileName:
-    if verbose: print('writing grid to file '+str(datetime.datetime.now()))
-    utils.write_grid_to_netcdf(griddef, gridFileName)
+    if not os.access(gridFileName, os.W_OK):
+        print textwrap.wrap("Error: Unable to write output to file {0}.  "\
+                        "That directory may already contain an existing "\
+                        "file of that name, for which you do not have "\
+                        "write permissions.  Check the output directory "\
+                        "and try again.".format(gridFileName), 75)
+    else:
+        if verbose: print('writing grid to file '+str(datetime.datetime.now()))
+        utils.write_grid_to_netcdf(griddef, gridFileName)
 
 # Map data to grid
 if verbose: print('calculating maps '+str(datetime.datetime.now()))
