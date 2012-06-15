@@ -6,3 +6,4 @@ v<1.0.4>, <3/23/2012> -- Fixed bug in OMI NO2 processing. WHIPS now supports run
 v<1.0.5>, <3/26/2012> -- Degenerate case (1x1 grid) was broken for one of the outFuncs.  Fixed.
 v<1.0.6>, <4/13/2012> -- Added Version flag, more specific filetype support
 v<1.1.0>, <5/17/2012> -- New filetypes interface implemented and tested. 
+v<1.1.1>, <6/15/2012> -- Resolved --includeGrid to properly use absolute file paths
