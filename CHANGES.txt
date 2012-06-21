@@ -7,3 +7,4 @@ v<1.0.5>, <3/26/2012> -- Degenerate case (1x1 grid) was broken for one of the ou
 v<1.0.6>, <4/13/2012> -- Added Version flag, more specific filetype support
 v<1.1.0>, <5/17/2012> -- New filetypes interface implemented and tested. 
 v<1.1.1>, <6/15/2012> -- Resolved --includeGrid to properly use absolute file paths
+v<1.1.2>, <6/21/2012> -- Resolved bug in gridfile output handler

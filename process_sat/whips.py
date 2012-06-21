@@ -7,7 +7,7 @@ Process a series of files, generating some kind of output for each
 If verbose is set to True, all default status updates will be printed.  
 If set to False, the program will run silently
 
-@version 6/15/2012
+@version 6/21/2012
 @author: maki, oberman
 '''
 import os
@@ -28,7 +28,7 @@ from process_sat import filetypes
 '''
 VERSION NUMBER
 '''
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 
 class NeedToParseInFileException(Exception):
     '''exception class for signaling the need to parse input file'''
@@ -201,7 +201,7 @@ parser.add_argument('--outFileName', help='Optionally, supply the name ' \
                     'of the output file.  If no name is provided, the ' \
                     'output file will be named \'output1\'', metavar = \
                     'FileName')
-parser.add_argument('--includeGrid', nargs=1, metavar='GridFileName', \
+parser.add_argument('--includeGrid', metavar='GridFileName', \
                     help='Optionally, supply the name of a file to which to '\
                     'write out the latitudes and longitudes of the gridcells '\
                     'defined by the selected projection')
