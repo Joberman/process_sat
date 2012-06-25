@@ -1,10 +1,10 @@
 ===========
-WHIPS 1.1.0
+WHIPS 1.1.3
 ===========
 
 * **Project Title:** WHIPS
 * **Purpose of Project:** Provide a well-documented, easy-to-use general-purpose processing module for processing satellite data
-* **Version:** 1.1.1 (6/15/12)
+* **Version:** 1.1.3 (6/26/12)
 * **Authors:** oberman, maki, strom, holloway
 * **Contact:** taholloway@wisc.edu
 

@@ -7,7 +7,7 @@ Process a series of files, generating some kind of output for each
 If verbose is set to True, all default status updates will be printed.  
 If set to False, the program will run silently
 
-@version 6/21/2012
+@version 6/26/2012
 @author: maki, oberman
 '''
 import os
@@ -28,7 +28,7 @@ from process_sat import filetypes
 '''
 VERSION NUMBER
 '''
-__version__ = "1.1.2"
+__version__ = "1.1.3"
 
 class NeedToParseInFileException(Exception):
     '''exception class for signaling the need to parse input file'''
@@ -599,7 +599,7 @@ griddef = gridDef(gridDict)
 
 gridFileName = gnomespice.includeGrid
 if gridFileName:
-    if not os.access(gridFileName, os.W_OK):
+    if not os.access(os.path.dirname(gridFileName), os.W_OK):
         print textwrap.wrap("Warning: Unable to write output to file {0}.  "\
                             "No gridcell file will be written for this run."\
                             "".format(gridFileName), 75)
