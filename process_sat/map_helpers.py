@@ -2,6 +2,8 @@
 Miscellaneous helper functions used in
 the map_geo module
 '''
+import math, itertools
+
 from shapely.geometry import Polygon
 
 def rect_grid_polys((minRow, maxRow, minCol, maxCol)):
@@ -31,6 +33,27 @@ def rect_bound_poly((minRow, maxRow, minCol, maxCol)):
     ur = (maxRow+1, maxCol+1)
     lr = (minRow, maxCol+1)
     return Polygon([ll, ul, ur, lr])
+
+def get_possible_cells((minRow, maxRow, minCol, maxCol), testPoly):
+    '''
+    Given the domain and a test polygon, returns a list of index tuples 
+    that represent a subset of the domain which contains the polygon.
+    Subset may be any size, from a single cell to the full original 
+    domain.  Domain is specified as the indLims format
+
+    NOTE: It is assumed that the test_poly at least intersects the bounding
+    box of the full domain.  This must be tested BEFORE using this
+    function.  
+    '''
+    (tp_minRow, tp_minCol, tp_maxRow, tp_maxCol) = tuple(
+        [int(math.floor(lim)) for lim in testPoly.bounds])
+    true_minRow = max(minRow, tp_minRow)
+    true_maxRow = min(maxRow, tp_maxRow)
+    true_minCol = max(minCol, tp_minCol)
+    true_maxCol = min(maxCol, tp_maxCol)
+    row_range = range(true_minRow, true_maxRow + 1)
+    col_range = range(true_minCol, true_maxCol + 1)
+    return itertools.product(row_range, col_range)
 
 def iter_2_of_3(array3d):
     '''Generator iterating over top 2 dimensions'''

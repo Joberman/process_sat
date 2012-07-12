@@ -69,14 +69,15 @@ def global_intersect_map_geo(parser, griddef, verbose=True):
     '''
     if verbose:
         print('Mapping '+parser.name+'\nat '+str(datetime.datetime.now()))  
+    outer_indices = griddef.indLims()
     # create the dictionary we'll use as a map
-    map = map_helpers.init_output_map(griddef.indLims())
+    map = map_helpers.init_output_map(outer_indices)
     map['parser'] = parser
         # we're going to hold onto both the prepared and unprepared versions
     # of the polys, so we can access the fully method set in the unprep
     # polys, but still do fast comparisons
-    gridPolys = map_helpers.rect_grid_polys(griddef.indLims())
-    prepPolys = map_helpers.rect_grid_polys(griddef.indLims())
+    gridPolys = map_helpers.rect_grid_polys(outer_indices)
+    prepPolys = map_helpers.rect_grid_polys(outer_indices)
     if verbose: print('prepping polys in grid')
     for poly in prepPolys.itervalues():
         poly = prep(poly)  # prepare these, they're going to get compared a lot
@@ -116,7 +117,7 @@ def global_intersect_map_geo(parser, griddef, verbose=True):
             pixPolys = [prelimPoly]
         # try intersecting the poly(s) with all the grid polygons
         for poly in pixPolys:
-            for key in gridPolys.iterkeys():
+            for key in map_helpers.get_possible_cells(outer_indices, poly):
                 if prepPolys[key].intersects(poly) and not gridPolys[key].touches(poly):
                     map[key].append((tuple(pxind), None))
     if verbose: print('Done intersecting.')
@@ -149,14 +150,15 @@ def regional_intersect_map_geo(parser, griddef, verbose=True):
     
     if verbose:
         print('Mapping '+parser.name+'\nat '+str(datetime.datetime.now()))
-    map = map_helpers.init_output_map(griddef.indLims())
+    outer_indices = griddef.indLims()
+    map = map_helpers.init_output_map(outer_indices)
     map['parser'] = parser
-    bounds = prep(map_helpers.rect_bound_poly(griddef.indLims()))
+    bounds = prep(map_helpers.rect_bound_poly(outer_indices))
     # we're going to hold onto both the prepared and unprepared versions
     # of the polys, so we can access the fully method set in the unprep
     # polys, but still do fast comparisons
-    gridPolys = map_helpers.rect_grid_polys(griddef.indLims())
-    prepPolys = map_helpers.rect_grid_polys(griddef.indLims())
+    gridPolys = map_helpers.rect_grid_polys(outer_indices)
+    prepPolys = map_helpers.rect_grid_polys(outer_indices)
     if verbose: print('prepping polys in grid')
     for poly in prepPolys.itervalues():
         poly = prep(poly)  # prepare these, they're going to get compared a lot
@@ -184,7 +186,7 @@ def regional_intersect_map_geo(parser, griddef, verbose=True):
             sys.stdout.flush()
             pixPoly = geom.MultiPoint(zip(pxrow, pxcol)).convex_hull
             
-            for key in gridPolys.iterkeys():
+            for key in map_helpers.get_possible_cells(outer_indices, pixPoly):
                 if prepPolys[key].intersects(pixPoly) and not \
                                   gridPolys[key].touches(pixPoly) :
                     map[key].append((tuple(pxind), None))
@@ -195,7 +197,7 @@ def regional_intersect_map_geo(parser, griddef, verbose=True):
                                         in izip(pxrow, pxcol)]):
                 continue  # if none of the corners are in bounds, skip
             pixPoly = geom.MultiPoint(zip(pxrow, pxcol)).convex_hull
-            for key in gridPolys.iterkeys():
+            for key in map_helpers.get_possible_cells(outer_indices, pixPoly):
                 if prepPolys[key].intersects(pixPoly) and not \
                                   gridPolys[key].touches(pixPoly):
                     map[key].append((tuple(pxind), None))
