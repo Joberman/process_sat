@@ -10,3 +10,4 @@ v<1.1.1>, <6/15/2012> -- Resolved --includeGrid to properly use absolute file pa
 v<1.1.2>, <6/21/2012> -- Resolved bug in gridfile output handler
 v<1.1.3>, <6/26/2012> -- Resolved further issues in gridfile output handler
 v<1.1.4>, <7/12/2012> -- Improved efficiency of intersection algorithms
+v<1.1.5>, <7/16/2012> -- Fixed bug with intersection when pixels had NaN coordinates
