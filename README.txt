@@ -703,7 +703,7 @@ function you want to use.
 	- Case-sensitive.  Attribute names must EXACTLY match those
 	  laid out above.
 
-  --mapFunc {point_in_cell, regional_intersect}
+  --mapFunc {point_in_cell, regional_intersect, global_intersect}
   	REQUIRED: YES
 	DEFAULT: N/A
 	- The mapping function that will be used to assign pixels to
@@ -744,6 +744,9 @@ function you want to use.
 			especially if any pixels span the
 			discontinuity.
 
+			Pixels with one ore more vertices with
+			fill values coordinates are rejected
+
 			Makes several assumptions:
 			  - Polar discontinuities not encountered
 			  - Projection is NOT global
@@ -761,6 +764,9 @@ function you want to use.
 			save that it is slightly slower and 
 			assumes that the grid wraps around the 
 			world longitudinally. 
+
+			Pixels with one ore more vertices with
+			fill values coordinates are rejected
 
 			NOTE: using this function with
 			grids where the east and west boundary

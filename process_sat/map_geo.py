@@ -58,6 +58,8 @@ def global_intersect_map_geo(parser, griddef, verbose=True):
     automatically wrap pixels that fall off the east/west edges
     of the projection.
 
+    Pixels with NaN for any vertex are rejected
+
     Assumptions:
         - Straight lines in projected space adequately 
         approximate the edges of pixels/gridcells.
@@ -141,6 +143,8 @@ def regional_intersect_map_geo(parser, griddef, verbose=True):
     relies on the assumption that any pixel of interest 
     will have at least one corner within the bounds of 
     the grid
+
+    Pixels with NaN for any vertex are rejected
     
     Several assumptions are made:
         - Straight lines in projected space adequately 
