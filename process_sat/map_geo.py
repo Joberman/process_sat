@@ -97,6 +97,9 @@ def global_intersect_map_geo(parser, griddef, verbose=True):
     maxCol = griddef.indLims()[3] + 1
     midCol = (minCol+maxCol)/2.0
     for (pxrow, pxcol, pxind) in izip(row, col, ind):
+        if (numpy.any(numpy.isnan(pxrow)) or 
+            numpy.any(numpy.isnan(pxcol))):
+            continue # skip incomplete pixels
         pointsTup = zip(pxrow, pxcol)
         prelimPoly = geom.MultiPoint(pointsTup).convex_hull
         (bbBot, bbLeft, bbTop, bbRight) = prelimPoly.bounds
@@ -177,7 +180,9 @@ def regional_intersect_map_geo(parser, griddef, verbose=True):
         sys.stdout.write("Approximately 0 pixels gridded. ")
         sys.stdout.flush()
         for (pxrow, pxcol, pxind) in izip(row, col, ind):
-            if not any([bounds.contains(geom.asPoint((r,c))) \
+            if numpy.any(numpy.isnan(pxrow)) or numpy.any(numpy.isnan(pxcol)):
+                continue  # if we have only a partial pixel, skip
+            elif not any([bounds.contains(geom.asPoint((r,c))) \
                        for (r,c) in izip(pxrow, pxcol)]):
                 continue  # if none of the corners are in bounds, skip
             griddedPix += 1
@@ -193,7 +198,9 @@ def regional_intersect_map_geo(parser, griddef, verbose=True):
         print('Done intersecting.')
     else:
         for (pxrow, pxcol, pxind) in izip(row, col, ind):
-            if not any([bounds.contains(geom.asPoint((r,c))) for (r,c) \
+            if numpy.any(numpy.isnan(pxrow)) or numpy.any(numpy.isnan(pxcol)):
+                continue  # if we have only a partial pixel, skip
+            elif not any([bounds.contains(geom.asPoint((r,c))) for (r,c) \
                                         in izip(pxrow, pxcol)]):
                 continue  # if none of the corners are in bounds, skip
             pixPoly = geom.MultiPoint(zip(pxrow, pxcol)).convex_hull

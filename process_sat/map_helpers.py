@@ -2,7 +2,7 @@
 Miscellaneous helper functions used in
 the map_geo module
 '''
-import math, itertools
+import math, itertools, pdb
 
 from shapely.geometry import Polygon
 
