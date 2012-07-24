@@ -7,7 +7,7 @@ Process a series of files, generating some kind of output for each
 If verbose is set to True, all default status updates will be printed.  
 If set to False, the program will run silently
 
-@version 7/16/2012
+@version 7/23/2012
 @author: maki, oberman
 '''
 import os
@@ -28,7 +28,7 @@ from process_sat import filetypes
 '''
 VERSION NUMBER
 '''
-__version__ = "1.1.5"
+__version__ = "1.1.6"
 
 class NeedToParseInFileException(Exception):
     '''exception class for signaling the need to parse input file'''

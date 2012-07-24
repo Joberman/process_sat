@@ -1,7 +1,7 @@
 PROJECT TITLE: WHIPS
 PURPOSE OF PROJECT: Provide a well-documented, easy-to-use general-purpose
                     processing module for processing satellite data
-VERSION: 1.1.5 (07/16/12)
+VERSION: 1.1.6 (07/23/12)
 AUTHORS: oberman, maki, strom
 CONTACT: taholloway@wisc.edu
 
