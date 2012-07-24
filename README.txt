@@ -110,7 +110,7 @@ multple lines you must use line-continuation characters.
 	 outFieldNames:time,COprof,COsurf logNormal:False,True,True \
 	 timeStart:00:00:00_01-01-2005 timeStop:23:59:59_01-01-2005 \
 	 timeComparison:UTC fillVal:-9999.0 \
-	 solZenAngCutoff:85 dayTime:True 
+	 solZenAngCutoff:85 dayTime:True
 
 2A. Process OMI level 2 DOMINO NO2 data, (Version 2) 
 ---------------------------------------------------
@@ -143,7 +143,7 @@ multple lines you must use line-continuation characters.
 	timeStart:00:00:00_09-01-2011 \
 	timeStop:23:59:59_09-01-2011 timeComparison:UTC \
 	fillVal:-9999 cloudFractUpperCutoff:0.3 \
-	solarZenAngUpperCutoff:85 
+	solarZenAngUpperCutoff:85 includePixelCount:False
 
 3A. Process OMI level 2 NASA NO2 data (Version 1.2)
 --------------------------------------------------
@@ -173,7 +173,7 @@ multple lines you must use line-continuation characters.
     	  outFieldNames:tropVCD,time \
 	  timeComparison:local timeStart:00:00:00_04-30-2011 \
 	  timeStop:23:59:59_04-30-2011 cloudFractUpperCutoff:.3 \
-	  solarZenAngUpperCutoff:85 fillVal:-9999.0 
+	  solarZenAngUpperCutoff:85 fillVal:-9999.0 includePixelCount:False
 
 
 INVOKING WHIPS - METHOD 2
@@ -329,6 +329,7 @@ timeComparison = UTC
 fillVal = -9999 
 cloudFractUpperCutoff = 0.3 
 solarZenAngUpperCutoff = 85 
+includePixelCount = False
 
 END
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -382,6 +383,7 @@ timeStop = 23:59:59_04-30-2011
 cloudFractUpperCutoff = .3
 solarZenAngUpperCutoff = 85 
 fillVal = -9999.0 
+includePixelCount = False
 
 END
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -986,6 +988,12 @@ function you want to use.
 				the output netCDF file.  This value
 				will replace any missing or invalid
 				output values.
+			includePixelCount - If set to "True", the	
+				output file will include the field 
+				"ValidPixelCount" which will have a 
+				count of the valid pixels by cell. 
+				If set to "False" this field will
+				not be included
 			
 		unweighted_filtered_MOPITT_avg_netCDF -
 			time - The name of the field containing

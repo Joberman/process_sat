@@ -2473,7 +2473,8 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
                     'cloudFractUpperCutoff' : .25,
                     'solarZenAngUpperCutoff' : 80,
                     'pixIndXtrackAxis' : 1,
-                    'fillVal' : -99999.0}
+                    'fillVal' : -99999.0,
+                    'includePixelCount' : False}
         self.defParms.update(self.fnames)
         self.fnames.update(self.defParms)
         self.defOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(self.defParms)
@@ -2575,6 +2576,55 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
                                   version = self.version)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data[:])
         
+    def test_correct_pixel_count_single_valid_pixel(self):
+        self.defParms['includePixelCount'] = True
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(self.defParms)
+        self.cfrac[0,30] = .2
+        self.qualFlag[0,30] = 0
+        self.solZenAng[0,30] = 30
+        self.time[0,30] = self.toTAI93('08:00:00 08-30-2011')
+        self.lon[0,30] = 13
+        data = numpy.random.rand()
+        self.test2D[0,30] = data
+        self.mapDict[(0,0)] = [((0,30), None)]
+        resDict = newOutFunc(self.mapDict, self.one_el_grid,
+                             self.outFname, verbose=False,
+                             version = self.version)
+        self.assertEqual(resDict['ValidPixelCount'][0,0], 1)
+
+    def test_correct_pixel_count_single_invalid_pixel(self):
+        self.defParms['includePixelCount'] = True
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(self.defParms)
+        self.cfrac[0,30] = .2
+        self.qualFlag[0,30] = -1
+        self.solZenAng[0,30] = 30
+        self.time[0,30] = self.toTAI93('08:00:00 08-30-2011')
+        self.lon[0,30] = 13
+        data = numpy.random.rand()
+        self.test2D[0,30] = data
+        self.mapDict[(0,0)] = [((0,30), None)]
+        resDict = newOutFunc(self.mapDict, self.one_el_grid,
+                             self.outFname, verbose=False,
+                             version = self.version)
+        self.assertEqual(resDict['ValidPixelCount'][0,0], 0)
+
+    def test_correct_pixel_count_multiple_valid_pixels(self):
+        self.defParms['includePixelCount'] = True
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(self.defParms)        
+        self.cfrac[0,29:31] = [.2, .15]
+        self.qualFlag[0,29:31] = [0, 0]
+        self.solZenAng[0,29:31] = [30, 25]
+        self.time[0,29:31] = [self.toTAI93('11:14:38 08-30-2011'),
+                              self.toTAI93('16:11:00 08-30-2011')]
+        self.lon[0,29:31] = [-48, 67]
+        data = numpy.random.rand(2)
+        self.test2D[0,29:31] = data
+        self.mapDict[(0,0)] = [((0,29), None), ((0,30), None)]
+        resDict = newOutFunc(self.mapDict, self.one_el_grid,
+                             self.outFname, verbose=False,
+                             version = self.version)
+        self.assertEqual(resDict['ValidPixelCount'][0,0], 2)
+
     def test_2_valid_pix_accurate_weight_2D(self):
         # calculation of weight performed by hand
         self.cfrac[0,29:31] = [.2, .15]
@@ -3045,6 +3095,15 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
                                   version = self.version)
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][0,0,:], data)
         
+    def test_no_pixels_in_cell_yields_correct_count(self):
+        self.defParms['includePixelCount'] = True
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(self.defParms)        
+        self.mapDict[(0,0)] = []
+        resDict = newOutFunc(self.mapDict, self.one_el_grid, 
+                             self.outFname, verbose=False,
+                             version = self.version)
+        self.assertEqual(resDict['ValidPixelCount'][0,0], 0)
+
     def test_no_pixels_in_cell_yields_fillVal_2D(self):
         self.mapDict[(0,0)] = []
         resDict = self.defOutFunc(self.mapDict, self.one_el_grid, 
@@ -3060,6 +3119,34 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         expected = numpy.array(4*[self.defParms['fillVal']])
         numpy.testing.assert_array_equal(resDict['outTest3D'][0,0,:], expected)
         
+    def test_multi_element_pix_array_correct_counts(self):
+        self.defParms['includePixelCount'] = True
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(self.defParms)
+        self.cfrac[0:2, 28:34] = [[.11, .12, .13, .14, .15, .16],
+                                  [.21, .22, 23, .24, .25, .26]]
+        self.qualFlag[0:2, 28:34] = [[0, 0, 0, 0, 0, 0],
+                                     [0, 0, 0, 1, 1, 1]]
+        self.solZenAng[0:2, 28:34] = [[10, 11, 12, 13, 14, 15],
+                                      [87, 88, 89, 20, 12, 13]]
+        self.time[0:2, 28:34] = 2*[[self.toTAI93('17:20:00 08-30-2011'),
+                                    self.toTAI93('17:20:00 08-30-2011'),
+                                    self.toTAI93('17:20:00 08-30-2011'),
+                                    self.toTAI93('17:20:00 08-30-2011'),
+                                    self.toTAI93('17:20:00 08-30-2011'),
+                                    self.toTAI93('17:20:00 08-30-2011')]]
+        self.lon[0:2, 28:34] = [[1, 2, 3, 4, 5, 6],
+                                [1, 2, 3, 4, 5, 7]]
+        data = numpy.random.rand(2,6)
+        self.test2D[0:2,28:34] = data
+        for (i,j) in product(range(2), range(3)):
+            oneDind = i*3+j
+            self.mapDict[(i,j)] = [((0,28+oneDind), None), ((1,28+oneDind), None)]
+        resDict = newOutFunc(self.mapDict, self.six_el_grid, 
+                             self.outFname, verbose=False,
+                             version = self.version)
+        expected = numpy.ones((2,3))
+        numpy.testing.assert_array_equal(resDict['ValidPixelCount'][:], expected)
+
     def test_multi_element_pix_array_2D(self):
         self.cfrac[0:2, 28:34] = [[.11, .12, .13, .14, .15, .16],
                                   [.21, .22, 23, .24, .25, .26]]
@@ -3111,7 +3198,27 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
                                   version = self.version)
         expected = data[0,:,:].reshape((2,3,4))
         numpy.testing.assert_array_almost_equal(resDict['outTest3D'][:], expected)
-        
+
+    def test_multiple_dictionaries_yield_correct_count(self):
+        self.defParms['includePixelCount'] = True
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(self.defParms)
+        self.cfrac[0, 29:31] = [.1, .2]
+        self.qualFlag[0, 29:31] = [0, -127]
+        self.solZenAng[0, 29:31] = [0, 2]
+        self.time[0, 29:31] = [self.toTAI93('05:15:00 08-30-2011'),
+                               self.toTAI93('05:15:00 08-30-2011')]
+        self.lon[0, 29:31] = [-6, 3]
+        data = numpy.random.rand(2)
+        self.test2D[0,29:31] = data
+        secondMapDict = dict(self.mapDict)
+        self.mapDict[(0,0)] = [((0,29), None)]
+        secondMapDict[(0,0)] = [((0,30), None)]
+        dictList = [self.mapDict, secondMapDict]
+        resDict = newOutFunc(dictList, self.one_el_grid,
+                             self.outFname, verbose=False,
+                             version = self.version)
+        self.assertEqual(resDict['ValidPixelCount'][0,0], 1)
+
     def test_multidict_one_zero_weight_2D(self):
         self.cfrac[0, 29:31] = [.1, .2]
         self.qualFlag[0, 29:31] = [0, -127]
@@ -3396,7 +3503,7 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
             actualDims[name] = len(dim)
         self.assertDictEqual(expectedDims, actualDims)
         
-    def test_output_file_right_variables(self):
+    def test_output_file_right_variables_no_pixel_count(self):
         for i,j in product(range(2), range(3)):
             self.mapDict[(i,j)] = []
         unused_result = self.defOutFunc(self.mapDict, self.six_el_grid, 
@@ -3405,6 +3512,19 @@ class Test_OMNO2e_netCDF_avg_out_func(TestOutGeo):
         self.fid = netCDF4.Dataset(self.outFname, 'r')
         outVars = self.fid.variables.keys()
         self.assertItemsEqual(self.defParms['outFieldNames'], outVars)
+
+    def test_output_file_right_variables_with_pixel_count(self):
+        self.defParms['includePixelCount'] = True
+        newOutFunc = out_geo.OMNO2e_netCDF_avg_out_func(self.defParms)
+        for i,j in product(range(2), range(3)):
+            self.mapDict[(i,j)] = []
+        unused_result = newOutFunc(self.mapDict, self.six_el_grid, 
+                                   self.outFname, verbose=False,
+                                   version = self.version)
+        self.fid = netCDF4.Dataset(self.outFname, 'r')
+        outVars = self.fid.variables.keys()
+        correctFields = self.defParms['outFieldNames'] + ['ValidPixelCount']
+        self.assertItemsEqual(correctFields, outVars)
         
     def test_output_file_correct_fillVals(self):
         for i,j in product(range(2), range(3)):

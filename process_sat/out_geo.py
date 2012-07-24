@@ -76,6 +76,15 @@ class invalidPixCeption(Exception):
 tai93conv = lambda(timestring):utils.timestr_to_nsecs(timestring, 
                                '00:00:00_01-01-1993', '%H:%M:%S_%m-%d-%Y')
 
+def boolCaster(boolStr):
+    if boolStr == 'True':
+        return True
+    elif boolStr == 'False':
+        return False
+    else:
+        msg = 'Attempt to cast invalid string %s to boolean' % boolStr
+        raise TypeError(msg)
+
 # currently borked.  No immediate plans to fix
 #class OMNO2e_wght_avg_out_func(out_func):
 class OMNO2e_wght_avg_BORKED(out_func): 
@@ -323,6 +332,10 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             The value we want to use to denote missing data
             in the output file.  This will be documented
             within the output file itself.
+        includePixelCount:
+            If this parameter is True, WHIPS will include a field
+            'ValidPixelCount' in the output file that will include
+            the number of valid pixels for each grid cell.
 
     Outputs a netcdf file with name determined by outFileName
     parameter.  This netcdf file contains as many variables
@@ -338,7 +351,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                 'outUnits', 'extraDimLabel', 'extraDimSize',
                 'timeComparison', 'timeStart', 'timeStop',
                 'cloudFractUpperCutoff', 'solarZenAngUpperCutoff',
-                'pixIndXtrackAxis', 'fillVal']
+                'pixIndXtrackAxis', 'fillVal', 'includePixelCount']
     @staticmethod
     def required_parms():
         return {'overallQualFlag' : ('The name of the field containing ' \
@@ -422,7 +435,12 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                                       'parser, check this).','int'),
                 'fillVal' : ('The value to use as a fill value in the output ' \
                              'netCDF file.  This value will replace any missing '\
-                             'or invalid output values','decimal')}
+                             'or invalid output values','decimal'), 
+                'includePixelCount' : ('If set to true, the output will include '\
+                                       'a field "ValidPixelCount" that contains '\
+                                       'the number of vlaid pixels in each grid '\
+                                       'cell.  Only pixels with nonzero weight  '\
+                                       'are considered valid.', 'bool')}
     # variable signifying which list is to act as the master list index
     __userKeys__ = "inFieldNames"
 
@@ -451,7 +469,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                     'timeComparison':str, 'timeStart':tai93conv,
                     'timeStop':tai93conv, 'cloudFractUpperCutoff':float,
                     'solarZenAngUpperCutoff':int, 'pixIndXtrackAxis':int,
-                    'fillVal':float}
+                    'fillVal':float, 'includePixelCount':boolCaster}
         for (k,func) in castDict.items():
             try:
                 self.parmDict[k] = func(self.parmDict[k])
@@ -476,6 +494,7 @@ class OMNO2e_netCDF_avg_out_func(out_func):
         (minRow, maxRow, minCol, maxCol) = griddef.indLims()
         nRows = maxRow - minRow + 1
         nCols = maxCol - minCol + 1
+        nValidPixels = numpy.zeros((nRows, nCols))
         sumWght = numpy.zeros((nRows, nCols, 1))  # needs extra dim to generalize for 3D vars
         sumVars = dict()
         for field, size in zip(self.parmDict['inFieldNames'], self.parmDict['extraDimSize']):
@@ -538,7 +557,9 @@ class OMNO2e_netCDF_avg_out_func(out_func):
                         fov = pxInd[self.parmDict['pixIndXtrackAxis']]
                         weight = _OMNO2e_formula(cFrac, fov)
                         assert weight != numpy.NaN
-                        # add the weight tot the total for this cell
+                        if weight > 0:
+                            nValidPixels[gridInd] += 1
+                        # add the weight tot the total for this cell                            
                         sumWght[gridInd] += weight
                         for field in self.parmDict['inFieldNames']:
                             weightVals = rawDataDict[field] * weight
@@ -607,11 +628,19 @@ class OMNO2e_netCDF_avg_out_func(out_func):
             varHandle[:] = avgs[field]
             # assign variable attributes
             setattr(varHandle, 'Units', units[field])
+        # Write out the pixel counts if the user requested them
+        if self.parmDict['includePixelCount']:
+            varDims = ('row', 'col')
+            varHandle = outFid.createVariable('ValidPixelCount', 'i', varDims, 
+                                              fill_value=self.parmDict['fillVal'])
+            varHandle[:] = nValidPixels
         outFid.close()
         # create a dict with teh same data as avgs, but diff names
         outAvg = dict()
         for (k,v) in avgs.iteritems():
             outAvg[outFnames[k]] = v
+        if self.parmDict['includePixelCount']:
+            outAvg['ValidPixelCount'] = nValidPixels
         return outAvg
     
 class wght_avg_netCDF(out_func):
@@ -809,17 +838,9 @@ class wght_avg_netCDF(out_func):
         self.parmDict['dimSizes'] = sizeIntTups
 
         # process logNormal
-        def boolCaster(boolStr):
-            if boolStr == 'True':
-                return True
-            elif boolStr == 'False':
-                return False
-            else:
-                msg = 'Attempt to cast invalid string %s to boolean' % boolStr
-                raise ValueError(msg)
         try:
             self.parmDict['logNormal'] = [boolCaster(el) for el in self.parmDict['logNormal']]
-        except ValueError:
+        except TypeError:
             print('Bad string in logNormal.  Must be either "True" or "False". Exiting.')
             raise
 
